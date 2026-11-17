@@ -141,6 +141,10 @@ Thunderbird, phones and webmail. The vault is the source:
   - An event with `status: cancelled` is removed from the server; its page stays in the vault.
   - A deleted page or todo line is deleted from the server.
   - Cancelled todos (`[-]`) stay on the server as cancelled.
+- **Reminders:**
+  - An event with `alarm:` (for example `30m`) gets a reminder.
+  - An open todo with `(at: HH:MM)` rings at its due time; `(remind: 1h)` rings that much earlier. Without `at:`, the reminder counts back from 09:00 on the due date.
+  - Phones show these as notifications once they subscribe to the same calendar (DAVx⁵ on Android, a CalDAV account on iOS).
 - **Credentials:** the connection settings are in `~/.config/second-brain/sync.conf`, and the password is in a file only the user can read (`~/.config/second-brain/dav.pass`, or a command set in `password_cmd`). Never ask for, read, print or store a password.
 
 ## Ingest (external source)

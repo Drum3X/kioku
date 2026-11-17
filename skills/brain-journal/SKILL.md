@@ -34,7 +34,8 @@ So when the user asks about their past notes, search with `brain search`, `brain
    | Pointer to a durable note (written by `brain-note`) | `## Saved` | `- HH:MM saved → [[path\|Title]]` |
 
    - Turn relative dates ("yarın", "cuma", "haftaya") into an absolute `due:` date. Leave `due:` out if no date was given. If a date is ambiguous, pick the nearest future one and say which date you used.
-   - If the todo has a time ("cuma 17:00'ye kadar"), add `(at: HH:MM)` after `due:`.
+   - If the todo has a time ("cuma 17:00'ye kadar"), add `(at: HH:MM)` after `due:`. A synced todo with a time rings a reminder on the user's devices at that time.
+   - If the user wants an earlier reminder ("bir saat önce hatırlat", "remind me the day before"), add `(remind: 1h)`. Other forms: `30m`, `1d`, or `0` for exactly at the due time. Without `at:`, the reminder counts back from 09:00 on the due date. Example: `- [ ] ödev teslimi (due: 2026-11-20) (at: 17:00) (remind: 2h)`.
    - If a log item or todo relates to a project or a wiki page, add a wikilink (`[[projects/config]]`).
    - Don't type ids yourself. The pre-commit hook adds a block id like ` ^t-3f9a1c` to each todo, and the id keeps the todo linked to its copy on the server. Never change or remove an existing `^t-…` id.
    - Something with a time slot (an appointment, a class, a meeting) is an event, not a todo; it goes to `brain-calendar`.

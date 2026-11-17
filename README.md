@@ -151,7 +151,12 @@ Setup:
    ~/Documents/Brain/.brain/bin/brain sync --check
    ```
 
-5. Subscribe to the same calendar and address book in Thunderbird.
+5. Subscribe to the same calendar and address book in Thunderbird, and on your phone: DAVx⁵ on Android (with Tasks.org or jtx Board for todos), or a CalDAV/CardDAV account on iOS (todos appear in Reminders).
+
+**Reminders** reach your devices as notifications:
+- **Events:** "remind me 30 minutes before" adds `alarm: 30m` to the event.
+- **Todos with a time:** a todo with a time (`(at: 17:00)`) rings at that time.
+- **Earlier reminders:** `(remind: 1h)` rings earlier; `30m`, `1d` or `0` also work. Without a time, the reminder counts back from 09:00 on the due date.
 
 The installer adds the vault's git hooks: `pre-commit` gives new items stable ids and
 `post-commit` runs the sync in the background. Logs go to

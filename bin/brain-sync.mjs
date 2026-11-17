@@ -150,7 +150,8 @@ function readTodos(problems) {
       const due = (text.match(/\(due:\s*(\d{4}-\d{2}-\d{2})\)/) || [])[1];
       const at = (text.match(/\(at:\s*(\d{1,2}:\d{2})\)/) || [])[1];
       const done = (text.match(/\(done:\s*(\d{4}-\d{2}-\d{2})\)/) || [])[1];
-      const summary = plain(text.replace(/\((due|at|done|cancelled):[^)]*\)/g, '')).replace(/\s+/g, ' ').trim();
+      const remindRaw = (text.match(/\(remind:\s*([^)]*)\)/) || [])[1];
+      const summary = plain(text.replace(/\((due|at|done|cancelled|remind):[^)]*\)/g, '')).replace(/\s+/g, ' ').trim();
       const status = m[2] === ' ' ? 'NEEDS-ACTION' : m[2] === '-' ? 'CANCELLED' : 'COMPLETED';
       const stamp = parseLocal(fileDay) ? utc(parseLocal(fileDay).d) : '19700101T000000Z';
       const lines = ['BEGIN:VTODO', `UID:${PREFIX}${id}`, `DTSTAMP:${stamp}`, `CREATED:${stamp}`, `SUMMARY:${esc(summary)}`];
@@ -164,6 +165,23 @@ function readTodos(problems) {
         lines.push('PERCENT-COMPLETE:100');
         const dd = parseLocal(done || fileDay);
         if (dd) lines.push(`COMPLETED:${utc(new Date(dd.d.getTime() + 12 * 3600e3))}`);
+      }
+      // Reminder: open todos with a due time ring at that time; "(remind: 1h)" rings earlier.
+      // A date-only due date rings only with remind:, counted from 09:00 that day.
+      if (status === 'NEEDS-ACTION' && due) {
+        let offset = null;
+        if (remindRaw !== undefined) {
+          const rm = remindRaw.trim().match(/^(\d+)\s*([mhd])$|^(0|now)$/);
+          if (rm) offset = rm[3] ? 0 : +rm[1] * { m: 60e3, h: 3600e3, d: 86400e3 }[rm[2]];
+          else problems.push(`${rel(f)}:${i + 1}: remind must look like 30m, 2h, 1d or 0`);
+        } else if (at) offset = 0;
+        const base = parseLocal(`${due}T${at || '09:00'}`);
+        if (offset !== null && base) {
+          lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(summary)}`,
+            `TRIGGER;VALUE=DATE-TIME:${utc(new Date(base.d.getTime() - offset))}`, 'END:VALARM');
+        }
+      } else if (remindRaw !== undefined && !due) {
+        problems.push(`${rel(f)}:${i + 1}: remind needs a due date`);
       }
       lines.push(`DESCRIPTION:${esc(`Brain: ${rel(f)}`)}`, 'END:VTODO');
       items.push({ kind: 'calendar', uid: `${PREFIX}${id}`, src: `${rel(f)}:${i + 1}`, body: serialize(vcal(lines)) });

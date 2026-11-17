@@ -152,7 +152,12 @@ Kurulum:
    ~/Documents/Brain/.brain/bin/brain sync --check
    ```
 
-5. Thunderbird'de aynı takvime ve adres defterine abone ol.
+5. Thunderbird'de ve telefonunda aynı takvime ve adres defterine abone ol. Android'de DAVx⁵ kullan (yapılacaklar için Tasks.org ya da jtx Board). iOS'ta bir CalDAV/CardDAV hesabı ekle; yapılacaklar Anımsatıcılar'da görünür.
+
+**Hatırlatıcılar** cihazlarına bildirim olarak gelir:
+- **Etkinlikler:** "yarım saat önce hatırlat" dersen etkinliğe `alarm: 30m` eklenir.
+- **Saati olan yapılacaklar:** saati belli bir yapılacak iş (`(at: 17:00)`) o saatte bildirim verir.
+- **Daha erken hatırlatma:** `(remind: 1h)` daha önce hatırlatır; `30m`, `1d` ya da `0` da kullanılabilir. Saat verilmemişse hatırlatma son tarihin 09:00'undan geriye doğru sayılır.
 
 Kurulum betiği vault'a iki git hook'u ekler: `pre-commit` yeni kayıtlara kalıcı kimlik verir,
 `post-commit` eşitlemeyi arka planda çalıştırır. Kayıtlar
