@@ -1,0 +1,23 @@
+# The system is a link to the second-brain checkout, versioned in its own repo
+.brain
+# Obsidian: per-device state
+.obsidian/workspace*.json
+.obsidian/cache
+.trash/
+# Large media stays out of git (the original URL is in the raw/ frontmatter)
+raw/assets/**/*.mp4
+raw/assets/**/*.mov
+raw/assets/**/*.mkv
+# Claude Code sandbox placeholders and local settings (not real files)
+.claude
+.mcp.json
+.bash_profile
+.bashrc
+.profile
+.zprofile
+.zshrc
+.gitconfig
+.gitmodules
+.ripgreprc
+.idea
+.vscode

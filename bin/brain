@@ -1,0 +1,243 @@
+#!/usr/bin/env bash
+# brain — small helper CLI for the second brain.
+set -euo pipefail
+export PATH="/etc/profiles/per-user/${USER:-$(id -un)}/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:$PATH"
+export LC_ALL=C.UTF-8
+
+# Vault = two levels above this script as reached through the vault's .brain link (logical
+# path, symlinks not resolved). BRAIN_DIR overrides.
+BRAIN="${BRAIN_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -L)}"
+TPL="$BRAIN/.brain/templates"
+today="$(date +%F)"
+# Date N days from today (N like -7 or +3); GNU date, or BSD/macOS date.
+day() { date -d "$1 days" +%F 2>/dev/null || date -v"$1"d +%F; }
+
+die() { echo "brain: $*" >&2; exit 2; }
+[ -d "$BRAIN" ] || die "vault not found: $BRAIN"
+
+usage() {
+  cat <<'EOF'
+Usage: brain <command> [args]
+  today                         Create today's daily note if missing, print its path
+  journal                       Create today's journal note (the user's own notes) if missing, print its path
+  todo [--soon]                 Open todos in journal/, by due date; --soon: overdue and next 3 days
+  new <type> "<Title>"          Create a page from its template: source|concept|entity|synthesis|project
+  log <op> "<Title>"            Append to log.md: ingest|query|lint|note|setup
+  search [--raw] <term...>      Search; title matches first. Case-insensitive, Turkish İ/ı aware
+  recap [--days N]              Daily, journal and log entries from the last N days (default 7)
+  lint-check                    Broken links, orphan pages, index gaps, frontmatter
+EOF
+}
+
+# Slug: Latin letters → ASCII (ç→c, é→e, ı→i, ß→ss…), other scripts kept as-is,
+# everything else → "-". At most 80 characters.
+slugify() {
+  if command -v node >/dev/null; then
+    node -e '
+      let s = process.argv[1].normalize("NFKD")
+        .replace(/(\p{Script=Latin})\p{M}+/gu, "$1")
+        .replace(/[ıİ]/g, "i").replace(/ß/g, "ss").replace(/[æÆ]/g, "ae").replace(/[œŒ]/g, "oe")
+        .replace(/[øØ]/g, "o").replace(/[đĐ]/g, "d").replace(/[łŁ]/g, "l").replace(/[þÞ]/g, "th")
+        .normalize("NFC").toLowerCase()
+        .replace(/[^\p{L}\p{N}\p{M}]+/gu, "-").replace(/^-+|-+$/g, "");
+      s = Array.from(s).slice(0, 80).join("").replace(/-+$/, "");
+      process.stdout.write(s);
+    ' "$1"
+  else
+    printf '%s' "$1" | sed 'y/ÇĞİIÖŞÜçğıöşüÂâÊêÎîÔôÛû/CGIIOSUcgiosuAaEeIiOoUu/' \
+      | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-80
+  fi
+}
+
+# Search regex: escape metacharacters; i/ı/İ/I match each other.
+search_re() {
+  local e; e="$(printf '%s' "$1" | sed 's/[][\.*^$()+?{}|\\/]/\\&/g')"
+  e="${e//[iIıİ]/$'\x01'}"
+  printf '%s' "${e//$'\x01'/[iIıİ]}"
+}
+
+render() { # template title
+  local c; c="$(<"$1")"
+  c="${c//\{\{title\}\}/$2}"; c="${c//\{\{date\}\}/$today}"
+  printf '%s\n' "$c"
+}
+
+fm() { awk -v k="$2" 'NR==1&&$0!="---"{exit} NR>1&&$0=="---"{exit} NR>1{ if (index($0,k":")==1){ sub("^"k":[ \t]*",""); print; exit } }' "$1" 2>/dev/null; }
+
+cmd_today() {
+  local f="$BRAIN/daily/$today.md"
+  [ -f "$f" ] || render "$TPL/daily.md" "$today" > "$f"
+  echo "$f"
+}
+
+cmd_journal() {
+  mkdir -p "$BRAIN/journal"
+  local f="$BRAIN/journal/$today.md"
+  [ -f "$f" ] || render "$TPL/journal.md" "$today" > "$f"
+  echo "$f"
+}
+
+# Open todos ("- [ ] …") in journal/, sorted by "due: YYYY-MM-DD".
+# --soon: only overdue and due within 3 days, plus a count of the rest.
+cmd_todo() {
+  local soon=""; [ "${1:-}" = "--soon" ] && soon="$(day +3)"
+  [ -d "$BRAIN/journal" ] || { echo "(no open todos)"; return; }
+  cd "$BRAIN"
+  local rows
+  rows="$(rg -n --no-heading --glob '*.md' -e '^[[:space:]]*- \[ \] ' journal 2>/dev/null \
+    | awk -v OFS='\t' '{
+        i = index($0, ":"); file = substr($0, 1, i-1); rest = substr($0, i+1)
+        j = index(rest, ":"); ln = substr(rest, 1, j-1); text = substr(rest, j+1)
+        sub(/^[ \t]*- \[ \] /, "", text)
+        due = "9999-99-99"
+        if (match(text, /due: ?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/)) due = substr(text, RSTART+RLENGTH-10, 10)
+        print due, text, file ":" ln }' | sort)"
+  [ -n "$rows" ] || { echo "(no open todos)"; return; }
+  printf '%s\n' "$rows" | awk -F'\t' -v t="$today" -v s="$soon" '
+    { late = ($1 != "9999-99-99" && $1 < t) ? " (overdue)" : ""
+      if (s != "" && ($1 == "9999-99-99" || $1 > s)) { rest++; next }
+      print "- " $2 late " — " $3 }
+    END { if (rest) print "- … " rest " more open todo(s) without a near due date (brain todo)" }'
+}
+
+cmd_new() {
+  [ $# -ge 2 ] || die 'usage: brain new <type> "<Title>"'
+  local type="$1"; shift; local title="$*" dir
+  case "$type" in
+    source) dir="wiki/sources" ;;
+    concept) dir="wiki/concepts" ;;
+    entity) dir="wiki/entities" ;;
+    synthesis) dir="wiki/synthesis" ;;
+    project) dir="projects" ;;
+    *) die "unknown type: $type" ;;
+  esac
+  local slug; slug="$(slugify "$title")"; [ -n "$slug" ] || die "could not make a slug from the title"
+  local f="$BRAIN/$dir/$slug.md"
+  [ -e "$f" ] && die "already exists: $f"
+  render "$TPL/$type.md" "$title" > "$f"
+  echo "$f"
+}
+
+cmd_log() {
+  [ $# -ge 2 ] || die 'usage: brain log <op> "<Title>"'
+  local op="$1"; shift
+  case "$op" in ingest|query|lint|note|setup) ;; *) die "unknown op: $op" ;; esac
+  printf '\n## [%s] %s | %s\n' "$today" "$op" "$*" >> "$BRAIN/log.md"
+  echo "log.md: [$today] $op | $*"
+}
+
+cmd_search() {
+  local dirs=(Core.md projects wiki daily journal index.md)
+  if [ "${1:-}" = "--raw" ]; then dirs+=(raw); shift; fi
+  [ $# -ge 1 ] || die "usage: brain search [--raw] <term...>"
+  local re; re="$(search_re "$*")"
+  cd "$BRAIN"
+  { rg -il --glob '*.md' -e "^title:.*$re" "${dirs[@]}" 2>/dev/null || true
+    rg -il --glob '*.md' -e "$re" "${dirs[@]}" 2>/dev/null | sort || true
+  } | awk '!seen[$0]++' | head -n 30 | while IFS= read -r f; do
+    local t; t="$(fm "$f" title)"; local p=""; [ "$(fm "$f" private)" = "true" ] && p=" [private]"
+    printf '%s — %s%s\n' "$f" "${t:-?}" "$p"
+    rg -i -n -m 2 -e "$re" "$f" 2>/dev/null | grep -v '^[0-9]*:title:' | cut -c1-200 | sed 's/^/    /' || true
+  done
+}
+
+cmd_recap() {
+  local n=7
+  if [ "${1:-}" = "--days" ]; then n="${2:-7}"; fi
+  [[ "$n" =~ ^[0-9]+$ ]] || die "--days must be a number"
+  local since; since="$(day -$n)"
+  echo "# Last $n days ($since → $today)"
+  local kind
+  for kind in daily journal; do
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      local d; d="$(basename "$f" .md)"
+      [[ "$d" < "$since" ]] && continue
+      [ "$(fm "$f" private)" = "true" ] && { echo "## $kind $d [private]"; continue; }
+      echo "## $kind $d"
+      awk 'NR==1&&$0=="---"{f=1;next} f&&$0=="---"{f=0;next} !f' "$f" | grep -v '^# ' | sed '/^[[:space:]]*$/d' \
+        | awk '/^#/{h=$0; next} {if(h!=""){print h; h=""} print}' || true
+    done < <(ls -1 "$BRAIN/$kind"/[0-9]*.md 2>/dev/null | sort)
+  done
+  echo "## log.md"
+  grep '^## \[' "$BRAIN/log.md" | while IFS= read -r l; do
+    local d="${l:4:10}"; [[ "$d" < "$since" ]] || echo "${l#\#\# }"
+  done
+}
+
+cmd_lint_check() {
+  cd "$BRAIN"
+  local issues=0
+  # Every file (relative path) plus lookups without extension and by basename
+  declare -A exists=() byname=()
+  while IFS= read -r f; do
+    exists["$f"]=1; exists["${f%.md}"]=1
+    local b; b="$(basename "$f")"; byname["$b"]="$f"; byname["${b%.md}"]="$f"
+  done < <(find . \( -name .git -o -name .brain -o -name .obsidian -o -name .trash -o -name .claude \) -prune -o -type f -print | sed 's|^\./||')
+
+  resolve() { # link target → file path (empty if missing)
+    local t="$1"; t="${t%%|*}"; t="${t%%#*}"; t="${t%%^*}"
+    t="$(printf '%s' "$t" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    [ -n "$t" ] || { echo "."; return; }
+    if [ -n "${exists[$t]:-}" ]; then [ -f "$t" ] && echo "$t" || echo "$t.md"; return; fi
+    [ -n "${byname[$t]:-}" ] && { echo "${byname[$t]}"; return; }
+    echo ""
+  }
+
+  declare -A inbound=()
+  echo "## Broken links"
+  local broken=0
+  while IFS= read -r line; do
+    local src="${line%%:\[\[*}"; local link="${line#*:\[\[}"; link="${link%\]\]}"
+    [[ "$src" == raw/* ]] && continue
+    local r; r="$(resolve "$link")"
+    if [ -z "$r" ]; then echo "- $src → [[$link]]"; broken=$((broken+1)); continue; fi
+    [ "$src" != "$r" ] && [ "$src" != "index.md" ] && inbound["$r"]=1
+  done < <(rg -N --no-heading --with-filename --glob '*.md' --glob '!.brain/**' --glob '!CLAUDE.md' -e '\[\[' . 2>/dev/null | sed 's|^\./||' \
+           | awk '{ i=index($0,":"); src=substr($0,1,i-1); t=substr($0,i+1); gsub(/`[^`]*`/,"",t)
+                    while (match(t,/\[\[[^]]+\]\]/)) { print src ":" substr(t,RSTART,RLENGTH); t=substr(t,RSTART+RLENGTH) } }')
+  [ "$broken" -eq 0 ] && echo "(none)"; issues=$((issues+broken))
+
+  local -a pages=()
+  while IFS= read -r p; do pages+=("$p"); done < <(find wiki projects -name '*.md' 2>/dev/null | sort)
+
+  echo "## Orphan pages (no inbound links except from index)"
+  local o=0
+  for p in "${pages[@]}"; do [ -n "${inbound[$p]:-}" ] || { echo "- $p"; o=$((o+1)); }; done
+  [ "$o" -eq 0 ] && echo "(none)"; issues=$((issues+o))
+
+  echo "## Missing from index.md"
+  local m=0
+  for p in "${pages[@]}"; do grep -qF "[[${p%.md}" index.md || { echo "- $p"; m=$((m+1)); }; done
+  [ "$m" -eq 0 ] && echo "(none)"; issues=$((issues+m))
+
+  echo "## Missing frontmatter"
+  local e=0
+  for p in "${pages[@]}"; do
+    local miss=""
+    for k in title type lang created updated; do [ -n "$(fm "$p" "$k")" ] || miss+=" $k"; done
+    if [[ "$p" == wiki/sources/* ]] && ! awk 'NR==1&&$0!="---"{exit} NR>1&&$0=="---"{exit} /raw\//{f=1} END{exit !f}' "$p"; then miss+=" sources(raw/…)"; fi
+    [ -n "$miss" ] && { echo "- $p:$miss"; e=$((e+1)); }
+  done
+  [ "$e" -eq 0 ] && echo "(none)"; issues=$((issues+e))
+
+  echo "## inbox"
+  local ib; ib="$(find raw/inbox -type f ! -name .gitkeep 2>/dev/null | wc -l | tr -d ' ')"
+  echo "$ib unprocessed file(s)"
+
+  echo; echo "Total issues: $issues"
+  [ "$issues" -eq 0 ]
+}
+
+case "${1:-}" in
+  today) shift; cmd_today "$@" ;;
+  journal) shift; cmd_journal "$@" ;;
+  todo) shift; cmd_todo "$@" ;;
+  new) shift; cmd_new "$@" ;;
+  log) shift; cmd_log "$@" ;;
+  search) shift; cmd_search "$@" ;;
+  recap) shift; cmd_recap "$@" ;;
+  lint-check) shift; cmd_lint_check "$@" ;;
+  ""|-h|--help|help) usage ;;
+  *) usage; exit 2 ;;
+esac
