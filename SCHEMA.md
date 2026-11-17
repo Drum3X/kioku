@@ -215,7 +215,7 @@ Follow the `kioku-lint` skill:
   git -C "$VAULT" add -A && git -C "$VAULT" commit -m "<type>: <short title>"
   ```
   `<type>` is one of `memory`, `journal`, `note`, `calendar`, `contact`, `ingest`, `query`, `lint`, `core`, `project`, `system`.
-- Do not push yourself. If the vault has autosync on (`kioku remote on`, for copies on several machines), the post-commit hook pulls and pushes after each commit and each session starts with a pull. If the session context reports a sync conflict, tell the user and offer to resolve it.
+- Do not push yourself. If the vault has autosync on (`kioku remote on`, for copies on several machines), the post-commit hook pulls and pushes after each commit each session starts with a pull, and each prompt pulls again (at most every 30 s). When a prompt comes with "The vault was just updated from its git remote", re-read the changed files instead of trusting the session-start context. If the session context reports a sync conflict, tell the user and offer to resolve it.
 
 ## Relation to Claude's built-in memory
 

@@ -223,7 +223,7 @@ to Claude there from your phone with [Remote Control](https://code.claude.com/do
 
 1. Push the vault to a private git remote once: `git -C ~/Documents/Kioku push -u origin HEAD`.
 2. On each machine, run `kioku remote on`. From then on:
-   - every session starts with a `git pull`;
+   - every session starts with a `git pull`, and each prompt pulls again (at most every 30 s), so a session that is already open sees notes written elsewhere;
    - every commit is pulled, rebased and pushed in the background.
 3. On the server:
    - clone this repo and the vault, run `install.sh`, then `kioku remote on`;

@@ -210,7 +210,7 @@ cmd_remote() {
     on)
       "${g[@]}" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1 || die "the vault branch has no upstream; push it once with: git -C $VAULT push -u origin HEAD"
       "${g[@]}" config kioku.autosync true; setup_git_hooks >/dev/null
-      echo "autosync on: pull before each session, push after each commit" ;;
+      echo "autosync on: pull at session start and before prompts, push after each commit" ;;
     off) "${g[@]}" config --unset kioku.autosync || true; echo "autosync off" ;;
     status)
       if [ "$("${g[@]}" config --bool kioku.autosync 2>/dev/null)" = true ]; then echo "autosync: on"; else echo "autosync: off"; fi

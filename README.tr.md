@@ -214,7 +214,7 @@ Vault'un bir kopyasını ikinci bir makinede tutabilirsin. Bu makine örneğin s
 
 1. Vault'u bir kez özel bir git reposuna push et: `git -C ~/Documents/Kioku push -u origin HEAD`.
 2. Her makinede `kioku remote on` çalıştır. Bundan sonra:
-   - her oturum bir `git pull` ile başlar;
+   - her oturum bir `git pull` ile başlar, her mesajdan önce de yeniden pull edilir (en fazla 30 saniyede bir), böylece açık bir oturum başka makinede yazılan notları da görür;
    - her commit arka planda pull edilir, rebase yapılır ve push edilir.
 3. Sunucuda:
    - bu repoyu ve vault'u klonla, `install.sh` çalıştır, ardından `kioku remote on`;

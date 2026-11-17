@@ -76,6 +76,7 @@ migrate_legacy() {
 
 SS="$VAULT/.kioku/hooks/session-start.sh"
 ST="$VAULT/.kioku/hooks/stop-check.sh"
+UP="$VAULT/.kioku/hooks/prompt-pull.sh"
 today="$(date +%F)"
 
 # ---- 1. Vault ----
@@ -190,7 +191,7 @@ fi
 jq empty "$SETTINGS" || die "$SETTINGS is not valid JSON; left untouched."
 [ -f "$SETTINGS.kioku.bak" ] || cp "$SETTINGS" "$SETTINGS.kioku.bak"
 tmp="$(mktemp)"
-jq --arg ss "$SS" --arg st "$ST" --arg dir "$VAULT" --arg old "$OLD" --arg mode "$mode" '
+jq --arg ss "$SS" --arg st "$ST" --arg up "$UP" --arg dir "$VAULT" --arg old "$OLD" --arg mode "$mode" '
   def drop(cmd): map(select(((.hooks // []) | map(.command) | index(cmd)) | not));
   def droplegacy(d): reduce ("session-start.sh", "stop-check.sh") as $h (.; drop("\(d)/.brain/hooks/\($h)"));
   def without(xs; ys): (xs // []) - ys;
@@ -200,12 +201,14 @@ jq --arg ss "$SS" --arg st "$ST" --arg dir "$VAULT" --arg old "$OLD" --arg mode 
   | ($dirs | map(rules(.)) | add) as $allrules
   | .hooks.SessionStart = ((.hooks.SessionStart // []) | drop($ss) | drop("\($old)/.kioku/hooks/session-start.sh") | droplegacy($dir) | droplegacy($old))
   | .hooks.Stop         = ((.hooks.Stop // []) | drop($st) | drop("\($old)/.kioku/hooks/stop-check.sh") | droplegacy($dir) | droplegacy($old))
+  | .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) | drop($up) | drop("\($old)/.kioku/hooks/prompt-pull.sh"))
   | .permissions.additionalDirectories = without(.permissions.additionalDirectories; $dirs)
   | .permissions.allow = without(.permissions.allow; $allrules)
   | .sandbox.filesystem.allowWrite = without(.sandbox.filesystem.allowWrite; $dirs)
   | if $mode == "--uninstall" then . else
       .hooks.SessionStart += [{hooks: [{type: "command", command: $ss, timeout: 10}]}]
     | .hooks.Stop         += [{hooks: [{type: "command", command: $st, timeout: 10}]}]
+    | .hooks.UserPromptSubmit += [{hooks: [{type: "command", command: $up, timeout: 30}]}]
     | .permissions.additionalDirectories += [$dir]
     | .permissions.allow += $rules
     | .sandbox.filesystem.allowWrite += [$dir]
@@ -213,6 +216,7 @@ jq --arg ss "$SS" --arg st "$ST" --arg dir "$VAULT" --arg old "$OLD" --arg mode 
   # Remove containers left empty
   | if (.hooks.SessionStart | length) == 0 then del(.hooks.SessionStart) else . end
   | if (.hooks.Stop | length) == 0 then del(.hooks.Stop) else . end
+  | if (.hooks.UserPromptSubmit | length) == 0 then del(.hooks.UserPromptSubmit) else . end
   | if (.hooks | length) == 0 then del(.hooks) else . end
   | if (.permissions.additionalDirectories | length) == 0 then del(.permissions.additionalDirectories) else . end
   | if (.permissions.allow | length) == 0 then del(.permissions.allow) else . end
