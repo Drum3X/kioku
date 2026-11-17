@@ -31,6 +31,8 @@ Usage: kioku <command> [args]
   sync --ids [FILE...]          Give todos, events and contacts stable ids
   sync --setup                  Install the vault git hooks (ids before commit, sync after)
   remote on|off|status|pull|now Keep vault copies on several machines in step via git (pull/push)
+  update [--check]              Update Kioku (git pull + install step); --check only looks
+  version                       Print the Kioku version and install fingerprint
   new <type> "<Title>"          Create a page: source|concept|entity|tool|idea|topic|synthesis|project|contact
   new event "<Title>" DATE      Create an event in calendar/YYYY/
   log <op> "<Title>"            Append to log.md: ingest|query|lint|note|setup
@@ -255,6 +257,40 @@ remote_sync() {
   printf '%s push failed: %s\n' "$(date '+%F %T')" "$out" >> "$log"; return 1
 }
 
+# Update Kioku itself: pull the checkout the vault links to, then re-run its installer with the
+# options it was installed with. Copies from the Nix store are updated through the flake.
+cmd_update() {
+  local check=
+  case "${1:-}" in --check) check=1 ;; "") ;; *) die "usage: kioku update [--check]" ;; esac
+  # This copy's own folder, so an install from before the .kioku link existed can update too.
+  local sys; sys="$(cd "$(dirname "$self")/.." && pwd -P)"
+  local ver; ver="$("$sys/bin/kioku-version" 2>/dev/null | cut -d' ' -f1)"
+  if [[ "$sys" == /nix/store/* ]]; then
+    echo "Kioku ${ver:-?} comes from the Nix store. Update it with: nix flake update kioku, then rebuild."; return 0
+  fi
+  [ -d "$sys/.git" ] || die "$sys is not a git checkout; update it the way you installed it"
+  local g=(git -C "$sys")
+  if [ -n "$check" ]; then
+    "${g[@]}" fetch -q 2>/dev/null || die "git fetch failed in $sys"
+    local n; n="$("${g[@]}" rev-list --count 'HEAD..@{u}' 2>/dev/null || echo 0)"
+    if [ "$n" -gt 0 ]; then echo "Kioku ${ver:-?}: $n new commit(s) available; run: kioku update"; "${g[@]}" log --oneline 'HEAD..@{u}' | head -n 20
+    else echo "Kioku ${ver:-?} is up to date"; fi
+    return 0
+  fi
+  local before after; before="$("${g[@]}" rev-parse HEAD)"
+  "${g[@]}" pull --ff-only -q || die "git pull failed in $sys (local changes or a diverged branch?); fix that, then run kioku update again"
+  after="$("${g[@]}" rev-parse HEAD)"
+  if [ "$before" = "$after" ]; then echo "Kioku ${ver:-?}: no new commits"
+  else
+    echo "Kioku updated to $("$sys/bin/kioku-version" | cut -d' ' -f1):"
+    "${g[@]}" log --oneline "$before..$after" | head -n 20 | sed 's/^/  /'
+  fi
+  local rec="${XDG_CONFIG_HOME:-$HOME/.config}/kioku/installed" flags=""
+  [ -f "$rec" ] && flags="$(sed -n 's/^flags=//p' "$rec")"
+  # shellcheck disable=SC2086
+  "$sys/install.sh" --vault "$VAULT" $flags
+}
+
 cmd_log() {
   [ $# -ge 2 ] || die 'usage: kioku log <op> "<Title>"'
   local op="$1"; shift
@@ -393,6 +429,8 @@ case "${1:-}" in
   agenda) shift; cmd_agenda "$@" ;;
   sync) shift; cmd_sync "$@" ;;
   remote) shift; cmd_remote "$@" ;;
+  update) shift; cmd_update "$@" ;;
+  version) shift; "$(dirname "$self")/kioku-version" ;;
   todo) shift; cmd_todo "$@" ;;
   new) shift; cmd_new "$@" ;;
   log) shift; cmd_log "$@" ;;

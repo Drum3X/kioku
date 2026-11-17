@@ -38,6 +38,15 @@ fi
 add "# Kioku — session context"
 add "The user's second brain: $VAULT (rules: $VAULT/.kioku/SCHEMA.md and personal rules in $VAULT/CLAUDE.md — read before writing to the vault)."
 add "The user does not write notes: you record decisions, finished work and durable learnings (kioku skill). Note content follows the source/conversation language; system text is English."
+# Kioku updated (git pull) without its install step: skills or settings may be stale.
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -L)"
+if [ -x "$here/bin/kioku-version" ]; then
+  fp_now="$("$here/bin/kioku-version" 2>/dev/null | cut -d' ' -f2)"
+  fp_inst="$(sed -n 's/^fingerprint=//p' "${XDG_CONFIG_HOME:-$HOME/.config}/kioku/installed" 2>/dev/null)"
+  if [ -n "$fp_now" ] && [ "$fp_now" != "$fp_inst" ]; then
+    add "Kioku was updated but its install step has not run since, so skills or settings may be out of date. Tell the user once and offer to run \`$here/bin/kioku update\` (with the Nix module: rebuild)."
+  fi
+fi
 if [ -f "$st/git-sync.conflict" ]; then
   add "Vault sync problem: $(cat "$st/git-sync.conflict" 2>/dev/null). Tell the user once; offer to resolve it (git -C $VAULT pull --rebase, fix the conflict keeping both sides, then kioku remote now)."
 fi

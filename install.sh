@@ -80,7 +80,7 @@ today="$(date +%F)"
 
 # ---- 1. Vault ----
 if [ "$mode" != "--uninstall" ]; then
-  chmod +x "$SYS/bin/kioku" "$SYS"/hooks/*.sh 2>/dev/null || true   # read-only in the Nix store
+  chmod +x "$SYS/bin/kioku" "$SYS/bin/kioku-version" "$SYS"/hooks/*.sh 2>/dev/null || true   # read-only in the Nix store
   [ -e "$VAULT" ] || changes+=("vault created: $VAULT")
   mkdir -p "$VAULT"
 
@@ -225,6 +225,16 @@ if ! cmp -s <(jq -S . "$SETTINGS") <(jq -S . "$tmp"); then
   cat "$tmp" > "$SETTINGS"; changes+=("~/.claude/settings.json updated (backup: settings.json.kioku.bak)")
 fi
 rm -f "$tmp"
+
+# ---- 5. Record what was installed (kioku update and the session-start check read it) ----
+rec="${XDG_CONFIG_HOME:-$HOME/.config}/kioku/installed"
+if [ "$mode" = "--uninstall" ]; then
+  rm -f "$rec"
+else
+  read -r ver fp < <("$SYS/bin/kioku-version" 2>/dev/null || echo "unknown unknown")
+  mkdir -p "$(dirname "$rec")"
+  printf 'version=%s\nfingerprint=%s\nvault=%s\nsource=%s\nflags=%s\n' "$ver" "$fp" "$VAULT" "$SYS" "$([ -n "$bin_link" ] || echo --no-bin-link)" > "$rec"
+fi
 
 # ---- Summary ----
 if [ ${#changes[@]} -eq 0 ]; then echo "Kioku: no changes (already up to date). Vault: $VAULT"

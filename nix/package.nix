@@ -19,7 +19,7 @@
 in
   stdenvNoCC.mkDerivation {
     pname = "kioku";
-    version = "0.1.0-unstable";
+    version = lib.removeSuffix "\n" (builtins.readFile ../VERSION);
 
     src = lib.fileset.toSource {
       root = ../.;
@@ -34,6 +34,7 @@ in
         ../README.md
         ../README.tr.md
         ../LICENSE
+        ../VERSION
       ];
     };
 
@@ -48,7 +49,7 @@ in
       runHook preInstall
       mkdir -p $out/share/kioku $out/bin
       cp -r . $out/share/kioku/
-      chmod +x $out/share/kioku/bin/kioku $out/share/kioku/hooks/*.sh $out/share/kioku/install.sh
+      chmod +x $out/share/kioku/bin/kioku $out/share/kioku/bin/kioku-version $out/share/kioku/hooks/*.sh $out/share/kioku/install.sh
       patchShebangs $out/share/kioku/bin $out/share/kioku/hooks $out/share/kioku/install.sh
       makeWrapper $out/share/kioku/install.sh $out/bin/kioku-install \
         --prefix PATH : ${lib.makeBinPath runtimeDeps}
