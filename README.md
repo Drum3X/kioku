@@ -144,7 +144,7 @@ The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
 kioku today | journal | todo [--soon] | agenda [--days N] | new <type> "<Title>" | log <op> "<Title>"
-kioku search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | update [--check] | version | lint-check
+kioku search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
 
 ## Calendar, contacts and todos (optional sync)
@@ -171,19 +171,28 @@ Setup:
    addressbook=personal
    ```
 
-3. Put the password, and nothing else, in `~/.config/kioku/dav.pass` and make it readable only by you:
+3. Store the password. Type it yourself, in a terminal:
 
    ```bash
-   chmod 600 ~/.config/kioku/dav.pass
+   kioku password set
    ```
 
-   The sync refuses to run if the file is readable by others. This works the same on Linux, macOS and WSL.
+   It asks for the password twice without showing it, checks the login, and saves it only if
+   the login works:
+   - **Desktop:** it goes to the system keyring (Secret Service on Linux, such as KDE Wallet or
+     GNOME Keyring; Keychain on macOS).
+   - **No keyring** (a server, WSL): it goes to `~/.config/kioku/dav.pass` with `chmod 600`.
+     The sync refuses to run if that file is readable by others.
 
-   To use a keychain instead, set `password_cmd=` to any command that prints the password. Examples:
-   - Linux: `secret-tool lookup service kioku`
-   - macOS: `security find-generic-password -s kioku -w`
-   - any OS: `pass show dav`
-   - 1Password: `op read op://…`
+   Other commands:
+   - `--store keyring|file` picks the place yourself.
+   - `kioku password status` shows where the password is, never the password itself.
+   - `kioku password move keyring|file` moves it.
+   - `kioku password remove` deletes it.
+
+   `set`, `move` and `remove` only run in a real terminal, so no script or agent can feed them a
+   password. Other password managers still work: set `password_cmd=` to any command that
+   prints the password, such as `pass show dav` or `op read op://…`.
 
 4. Test the connection; this only reads:
 

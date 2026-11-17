@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 
 const VAULT = process.env.KIOKU_DIR || path.resolve(path.dirname(process.argv[1]), '../..');
 const CONF_FILE = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'kioku', 'sync.conf');
@@ -382,20 +382,30 @@ function readConf() {
   conf.addressbook ||= 'personal';
   return conf;
 }
-// Password lookup, in order: KIOKU_DAV_PASSWORD (tests), password_cmd (any command that prints
-// it), password_file (default ~/.config/kioku/dav.pass). The file must not be readable
-// by others (chmod 600); this is checked on POSIX systems.
+// Password lookup, in order: KIOKU_DAV_PASSWORD (tests, kioku password set), password_cmd (any
+// command that prints it), password_store=keyring (Secret Service on Linux, Keychain on macOS;
+// written by `kioku password set`), password_file (default ~/.config/kioku/dav.pass). The file
+// must not be readable by others (chmod 600); this is checked on POSIX systems.
 const DEFAULT_PASS_FILE = path.join(path.dirname(CONF_FILE), 'dav.pass');
+const KEYRING_SERVICE = 'kioku';
+function keyringLookup(user) {
+  const [cmd, args] = process.platform === 'darwin'
+    ? ['security', ['find-generic-password', '-s', KEYRING_SERVICE, '-a', user, '-w']]
+    : ['secret-tool', ['lookup', 'service', KEYRING_SERVICE, 'account', user]];
+  try { return execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).replace(/\r?\n$/, ''); }
+  catch { die(`no password in the keyring for ${user} (locked, unavailable or not set); run: kioku password status`, 3); }
+}
 function password(conf) {
   if (process.env.KIOKU_DAV_PASSWORD !== undefined) return process.env.KIOKU_DAV_PASSWORD;
   if (conf.password_cmd) {
     try { return execSync(conf.password_cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).replace(/\r?\n$/, ''); }
     catch { die('password_cmd failed (run it yourself to see why)'); }
   }
+  if (conf.password_store === 'keyring') return keyringLookup(conf.user);
   const file = (conf.password_file || DEFAULT_PASS_FILE).replace(/^~(?=$|\/)/, os.homedir());
   if (!fs.existsSync(file)) {
     if (conf.password_file) die(`password_file not found: ${file}`);
-    die(`no password: put the app password alone in ${file}, then: chmod 600 ${file}`, 3);
+    die(`no password; run: kioku password set`, 3);
   }
   if (process.platform !== 'win32' && (fs.statSync(file).mode & 0o077)) {
     die(`${file} is readable by other users; run: chmod 600 ${file}`);

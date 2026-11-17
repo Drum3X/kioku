@@ -61,4 +61,4 @@ user says an event is missing in Thunderbird:
 1. Run `kioku sync --check`. It shows the connection, the calendar it found and the item counts.
 2. Run `kioku sync`.
 
-Report errors plainly. Never ask for, read or handle the password. It lives outside the vault, in `~/.config/kioku/dav.pass` (or a `password_cmd`), and only the user edits it.
+Report errors plainly. Never ask for, read or handle the password. `kioku password status` shows where it is stored (never the password itself). For a 401 or a missing password, tell the user to run `kioku password set` in their own terminal; you never run it.

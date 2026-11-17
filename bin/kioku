@@ -31,6 +31,7 @@ Usage: kioku <command> [args]
   sync --ids [FILE...]          Give todos, events and contacts stable ids
   sync --setup                  Install the vault git hooks (ids before commit, sync after)
   remote on|off|status|pull|now Keep vault copies on several machines in step via git (pull/push)
+  password status|set|move|remove  The DAV app password: keyring or chmod 600 file; you type it
   update [--check]              Update Kioku (git pull + install step); --check only looks
   version                       Print the Kioku version and install fingerprint
   new <type> "<Title>"          Create a page: source|concept|entity|tool|idea|topic|synthesis|project|contact
@@ -291,6 +292,131 @@ cmd_update() {
   "$sys/install.sh" --vault "$VAULT" $flags
 }
 
+# The CalDAV/CardDAV app password. It is typed by the user, never passed in by a script or an
+# agent: set, move and remove insist on a terminal. It goes to the system keyring when one is
+# available (Secret Service on Linux, Keychain on macOS), otherwise to a chmod 600 file.
+KCONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/kioku"; KCONF="$KCONF_DIR/sync.conf"
+conf_get() { [ -f "$KCONF" ] && sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" "$KCONF" | tail -n 1 | sed 's/[[:space:]]*$//'; }
+conf_del() { [ -f "$KCONF" ] && sed -i.bak "/^[[:space:]]*$1[[:space:]]*=/d" "$KCONF" && rm -f "$KCONF.bak"; }
+conf_set() { conf_del "$1"; printf '%s=%s\n' "$1" "$2" >> "$KCONF"; }
+pass_file() { local f; f="$(conf_get password_file)"; f="${f:-$KCONF_DIR/dav.pass}"; printf '%s' "${f/#\~/$HOME}"; }
+kr_available() {
+  if [ "$(uname)" = Darwin ]; then command -v security >/dev/null; return; fi
+  command -v secret-tool >/dev/null || return 1
+  # A missing item exits 1 silently; an unreachable Secret Service also prints an error.
+  [ -z "$(secret-tool lookup service kioku-probe account probe 2>&1 >/dev/null)" ]
+}
+kr_has() {
+  if [ "$(uname)" = Darwin ]; then security find-generic-password -s kioku -a "$1" >/dev/null 2>&1
+  else secret-tool lookup service kioku account "$1" >/dev/null 2>&1; fi
+}
+kr_put() { # password on stdin
+  if [ "$(uname)" = Darwin ]; then
+    local p; IFS= read -r p || true
+    # security takes the secret as an argument; it is visible to local users for a moment.
+    security add-generic-password -U -s kioku -a "$1" -l "Kioku DAV ($1)" -w "$p" >/dev/null
+  else secret-tool store --label="Kioku DAV ($1)" service kioku account "$1"; fi
+}
+kr_get() {
+  if [ "$(uname)" = Darwin ]; then security find-generic-password -s kioku -a "$1" -w 2>/dev/null
+  else secret-tool lookup service kioku account "$1" 2>/dev/null; fi
+}
+kr_del() {
+  if [ "$(uname)" = Darwin ]; then security delete-generic-password -s kioku -a "$1" >/dev/null 2>&1 || true
+  else secret-tool clear service kioku account "$1" 2>/dev/null || true; fi
+}
+current_store() {
+  if [ -n "$(conf_get password_cmd)" ]; then echo command
+  elif [ "$(conf_get password_store)" = keyring ]; then echo keyring
+  else echo file; fi
+}
+need_tty() { [ -t 0 ] && [ -t 1 ] || die "run 'kioku password $1' yourself in a terminal; it never takes the password from a script or an agent"; }
+
+cmd_password() {
+  local sub="${1:-status}"; shift || true
+  [ -f "$KCONF" ] || die "no $KCONF yet; create it first (url=, user=; see the README: Calendar, contacts and todos)"
+  local user; user="$(conf_get user)"; [ -n "$user" ] || die "$KCONF has no user="
+  case "$sub" in
+    status)
+      local st; st="$(current_store)"
+      case "$st" in
+        command) echo "password: from password_cmd in $KCONF" ;;
+        keyring)
+          if kr_has "$user"; then echo "password: in the keyring (service kioku, account $user)"
+          else echo "password: keyring selected, but no item for $user (keyring locked or unavailable?); run: kioku password set"; return 1; fi ;;
+        file)
+          local f; f="$(pass_file)"
+          if [ ! -f "$f" ]; then echo "password: not set; run: kioku password set"; return 1; fi
+          local mode; mode="$(stat -c %a "$f" 2>/dev/null || stat -f %Lp "$f")"
+          echo "password: in $f (mode $mode)"
+          [ "${mode: -2}" = 00 ] || { echo "  it is readable by other users; run: chmod 600 $f"; return 1; }
+          kr_available && echo "  a keyring is available; to move it there: kioku password move keyring" ;;
+      esac
+      return 0 ;;
+    set)
+      need_tty set
+      local store="auto" check=1
+      while [ $# -gt 0 ]; do case "$1" in
+        --store) store="${2:-}"; shift 2 ;; --store=*) store="${1#--store=}"; shift ;;
+        --no-check) check=""; shift ;; *) die "usage: kioku password set [--store keyring|file] [--no-check]" ;; esac; done
+      [ -z "$(conf_get password_cmd)" ] || die "password_cmd is set in $KCONF and takes precedence; remove that line first"
+      if [ "$store" = auto ]; then if kr_available; then store=keyring; else store=file; fi; fi
+      case "$store" in keyring) kr_available || die "no keyring available here; use --store file" ;; file) ;; *) die "--store must be keyring or file" ;; esac
+      local p1 p2
+      IFS= read -rsp "App password for $user: " p1; echo
+      IFS= read -rsp "Again: " p2; echo
+      [ -n "$p1" ] || die "empty password; nothing saved"
+      [ "$p1" = "$p2" ] || die "the two entries differ; nothing saved"
+      unset p2
+      if [ -n "$check" ]; then
+        echo "checking the login at $(conf_get url) ..."
+        local out; if ! out="$(KIOKU_DAV_PASSWORD="$p1" sync_js sync --check 2>&1)"; then
+          printf '%s\n' "$out" | grep -v '^vault:' >&2; die "login failed; nothing saved (use --no-check to save anyway)"
+        fi
+      fi
+      local f; f="$(pass_file)"
+      if [ "$store" = keyring ]; then
+        printf '%s' "$p1" | kr_put "$user" || die "could not write to the keyring"
+        conf_set password_store keyring
+        [ -f "$f" ] && rm -f "$f" && echo "removed the old password file $f"
+        echo "saved in the keyring (service kioku, account $user)"
+      else
+        mkdir -p "$(dirname "$f")"; (umask 077; printf '%s' "$p1" > "$f"); chmod 600 "$f"
+        conf_del password_store; kr_has "$user" && kr_del "$user"
+        echo "saved in $f (chmod 600)"
+      fi
+      unset p1 ;;
+    move)
+      need_tty move
+      local to="${1:-}" from; from="$(current_store)"
+      case "$to" in keyring|file) ;; *) die "usage: kioku password move keyring|file" ;; esac
+      [ "$from" != command ] || die "the password comes from password_cmd; nothing to move"
+      [ "$from" != "$to" ] || { echo "already in the $to"; return 0; }
+      local f; f="$(pass_file)"
+      if [ "$to" = keyring ]; then
+        kr_available || die "no keyring available here"
+        [ -f "$f" ] || die "no password file at $f"
+        kr_put "$user" < "$f" || die "could not write to the keyring"
+        [ "$(kr_get "$user")" = "$(cat "$f")" ] || die "the keyring copy does not match; the file was kept"
+        conf_set password_store keyring; rm -f "$f"
+        echo "moved to the keyring; removed $f"
+      else
+        kr_has "$user" || die "no keyring item for $user"
+        mkdir -p "$(dirname "$f")"; (umask 077; kr_get "$user" > "$f"); chmod 600 "$f"
+        [ -s "$f" ] || { rm -f "$f"; die "could not read the keyring item"; }
+        conf_del password_store; kr_del "$user"
+        echo "moved to $f (chmod 600); removed the keyring item"
+      fi ;;
+    remove)
+      need_tty remove
+      kr_has "$user" && kr_del "$user" && echo "removed the keyring item for $user"
+      local f; f="$(pass_file)"; [ -f "$f" ] && rm -f "$f" && echo "removed $f"
+      conf_del password_store
+      echo "the password is no longer stored; sync stops until you run: kioku password set" ;;
+    *) die "usage: kioku password status|set|move|remove" ;;
+  esac
+}
+
 cmd_log() {
   [ $# -ge 2 ] || die 'usage: kioku log <op> "<Title>"'
   local op="$1"; shift
@@ -430,6 +556,7 @@ case "${1:-}" in
   sync) shift; cmd_sync "$@" ;;
   remote) shift; cmd_remote "$@" ;;
   update) shift; cmd_update "$@" ;;
+  password) shift; cmd_password "$@" ;;
   version) shift; "$(dirname "$self")/kioku-version" ;;
   todo) shift; cmd_todo "$@" ;;
   new) shift; cmd_new "$@" ;;

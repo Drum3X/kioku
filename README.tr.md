@@ -140,7 +140,7 @@ CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosya
 
 ```
 kioku today | journal | todo [--soon] | agenda [--days N] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-kioku search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | update [--check] | version | lint-check
+kioku search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
 
 ## Takvim, rehber ve yapılacaklar (isteğe bağlı eşitleme)
@@ -167,19 +167,23 @@ Kurulum:
    addressbook=personal
    ```
 
-3. Şifreyi, başka hiçbir şey olmadan, `~/.config/kioku/dav.pass` dosyasına yaz ve dosyayı sadece senin okuyabileceğin hâle getir:
+3. Şifreyi kaydet. Bunu terminalde kendin yaz:
 
    ```bash
-   chmod 600 ~/.config/kioku/dav.pass
+   kioku password set
    ```
 
-   Dosyayı başkaları okuyabiliyorsa eşitleme çalışmayı reddeder. Bu yöntem Linux, macOS ve WSL'de aynı şekilde çalışır.
+   Komut şifreyi ekranda göstermeden iki kez sorar, girişi dener ve yalnızca giriş başarılıysa kaydeder:
+   - **Masaüstünde:** sistemin anahtar zincirine yazar (Linux'ta KDE Wallet ya da GNOME Keyring gibi Secret Service; macOS'ta Keychain).
+   - **Anahtar zinciri yoksa** (sunucu, WSL): `~/.config/kioku/dav.pass` dosyasına `chmod 600` ile yazar. Bu dosyayı başkaları okuyabiliyorsa eşitleme çalışmayı reddeder.
 
-   Bunun yerine bir anahtar zinciri kullanmak istersen, `password_cmd=` alanına şifreyi yazdıran herhangi bir komut yaz. Örnekler:
-   - Linux: `secret-tool lookup service kioku`
-   - macOS: `security find-generic-password -s kioku -w`
-   - her sistemde: `pass show dav`
-   - 1Password: `op read op://…`
+   Diğer komutlar:
+   - `--store keyring|file` ile yeri kendin seçebilirsin.
+   - `kioku password status` şifrenin nerede olduğunu gösterir; şifrenin kendisini asla göstermez.
+   - `kioku password move keyring|file` şifreyi taşır.
+   - `kioku password remove` şifreyi siler.
+
+   `set`, `move` ve `remove` yalnızca gerçek bir terminalde çalışır; böylece hiçbir betik ya da ajan bu komutlara şifre veremez. Başka şifre yöneticileri de kullanılabilir: `password_cmd=` alanına şifreyi yazdıran bir komut yaz, örneğin `pass show dav` ya da `op read op://…`.
 
 4. Bağlantıyı test et; bu komut yalnızca okur:
 

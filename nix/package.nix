@@ -10,12 +10,16 @@
   gnugrep,
   gnused,
   jq,
+  libsecret,
   nodejs,
   ripgrep,
 }: let
   # What the scripts call. Hooks run from Claude Code, so the Home Manager module also
   # puts these on the user's PATH.
-  runtimeDeps = [bash coreutils findutils gawk git gnugrep gnused jq nodejs ripgrep];
+  runtimeDeps =
+    [bash coreutils findutils gawk git gnugrep gnused jq nodejs ripgrep]
+    # secret-tool, for kioku password (Secret Service); macOS has its own Keychain tool.
+    ++ lib.optional stdenvNoCC.hostPlatform.isLinux libsecret;
 in
   stdenvNoCC.mkDerivation {
     pname = "kioku";

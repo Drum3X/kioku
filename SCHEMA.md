@@ -147,7 +147,7 @@ Thunderbird, phones and webmail. The vault is the source:
   - An event with `alarm:` (for example `30m`) gets a reminder.
   - An open todo with `(at: HH:MM)` rings at its due time; `(remind: 1h)` rings that much earlier. Without `at:`, the reminder counts back from 09:00 on the due date.
   - Phones show these as notifications once they subscribe to the same calendar (DAVx⁵ on Android, a CalDAV account on iOS).
-- **Credentials:** the connection settings are in `~/.config/kioku/sync.conf`, and the password is in a file only the user can read (`~/.config/kioku/dav.pass`, or a command set in `password_cmd`). Never ask for, read, print or store a password.
+- **Credentials:** the connection settings are in `~/.config/kioku/sync.conf`; the password is in the system keyring or a chmod 600 file, set by the user with `kioku password set` (or a `password_cmd`). Never ask for, read, print or store a password, and never run `kioku password set|move|remove`: tell the user to run it in their terminal. `kioku password status` is safe to run; it never shows the password.
 
 ## Ingest (external source)
 
