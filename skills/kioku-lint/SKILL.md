@@ -5,7 +5,7 @@ description: Health check of the user's second brain (the Kioku vault) — broke
 
 # kioku-lint
 
-Vault: `$VAULT` — the vault path from the Kioku section of your instructions (`~/.claude/CLAUDE.md`).
+Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (`~/.claude/CLAUDE.md` in Claude Code, `~/.gemini/GEMINI.md` in Antigravity).
 Rules: `$VAULT/.kioku/SCHEMA.md` (Lint section); personal rules in `$VAULT/CLAUDE.md`
 CLI: `$VAULT/.kioku/bin/kioku`
 

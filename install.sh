@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# kioku installer: sets up (or connects) a vault and wires it into Claude Code
+# kioku installer: sets up (or connects) a vault and wires it into Claude Code (and Google
+# Antigravity, when present)
 # so the brain is available from every project. Safe to re-run.
 #
 #   ./install.sh [--vault PATH]       install or update (default vault: the one already
@@ -9,13 +10,14 @@
 #   --relink        re-point an existing .kioku link at this copy (used by the Nix module,
 #                   whose store path changes on every update)
 #   --no-bin-link   don't link the kioku command into ~/.local/bin (a package provides it)
+#   --no-antigravity  don't set Kioku up in Google Antigravity (done when ~/.gemini exists)
 set -euo pipefail
 export PATH="/etc/profiles/per-user/${USER:-$(id -un)}/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 die() { echo "kioku: $*" >&2; exit 1; }
 warn() { echo "WARNING: $*" >&2; }
 
-mode="install"; vault_arg=""; relink=""; bin_link=1
+mode="install"; vault_arg=""; relink=""; bin_link=1; antigravity=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --vault) vault_arg="${2:-}"; [ -n "$vault_arg" ] || die "--vault needs a path"; shift 2 ;;
@@ -23,7 +25,8 @@ while [ $# -gt 0 ]; do
     --uninstall) mode="--uninstall"; shift ;;
     --relink) relink=1; shift ;;
     --no-bin-link) bin_link=""; shift ;;
-    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --no-antigravity) antigravity=""; shift ;;
+    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
 done
@@ -186,6 +189,55 @@ if [ "$new" != "$cur" ]; then
   changes+=("~/.claude/CLAUDE.md updated")
 fi
 
+# ---- 3b. Antigravity (Google): rules block in ~/.gemini/GEMINI.md, skills in ~/.gemini/config/skills ----
+# Only rules and skills for now (no hooks): the agent loads the session context itself with
+# `kioku context`. Set up when Antigravity is present; --no-antigravity removes it again.
+GEM="$HOME/.gemini"; GMD="$GEM/GEMINI.md"; GSK="$GEM/config/skills"
+ag=""; if [ "$mode" != "--uninstall" ] && [ -n "$antigravity" ] && { [ -d "$GEM" ] || command -v antigravity >/dev/null; }; then ag=1; fi
+gblock="$(cat <<EOF
+<!-- kioku:start — managed by kioku/install.sh; manual edits are overwritten on the next install -->
+## Kioku (second brain)
+
+The user's personal second brain is \`$VAULT\` (Obsidian vault + git). The user does not write notes by hand; you keep the records.
+
+- **First thing in every conversation:** run \`$VAULT/.kioku/bin/kioku context\` and read its output before you answer. It pulls the vault from its git remote and prints Core.md (who the user is, how to address them, their preferences), recent daily notes, active projects, due todos and upcoming events. Follow Core.md.
+- That output is a snapshot. Before answering about todos, the agenda or recent notes later in a conversation, run \`kioku todo --soon\`, \`kioku agenda\` or read the files again; with autosync on, run \`kioku remote pull\` first (notes may have been written on another machine).
+- Before writing anything to the vault, read \`$VAULT/.kioku/SCHEMA.md\` (the rules) and \`$VAULT/CLAUDE.md\` (personal rules; the file is named for Claude Code but applies to you too) and follow them.
+- Decisions, finished work, durable learnings, preferences, open threads → record them with the \`kioku\` skill (without asking; except Core.md). There is no end-of-session reminder here: before your final answer on a task, check yourself whether something should be recorded.
+- Questions that need past knowledge → search Kioku first (\`kioku-ask\`). A link/PDF to "add to the brain" → \`kioku-ingest\`. Maintenance → \`kioku-lint\`.
+- The user's own notes: timeline and todos ("today I did …", reminders) → \`kioku-journal\` (journal/); durable things (tools, sites, ideas, things learned) → \`kioku-note\` (wiki pages categorized in topic hubs, wiki/topics/). Don't mix them into your work log (daily/).
+- Events and appointments → \`kioku-calendar\` (calendar/); contact details → \`kioku-contacts\` (contacts/). Both sync one-way to the user's CalDAV/CardDAV server after each commit; never handle the password.
+- Languages: system text (headings, entry types, frontmatter) is English; note content follows the language of its source or conversation.
+- CLI: \`$VAULT/.kioku/bin/kioku\` (context, today, journal, todo, agenda, new, log, search, recap, sync, lint-check).
+- Your built-in memory (Knowledge items) is only for working preferences about how to help the user; knowledge, decisions, projects and the user's profile go into Kioku. Never write the same thing in both places.
+<!-- kioku:end -->
+EOF
+)"
+if [ -n "$ag" ] || [ -f "$GMD" ]; then
+  if [ -f "$GMD" ]; then cur="$(<"$GMD")"; rest="$(strip_block "$GMD")"; else cur=""; rest=""; fi
+  rest="$(printf '%s' "$rest" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
+  if [ -n "$ag" ]; then new="${rest:+$rest$'\n\n'}$gblock"; else new="$rest"; fi
+  if [ "$new" != "$cur" ]; then
+    mkdir -p "$GEM"
+    if [ -z "$new" ]; then rm -f "$GMD"; else printf '%s\n' "$new" > "$GMD"; fi
+    changes+=("~/.gemini/GEMINI.md updated")
+  fi
+fi
+# A real folder per skill holding a SKILL.md link (folder symlinks may not be followed).
+for d in "$SYS"/skills/*/; do
+  name="$(basename "$d")"; tdir="$GSK/$name"; tgt="$tdir/SKILL.md"; src="$VAULT/.kioku/skills/$name/SKILL.md"
+  ours=""; [ -L "$tgt" ] && [[ "$(readlink "$tgt")" == */.kioku/skills/"$name"/SKILL.md ]] && ours=1
+  if [ -z "$ag" ]; then
+    if [ -n "$ours" ]; then rm "$tgt"; rmdir "$tdir" 2>/dev/null || true; changes+=("Antigravity skill removed: $name"); fi
+    continue
+  fi
+  if [ -n "$ours" ] && [ "$(readlink "$tgt")" = "$src" ]; then continue
+  elif [ -n "$ours" ]; then ln -sfn "$src" "$tgt"; changes+=("Antigravity skill moved to the new vault: $name")
+  elif [ -e "$tdir" ] || [ -L "$tdir" ]; then warn "$tdir already exists and does not belong to Kioku; left untouched."
+  else mkdir -p "$tdir"; ln -s "$src" "$tgt"; changes+=("Antigravity skill linked: $name")
+  fi
+done
+
 # ---- 4. ~/.claude/settings.json (merged with jq) ----
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
 jq empty "$SETTINGS" || die "$SETTINGS is not valid JSON; left untouched."
@@ -237,7 +289,7 @@ if [ "$mode" = "--uninstall" ]; then
 else
   read -r ver fp < <("$SYS/bin/kioku-version" 2>/dev/null || echo "unknown unknown")
   mkdir -p "$(dirname "$rec")"
-  printf 'version=%s\nfingerprint=%s\nvault=%s\nsource=%s\nflags=%s\n' "$ver" "$fp" "$VAULT" "$SYS" "$([ -n "$bin_link" ] || echo --no-bin-link)" > "$rec"
+  printf 'version=%s\nfingerprint=%s\nvault=%s\nsource=%s\nflags=%s\n' "$ver" "$fp" "$VAULT" "$SYS" "$( { [ -n "$bin_link" ] || echo --no-bin-link; [ -n "$antigravity" ] || echo --no-antigravity; } | xargs)" > "$rec"
 fi
 
 # ---- Summary ----
@@ -246,5 +298,6 @@ else printf 'Kioku (vault: %s):\n' "$VAULT"; printf '  - %s\n' "${changes[@]}"; 
 if [ "$mode" = "--uninstall" ]; then
   echo "The vault and its .kioku link were kept. Delete them yourself if you no longer want them."
 else
+  [ -n "$ag" ] && echo "Antigravity: rules and skills set up; start a new conversation there."
   echo "Open a new Claude Code session; hooks and skills take effect there. Say \"get to know me\" to start."
 fi

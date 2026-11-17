@@ -43,6 +43,15 @@ in {
       description = "The vault folder. Created on first activation; existing notes are never overwritten.";
     };
 
+    antigravity = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Also set Kioku up in Google Antigravity (rules in ~/.gemini/GEMINI.md, skills in
+        ~/.gemini/config/skills) when ~/.gemini exists. Set false to leave Antigravity alone.
+      '';
+    };
+
     source = mkOption {
       type = types.nullOr types.str;
       default = null;
@@ -63,7 +72,7 @@ in {
     home.activation.kioku = lib.hm.dag.entryAfter ["writeBoundary"] ''
       (
         export PATH=${path}:$PATH
-        run ${escapeShellArg src}/install.sh --vault ${escapeShellArg cfg.vault} --relink --no-bin-link
+        run ${escapeShellArg src}/install.sh --vault ${escapeShellArg cfg.vault} --relink --no-bin-link${lib.optionalString (!cfg.antigravity) " --no-antigravity"}
       )
     '';
   };

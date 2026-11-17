@@ -23,6 +23,8 @@ die() { echo "kioku: $*" >&2; exit 2; }
 usage() {
   cat <<'EOF'
 Usage: kioku <command> [args]
+  context                       Print the session-start context (Core, recent notes, todos, agenda);
+                                pulls first with autosync. For agents without a SessionStart hook
   today                         Create today's daily note if missing, print its path
   journal                       Create today's journal note (the user's own notes) if missing, print its path
   todo [--soon]                 Open todos in journal/, by due date; --soon: overdue and next 3 days
@@ -563,7 +565,13 @@ cmd_lint_check() {
   [ "$issues" -eq 0 ]
 }
 
+# The SessionStart hook's context as plain text, for agents that have no such hook (Antigravity).
+cmd_context() {
+  KIOKU_DIR="$VAULT" "$(dirname "$self")/../hooks/session-start.sh" </dev/null | jq -r '.hookSpecificOutput.additionalContext // empty'
+}
+
 case "${1:-}" in
+  context) shift; cmd_context "$@" ;;
   today) shift; cmd_today "$@" ;;
   journal) shift; cmd_journal "$@" ;;
   agenda) shift; cmd_agenda "$@" ;;

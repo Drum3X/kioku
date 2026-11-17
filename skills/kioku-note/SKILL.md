@@ -6,7 +6,7 @@ argument-hint: "[what to save]"
 
 # kioku-note
 
-Vault: `$VAULT` — the vault path from the Kioku section of your instructions (`~/.claude/CLAUDE.md`).
+Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (`~/.claude/CLAUDE.md` in Claude Code, `~/.gemini/GEMINI.md` in Antigravity).
 Rules: `$VAULT/.kioku/SCHEMA.md` ("The user's notes" and "Topics" sections); personal rules in `$VAULT/CLAUDE.md`
 CLI: `$VAULT/.kioku/bin/kioku`
 
@@ -45,7 +45,7 @@ there is one.
   - `tags`: 1–4 fine-grained facets;
   - for entities: `kind`, and `url` if known;
   - for ideas: `status: new`.
-- **URL given:** fetch it once with WebFetch to learn what the thing is (name, purpose, platform, license or price if obvious). Write that in 1–2 sentences under `## What it is`, with the link. Don't save the page to `raw/`; this is a pointer, not a source.
+- **URL given:** fetch it once with your web-fetch tool to learn what the thing is (name, purpose, platform, license or price if obvious). Write that in 1–2 sentences under `## What it is`, with the link. Don't save the page to `raw/`; this is a pointer, not a source.
 - **`## Why it's useful` / `## Why`:** what the user said, in their words. If they gave no reason, write the context it came up in. Never invent one.
 - **Links:** add wikilinks to related existing pages and projects. Where it fits, add a back-link line on those pages too (for example under `## Related`, or a project's Decisions/Status).
 

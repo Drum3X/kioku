@@ -56,6 +56,7 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku log <ingest|query|lint|note|setup> "<Title>"`: appends a line to `log.md`.
 - `kioku search [--raw] <term...>`: title matches first; `--raw` also searches `raw/`. Case-insensitive, Turkish İ/ı aware.
 - `kioku recap [--days N]`: daily notes and log entries from the last N days.
+- `kioku context`: the session-start context as text (Core, recent notes, todos, agenda), pulled first with autosync; for agents without a SessionStart hook (Antigravity).
 - `kioku agenda [--days N] [--past]`: upcoming events, recurrences expanded; events that already ended are left out (`--past` keeps today's). The session-start list is a snapshot from when the session began: run this again instead of relying on it.
 - `kioku sync [--check|--dry-run|--full]`: push todos, events and contacts to the server; `--check` only tests the connection.
 - `kioku remote on|off|status|now`: keep vault copies on several machines in step through the git remote.
@@ -215,10 +216,11 @@ Follow the `kioku-lint` skill:
   git -C "$VAULT" add -A && git -C "$VAULT" commit -m "<type>: <short title>"
   ```
   `<type>` is one of `memory`, `journal`, `note`, `calendar`, `contact`, `ingest`, `query`, `lint`, `core`, `project`, `system`.
-- Do not push yourself. If the vault has autosync on (`kioku remote on`, for copies on several machines), the post-commit hook pulls and pushes after each commit each session starts with a pull, and each prompt pulls again (at most every 30 s). When a prompt comes with "The vault was just updated from its git remote", re-read the changed files instead of trusting the session-start context. If the session context reports a sync conflict, tell the user and offer to resolve it.
+- Do not push yourself. If the vault has autosync on (`kioku remote on`, for copies on several machines), the post-commit hook pulls and pushes after each commit, each session starts with a pull, and each prompt pulls again (at most every 30 s). When a prompt comes with "The vault was just updated from its git remote", re-read the changed files instead of trusting the session-start context. If the session context reports a sync conflict, tell the user and offer to resolve it.
 
-## Relation to Claude's built-in memory
+## Relation to the agent's built-in memory
 
-Claude Code's auto memory is only for working preferences about how to help the user.
+The agent's own memory (Claude Code's auto memory, Antigravity's Knowledge items) is only for
+working preferences about how to help the user.
 Knowledge, decisions, projects and the user's profile go into Kioku. Never write the same
 thing in both places.

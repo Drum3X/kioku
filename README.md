@@ -147,7 +147,7 @@ and each write is a git commit in your vault. Claude never pushes, unless you tu
 The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
-kioku today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
+kioku context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
 kioku search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
 
@@ -235,6 +235,20 @@ in `.gitattributes`). A real conflict is never forced: the local commits stay, n
 pushed, and the next session tells you about it. Set `TZ` on a server that runs in UTC, so
 "today" and event times match yours. `kioku remote status` shows the state; logs go to
 `~/.local/state/kioku/git-sync.log`.
+
+## Google Antigravity (optional)
+
+If Antigravity is installed (`~/.gemini` exists), the installer also sets Kioku up there:
+
+- **Rules:** a Kioku block in `~/.gemini/GEMINI.md` (your own text in that file is kept), like the one in `~/.claude/CLAUDE.md`.
+- **Skills:** the same skills in `~/.gemini/config/skills/`; say the same things or call them as `/kioku-journal` and so on.
+
+Antigravity gets no hooks yet, so two things work differently:
+
+- **Session context:** at the start of a conversation the agent runs `kioku context` itself (Core, recent notes, todos, agenda; with autosync it pulls first) instead of a SessionStart hook.
+- **No end-of-session reminder:** the agent is told to check for itself whether something should be recorded.
+
+Turn it off with `install.sh --no-antigravity` (Nix: `programs.kioku.antigravity = false;`); that also removes what was set up.
 
 ## Languages
 

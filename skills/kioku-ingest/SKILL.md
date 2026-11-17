@@ -6,7 +6,7 @@ argument-hint: "[URL | file path] (empty: list raw/inbox)"
 
 # kioku-ingest
 
-Vault: `$VAULT` — the vault path from the Kioku section of your instructions (`~/.claude/CLAUDE.md`).
+Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (`~/.claude/CLAUDE.md` in Claude Code, `~/.gemini/GEMINI.md` in Antigravity).
 Rules: `$VAULT/.kioku/SCHEMA.md` (Ingest and Languages sections); personal rules in `$VAULT/CLAUDE.md`
 CLI: `$VAULT/.kioku/bin/kioku`
 
@@ -16,8 +16,8 @@ then process each in turn. **Write summaries and new pages in the source's langu
 ## 0. What to process
 
 - **No argument:** list the files in `raw/inbox/` and ask where to start.
-- **URL:** fetch the content with WebFetch. For long pages, read to the end using offset. Ask WebFetch for the actual text, not a summary.
-- **File:** copy a PDF or image to `raw/assets/<yyyy>/`. Extract the text; for a PDF, read the pages with the Read tool.
+- **URL:** fetch the content with your web-fetch tool (WebFetch in Claude Code). For long pages, read to the end (WebFetch: using offset). Ask for the actual text, not a summary.
+- **File:** copy a PDF or image to `raw/assets/<yyyy>/`. Extract the text; for a PDF, read the pages with your file-reading tool (Read in Claude Code).
 
 ## 1. Save to raw/
 

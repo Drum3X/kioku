@@ -143,7 +143,7 @@ kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla 
 CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosyasına bir bağlantı):
 
 ```
-kioku today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
+kioku context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
 kioku search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
 
@@ -224,6 +224,20 @@ Vault'un bir kopyasını ikinci bir makinede tutabilirsin. Bu makine örneğin s
 İki makine aynı günlük ya da journal dosyasına satır eklerse git iki tarafı da korur (`.gitattributes` içindeki `merge=union`). Gerçek bir çakışmada hiçbir şey zorla birleştirilmez: yerel commit'ler kalır, push yapılmaz ve bir sonraki oturum seni uyarır.
 
 Sunucu UTC'de çalışıyorsa `TZ` ayarla; böylece "bugün" ve etkinlik saatleri seninkiyle aynı olur. Durumu `kioku remote status` gösterir, kayıtlar `~/.local/state/kioku/git-sync.log` dosyasına yazılır.
+
+## Google Antigravity (isteğe bağlı)
+
+Antigravity kuruluysa (`~/.gemini` varsa) kurulum Kioku'yu orada da kurar:
+
+- **Kurallar:** `~/.gemini/GEMINI.md` içine `~/.claude/CLAUDE.md`'dekine benzer bir Kioku bölümü eklenir (dosyadaki kendi metnin korunur).
+- **Skill'ler:** aynı skill'ler `~/.gemini/config/skills/` altına gelir; aynı cümleleri kullanabilir ya da `/kioku-journal` gibi çağırabilirsin.
+
+Antigravity'ye henüz hook kurulmuyor, bu yüzden iki şey farklı çalışır:
+
+- **Oturum bağlamı:** SessionStart hook'u yerine ajan sohbetin başında `kioku context` komutunu kendisi çalıştırır (Core, son notlar, yapılacaklar, ajanda; autosync açıksa önce pull eder).
+- **Oturum sonu hatırlatması yok:** ajana kaydedilecek bir şey olup olmadığını kendisinin kontrol etmesi söylenir.
+
+Kapatmak için `install.sh --no-antigravity` (Nix: `programs.kioku.antigravity = false;`); bu, kurulanları da kaldırır.
 
 ## Diller
 

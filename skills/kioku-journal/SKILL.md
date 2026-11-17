@@ -1,12 +1,12 @@
 ---
 name: kioku-journal
-description: The user's timeline in their second brain (journal/ in the Kioku vault) — what they did today, what happened, todos and reminders with due dates — taken instantly from chat in any session. Use when the user says "not al: bugün …", "bugün … yaptım", "hatırlat", "yapılacaklara ekle", "yapılacaklarım ne", "şunu yaptım, işaretle" (or "today I …", "remind me", "add a todo", "what are my todos"). Durable things (tools, sites, ideas, things learned) go to kioku-note; Claude's own work log is the kioku skill / daily/.
+description: The user's timeline in their second brain (journal/ in the Kioku vault) — what they did today, what happened, todos and reminders with due dates — taken instantly from chat in any session. Use when the user says "not al: bugün …", "bugün … yaptım", "hatırlat", "yapılacaklara ekle", "yapılacaklarım ne", "şunu yaptım, işaretle" (or "today I …", "remind me", "add a todo", "what are my todos"). Durable things (tools, sites, ideas, things learned) go to kioku-note; the agent's own work log is the kioku skill / daily/.
 argument-hint: "[note text]"
 ---
 
 # kioku-journal
 
-Vault: `$VAULT` — the vault path from the Kioku section of your instructions (`~/.claude/CLAUDE.md`).
+Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (`~/.claude/CLAUDE.md` in Claude Code, `~/.gemini/GEMINI.md` in Antigravity).
 CLI: `$VAULT/.kioku/bin/kioku`
 
 `journal/` is **the user's timeline**: what happened and what they have to do. It is separate
