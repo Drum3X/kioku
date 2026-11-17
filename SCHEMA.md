@@ -59,6 +59,7 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku agenda [--days N]`: upcoming events, recurrences expanded.
 - `kioku sync [--check|--dry-run|--full]`: push todos, events and contacts to the server; `--check` only tests the connection.
 - `kioku remote on|off|status|now`: keep vault copies on several machines in step through the git remote.
+- `kioku update [--check]`: update Kioku itself (pull + install step); only when the user asks, or when the session context says the install step is out of date and the user agrees.
 - `kioku lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, missing frontmatter.
 
 Always create new pages with `kioku new`, then edit them. Write files with Edit/Write.

@@ -144,7 +144,7 @@ The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
 kioku today | journal | todo [--soon] | agenda [--days N] | new <type> "<Title>" | log <op> "<Title>"
-kioku search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | lint-check
+kioku search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | update [--check] | version | lint-check
 ```
 
 ## Calendar, contacts and todos (optional sync)
@@ -242,22 +242,24 @@ Turkish `İ/ı` and `I/i` as the same letter.
 ## Update and uninstall
 
 ```bash
-git -C ~/Projects/kioku pull
+kioku update
 ```
 
-```bash
-~/Projects/kioku/install.sh
-```
+This pulls the checkout and re-runs the install step with the options you installed with,
+then lists what changed. `kioku update --check` only looks for new commits, and
+`kioku version` prints the installed version.
 
-Hooks, skills and the schema update with `git pull`, because the vault links to the checkout.
-Re-running the installer only matters when the installer itself changed.
+If you update with a plain `git pull` instead, the next session notices when the install step
+is out of date (new skills, settings or migrations) and Claude offers to run `kioku update`.
+With the Nix module, run `nix flake update kioku` and rebuild; the install step runs on every
+switch.
 
 ```bash
 ~/Projects/kioku/install.sh --uninstall
 ```
 
-This removes the skills, the `~/.claude/CLAUDE.md` section and the settings entries. Your
-vault is kept.
+This removes the skills, the `kioku` command link, the `~/.claude/CLAUDE.md` section and the
+settings entries. Your vault is kept.
 
 ## Privacy
 

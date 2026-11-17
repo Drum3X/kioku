@@ -140,7 +140,7 @@ CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosya
 
 ```
 kioku today | journal | todo [--soon] | agenda [--days N] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-kioku search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | lint-check
+kioku search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | update [--check] | version | lint-check
 ```
 
 ## Takvim, rehber ve yapılacaklar (isteğe bağlı eşitleme)
@@ -236,22 +236,18 @@ konuştuğun dilde yazılır. Her sayfa dilini `lang:` alanında tutar. Arama T�
 ## Güncelleme ve kaldırma
 
 ```bash
-git -C ~/Projects/kioku pull
+kioku update
 ```
 
-```bash
-~/Projects/kioku/install.sh
-```
+Bu komut checkout'u pull eder, kurulum adımını kurarken kullandığın seçeneklerle yeniden çalıştırır ve nelerin değiştiğini listeler. `kioku update --check` yalnızca yeni commit var mı diye bakar; `kioku version` kurulu sürümü gösterir.
 
-Vault bu klasöre bağlı olduğu için hook'lar, skill'ler ve şema `git pull` ile güncellenir.
-Kurulum betiğini tekrar çalıştırmak yalnızca betiğin kendisi değiştiyse gerekir.
+Güncellemeyi düz bir `git pull` ile yaparsan, kurulum adımı geride kaldığında (yeni skill'ler, ayarlar ya da taşıma adımları) bir sonraki oturum bunu fark eder ve Claude `kioku update` çalıştırmayı önerir. Nix modülünde `nix flake update kioku` çalıştırıp rebuild et; kurulum adımı her switch'te zaten çalışır.
 
 ```bash
 ~/Projects/kioku/install.sh --uninstall
 ```
 
-Bu komut skill'leri, `~/.claude/CLAUDE.md` bölümünü ve ayar girdilerini kaldırır. Vault'un
-olduğu gibi kalır.
+Bu komut skill'leri, `kioku` komut bağlantısını, `~/.claude/CLAUDE.md` bölümünü ve ayar girdilerini kaldırır. Vault'un olduğu gibi kalır.
 
 ## Gizlilik
 
