@@ -141,7 +141,7 @@ Thunderbird, phones and webmail. The vault is the source:
   - An event with `status: cancelled` is removed from the server; its page stays in the vault.
   - A deleted page or todo line is deleted from the server.
   - Cancelled todos (`[-]`) stay on the server as cancelled.
-- **Credentials:** the connection settings are in `~/.config/second-brain/sync.conf`, and the password is in the user's keyring. Never ask for, read, print or store a password.
+- **Credentials:** the connection settings are in `~/.config/second-brain/sync.conf`, and the password is in a file only the user can read (`~/.config/second-brain/dav.pass`, or a command set in `password_cmd`). Never ask for, read, print or store a password.
 
 ## Ingest (external source)
 

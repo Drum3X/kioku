@@ -119,7 +119,7 @@ vault changes, and a git hook pushes the change after the commit.
 
 Setup:
 
-1. Create an app password for your account that allows CalDAV/CardDAV, if your server supports it, and save it in your keyring.
+1. Create an app password for your account that allows only CalDAV/CardDAV, if your server supports it.
 2. Create `~/.config/second-brain/sync.conf`:
 
    ```ini
@@ -129,19 +129,29 @@ Setup:
    # collection name or display name
    calendar=personal
    addressbook=personal
-   # a command that prints the password, e.g. secret-tool lookup … or pass show …
-   password_cmd=kwallet-query -r dav -f second-brain kdewallet
-   # or a file that holds only the password (chmod 600)
-   # password_file=~/.config/second-brain/dav.pass
    ```
 
-3. Test the connection; this only reads:
+3. Put the password, and nothing else, in `~/.config/second-brain/dav.pass` and make it readable only by you:
+
+   ```bash
+   chmod 600 ~/.config/second-brain/dav.pass
+   ```
+
+   The sync refuses to run if the file is readable by others. This works the same on Linux, macOS and WSL.
+
+   To use a keychain instead, set `password_cmd=` to any command that prints the password. Examples:
+   - Linux: `secret-tool lookup service second-brain`
+   - macOS: `security find-generic-password -s second-brain -w`
+   - any OS: `pass show dav`
+   - 1Password: `op read op://…`
+
+4. Test the connection; this only reads:
 
    ```bash
    ~/Documents/Brain/.brain/bin/brain sync --check
    ```
 
-4. Subscribe to the same calendar and address book in Thunderbird.
+5. Subscribe to the same calendar and address book in Thunderbird.
 
 The installer adds the vault's git hooks: `pre-commit` gives new items stable ids and
 `post-commit` runs the sync in the background. Logs go to

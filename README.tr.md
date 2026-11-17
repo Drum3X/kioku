@@ -120,7 +120,7 @@ Claude'a söylersin, vault değişir, commit'ten sonra bir git hook'u değişikl
 
 Kurulum:
 
-1. Sunucun destekliyorsa hesabın için CalDAV/CardDAV yetkili bir app password oluştur ve anahtar zincirine kaydet.
+1. Sunucun destekliyorsa hesabın için yalnızca CalDAV/CardDAV yetkili bir app password oluştur.
 2. `~/.config/second-brain/sync.conf` dosyasını oluştur:
 
    ```ini
@@ -130,19 +130,29 @@ Kurulum:
    # koleksiyon adı ya da görünen adı
    calendar=personal
    addressbook=personal
-   # şifreyi yazdıran bir komut; örn. secret-tool lookup … ya da pass show …
-   password_cmd=kwallet-query -r dav -f second-brain kdewallet
-   # ya da yalnızca şifreyi içeren bir dosya (chmod 600)
-   # password_file=~/.config/second-brain/dav.pass
    ```
 
-3. Bağlantıyı test et; bu komut yalnızca okur:
+3. Şifreyi, başka hiçbir şey olmadan, `~/.config/second-brain/dav.pass` dosyasına yaz ve dosyayı sadece senin okuyabileceğin hâle getir:
+
+   ```bash
+   chmod 600 ~/.config/second-brain/dav.pass
+   ```
+
+   Dosyayı başkaları okuyabiliyorsa eşitleme çalışmayı reddeder. Bu yöntem Linux, macOS ve WSL'de aynı şekilde çalışır.
+
+   Bunun yerine bir anahtar zinciri kullanmak istersen, `password_cmd=` alanına şifreyi yazdıran herhangi bir komut yaz. Örnekler:
+   - Linux: `secret-tool lookup service second-brain`
+   - macOS: `security find-generic-password -s second-brain -w`
+   - her sistemde: `pass show dav`
+   - 1Password: `op read op://…`
+
+4. Bağlantıyı test et; bu komut yalnızca okur:
 
    ```bash
    ~/Documents/Brain/.brain/bin/brain sync --check
    ```
 
-4. Thunderbird'de aynı takvime ve adres defterine abone ol.
+5. Thunderbird'de aynı takvime ve adres defterine abone ol.
 
 Kurulum betiği vault'a iki git hook'u ekler: `pre-commit` yeni kayıtlara kalıcı kimlik verir,
 `post-commit` eşitlemeyi arka planda çalıştırır. Kayıtlar

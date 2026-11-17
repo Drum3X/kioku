@@ -361,17 +361,26 @@ function readConf() {
   conf.addressbook ||= 'personal';
   return conf;
 }
+// Password lookup, in order: BRAIN_DAV_PASSWORD (tests), password_cmd (any command that prints
+// it), password_file (default ~/.config/second-brain/dav.pass). The file must not be readable
+// by others (chmod 600); this is checked on POSIX systems.
+const DEFAULT_PASS_FILE = path.join(path.dirname(CONF_FILE), 'dav.pass');
 function password(conf) {
   if (process.env.BRAIN_DAV_PASSWORD !== undefined) return process.env.BRAIN_DAV_PASSWORD;
   if (conf.password_cmd) {
     try { return execSync(conf.password_cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).replace(/\r?\n$/, ''); }
-    catch { die('password_cmd failed (is the wallet unlocked and the entry saved?)'); }
+    catch { die('password_cmd failed (run it yourself to see why)'); }
   }
-  if (conf.password_file) {
-    try { return fs.readFileSync(conf.password_file.replace(/^~/, os.homedir()), 'utf8').trim(); }
-    catch { die('cannot read password_file'); }
+  const file = (conf.password_file || DEFAULT_PASS_FILE).replace(/^~(?=$|\/)/, os.homedir());
+  if (!fs.existsSync(file)) {
+    if (conf.password_file) die(`password_file not found: ${file}`);
+    die(`no password: put the app password alone in ${file}, then: chmod 600 ${file}`, 3);
   }
-  return null;
+  if (process.platform !== 'win32' && (fs.statSync(file).mode & 0o077)) {
+    die(`${file} is readable by other users; run: chmod 600 ${file}`);
+  }
+  try { return fs.readFileSync(file, 'utf8').replace(/\r?\n$/, ''); }
+  catch { die(`cannot read ${file}`); }
 }
 
 function makeClient(conf) {

@@ -61,4 +61,4 @@ user says an event is missing in Thunderbird:
 1. Run `brain sync --check`. It shows the connection, the calendar it found and the item counts.
 2. Run `brain sync`.
 
-Report errors plainly. Never ask for or handle the password; it lives in the user's keyring.
+Report errors plainly. Never ask for, read or handle the password. It lives outside the vault, in `~/.config/second-brain/dav.pass` (or a `password_cmd`), and only the user edits it.
