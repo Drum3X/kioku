@@ -189,9 +189,9 @@ if [ "$new" != "$cur" ]; then
   changes+=("~/.claude/CLAUDE.md updated")
 fi
 
-# ---- 3b. Antigravity (Google): rules block in ~/.gemini/GEMINI.md, skills in ~/.gemini/config/skills ----
-# Only rules and skills for now (no hooks): the agent loads the session context itself with
-# `kioku context`. Set up when Antigravity is present; --no-antigravity removes it again.
+# ---- 3b. Antigravity (Google): rules block in ~/.gemini/GEMINI.md, skills in ~/.gemini/config/skills,
+# hooks in ~/.gemini/config/hooks.json (through hooks/antigravity.sh). Set up when Antigravity is
+# present; --no-antigravity removes it again.
 GEM="$HOME/.gemini"; GMD="$GEM/GEMINI.md"; GSK="$GEM/config/skills"
 ag=""; if [ "$mode" != "--uninstall" ] && [ -n "$antigravity" ] && { [ -d "$GEM" ] || command -v antigravity >/dev/null; }; then ag=1; fi
 gblock="$(cat <<EOF
@@ -200,10 +200,10 @@ gblock="$(cat <<EOF
 
 The user's personal second brain is \`$VAULT\` (Obsidian vault + git). The user does not write notes by hand; you keep the records.
 
-- **First thing in every conversation:** run \`$VAULT/.kioku/bin/kioku context\` and read its output before you answer. It pulls the vault from its git remote and prints Core.md (who the user is, how to address them, their preferences), recent daily notes, active projects, due todos and upcoming events. Follow Core.md.
-- That output is a snapshot. Before answering about todos, the agenda or recent notes later in a conversation, run \`kioku todo --soon\`, \`kioku agenda\` or read the files again; with autosync on, run \`kioku remote pull\` first (notes may have been written on another machine).
+- **First thing in every conversation:** if the conversation does not already contain "# Kioku — session context" (the SessionStart hook adds it), run \`$VAULT/.kioku/bin/kioku context\` and read its output before you answer. It pulls the vault from its git remote and prints Core.md (who the user is, how to address them, their preferences), recent daily notes, active projects, due todos and upcoming events. Follow Core.md.
+- That context is a snapshot. Before answering about todos, the agenda or recent notes later in a conversation, run \`kioku todo --soon\`, \`kioku agenda\` or read the files again. When a message says "The vault was just updated from its git remote", re-read the files it lists.
 - Before writing anything to the vault, read \`$VAULT/.kioku/SCHEMA.md\` (the rules) and \`$VAULT/CLAUDE.md\` (personal rules; the file is named for Claude Code but applies to you too) and follow them.
-- Decisions, finished work, durable learnings, preferences, open threads → record them with the \`kioku\` skill (without asking; except Core.md). There is no end-of-session reminder here: before your final answer on a task, check yourself whether something should be recorded.
+- Decisions, finished work, durable learnings, preferences, open threads → record them with the \`kioku\` skill (without asking; except Core.md). Before your final answer on a task, check yourself whether something should be recorded (a Stop hook reminds you once if nothing was).
 - Questions that need past knowledge → search Kioku first (\`kioku-ask\`). A link/PDF to "add to the brain" → \`kioku-ingest\`. Maintenance → \`kioku-lint\`.
 - The user's own notes: timeline and todos ("today I did …", reminders) → \`kioku-journal\` (journal/); durable things (tools, sites, ideas, things learned) → \`kioku-note\` (wiki pages categorized in topic hubs, wiki/topics/). Don't mix them into your work log (daily/).
 - Events and appointments → \`kioku-calendar\` (calendar/); contact details → \`kioku-contacts\` (contacts/). Both sync one-way to the user's CalDAV/CardDAV server after each commit; never handle the password.
@@ -221,6 +221,25 @@ if [ -n "$ag" ] || [ -f "$GMD" ]; then
     mkdir -p "$GEM"
     if [ -z "$new" ]; then rm -f "$GMD"; else printf '%s\n' "$new" > "$GMD"; fi
     changes+=("~/.gemini/GEMINI.md updated")
+  fi
+fi
+# Hooks: merged into hooks.json under kioku-* names; other hooks there are kept.
+GHK="$GEM/config/hooks.json"; AH="$VAULT/.kioku/hooks/antigravity.sh"
+if [ -n "$ag" ] || [ -f "$GHK" ]; then
+  [ -f "$GHK" ] && { jq empty "$GHK" 2>/dev/null || { warn "$GHK is not valid JSON; Antigravity hooks not set up"; GHK=""; }; }
+  if [ -n "$GHK" ]; then
+    hcur="$( [ -f "$GHK" ] && cat "$GHK" || echo '{}')"
+    hnew="$(jq --arg ah "$AH" --arg on "$ag" '
+      with_entries(select(.key | startswith("kioku-") | not))
+      | if $on == "" then . else . + {
+          "kioku-session-start": {SessionStart: [{type: "command", command: "\($ah) session-start", timeout: 15}]},
+          "kioku-pull":          {PreInvocation: [{type: "command", command: "\($ah) pull", timeout: 30}]},
+          "kioku-stop":          {Stop: [{type: "command", command: "\($ah) stop", timeout: 15}]}
+        } end' <<<"$hcur")"
+    if ! cmp -s <(jq -S . <<<"$hcur") <(jq -S . <<<"$hnew"); then
+      if [ "$hnew" = "{}" ] && [ -z "$ag" ]; then rm -f "$GHK"; else mkdir -p "$(dirname "$GHK")"; printf '%s\n' "$hnew" > "$GHK"; fi
+      changes+=("~/.gemini/config/hooks.json updated")
+    fi
   fi
 fi
 # A real folder per skill holding a SKILL.md link (folder symlinks may not be followed).
@@ -298,6 +317,6 @@ else printf 'Kioku (vault: %s):\n' "$VAULT"; printf '  - %s\n' "${changes[@]}"; 
 if [ "$mode" = "--uninstall" ]; then
   echo "The vault and its .kioku link were kept. Delete them yourself if you no longer want them."
 else
-  [ -n "$ag" ] && echo "Antigravity: rules and skills set up; start a new conversation there."
+  [ -n "$ag" ] && echo "Antigravity: rules, skills and hooks set up; start a new conversation there."
   echo "Open a new Claude Code session; hooks and skills take effect there. Say \"get to know me\" to start."
 fi

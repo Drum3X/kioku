@@ -243,10 +243,13 @@ If Antigravity is installed (`~/.gemini` exists), the installer also sets Kioku 
 - **Rules:** a Kioku block in `~/.gemini/GEMINI.md` (your own text in that file is kept), like the one in `~/.claude/CLAUDE.md`.
 - **Skills:** the same skills in `~/.gemini/config/skills/`; say the same things or call them as `/kioku-journal` and so on.
 
-Antigravity gets no hooks yet, so two things work differently:
+- **Hooks:** three entries named `kioku-*` in `~/.gemini/config/hooks.json` (other hooks there are kept). They run the same hooks as in Claude Code through `hooks/antigravity.sh`, which translates Antigravity's input and transcript:
+  - `SessionStart` adds the session context;
+  - `PreInvocation` pulls the vault with autosync (at most every 30 s);
+  - `Stop` asks once to record, as in Claude Code.
 
-- **Session context:** at the start of a conversation the agent runs `kioku context` itself (Core, recent notes, todos, agenda; with autosync it pulls first) instead of a SessionStart hook.
-- **No end-of-session reminder:** the agent is told to check for itself whether something should be recorded.
+If the hooks don't run, the rules tell the agent to load the context itself with `kioku context`.
+The last input of each hook is kept in `~/.local/state/kioku/antigravity-*.json` for debugging.
 
 Turn it off with `install.sh --no-antigravity` (Nix: `programs.kioku.antigravity = false;`); that also removes what was set up.
 

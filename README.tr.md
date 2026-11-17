@@ -232,10 +232,13 @@ Antigravity kuruluysa (`~/.gemini` varsa) kurulum Kioku'yu orada da kurar:
 - **Kurallar:** `~/.gemini/GEMINI.md` içine `~/.claude/CLAUDE.md`'dekine benzer bir Kioku bölümü eklenir (dosyadaki kendi metnin korunur).
 - **Skill'ler:** aynı skill'ler `~/.gemini/config/skills/` altına gelir; aynı cümleleri kullanabilir ya da `/kioku-journal` gibi çağırabilirsin.
 
-Antigravity'ye henüz hook kurulmuyor, bu yüzden iki şey farklı çalışır:
+- **Hook'lar:** `~/.gemini/config/hooks.json` içine `kioku-*` adlı üç girdi eklenir (oradaki diğer hook'lar korunur). Bunlar Claude Code'daki hook'ların aynısını `hooks/antigravity.sh` üzerinden çalıştırır; bu betik Antigravity'nin girdisini ve sohbet dökümünü çevirir:
+  - `SessionStart` oturum bağlamını ekler;
+  - `PreInvocation` autosync açıksa vault'u pull eder (en fazla 30 saniyede bir);
+  - `Stop` Claude Code'daki gibi bir kez kayıt ister.
 
-- **Oturum bağlamı:** SessionStart hook'u yerine ajan sohbetin başında `kioku context` komutunu kendisi çalıştırır (Core, son notlar, yapılacaklar, ajanda; autosync açıksa önce pull eder).
-- **Oturum sonu hatırlatması yok:** ajana kaydedilecek bir şey olup olmadığını kendisinin kontrol etmesi söylenir.
+Hook'lar çalışmazsa kurallar ajana bağlamı `kioku context` ile kendisinin yüklemesini söyler.
+Her hook'un son girdisi hata ayıklama için `~/.local/state/kioku/antigravity-*.json` dosyasında tutulur.
 
 Kapatmak için `install.sh --no-antigravity` (Nix: `programs.kioku.antigravity = false;`); bu, kurulanları da kaldırır.
 
