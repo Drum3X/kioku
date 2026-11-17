@@ -27,7 +27,7 @@ mkdir -p "$st" 2>/dev/null && printf '%s\n' "$input" > "$st/antigravity-$ev.json
 inject() {
   local c; c="$(jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null)"
   [ -n "$c" ] || noop
-  jq -n --arg c "$c" '{injectSteps: [{systemMessage: {systemMessage: $c, metadata: {source: "kioku"}}}]}'
+  jq -n --arg c "$c" '{injectSteps: [{systemMessage: {systemMessage: $c}}]}'
 }
 
 case "$ev" in
