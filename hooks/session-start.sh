@@ -86,6 +86,16 @@ if [ -n "$todos" ]; then
   add ""
 fi
 
+# 3c. Upcoming events (calendar/), next 3 days
+if command -v node >/dev/null && [ -d "$BRAIN/calendar" ]; then
+  agenda="$(BRAIN_DIR="$BRAIN" node "$BRAIN/.brain/bin/brain-sync.mjs" agenda --days 3 2>/dev/null | grep -v '^(no events' | head -n 12 || true)"
+  if [ -n "$agenda" ]; then
+    add "## Upcoming events (next 3 days)"
+    add "$agenda"
+    add ""
+  fi
+fi
+
 # 4. Last 2 daily notes
 days="$(ls -1 "$BRAIN"/daily/[0-9]*.md 2>/dev/null | sort | tail -n 2)"
 if [ -n "$days" ]; then

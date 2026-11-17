@@ -21,6 +21,8 @@ database or API key; the hooks are small bash scripts.
   Core.md                     who you are: filled in by a "get to know me" interview
   daily/                      Claude's work log: decisions, results, learnings, open threads
   journal/                    your timeline: what you did, todos (with due dates), what you saved
+  calendar/                   events, one page each (synced to your CalDAV calendar)
+  contacts/                   people and their contact details (synced to your CardDAV address book)
   projects/                   one note per project: status, next step, decisions
   raw/                        exact copies of sources you ingested (never edited)
   wiki/                       compiled pages: topics/ (category hubs) concepts/ entities/ ideas/ sources/ synthesis/
@@ -36,6 +38,7 @@ Claude Code is wired up in four places:
   - `brain` records memory and runs the onboarding interview;
   - `brain-journal` keeps your timeline and todos;
   - `brain-note` turns tools, sites, ideas and things you learned into linked wiki pages, categorized in topic hubs;
+  - `brain-calendar` and `brain-contacts` keep events and contact details;
   - `brain-ingest` adds sources;
   - `brain-ask` answers with citations;
   - `brain-lint` runs a health check.
@@ -89,6 +92,8 @@ Talk normally, in any language. A few examples:
 | "note: finished the exam today" / "remind me Friday: submit homework" | A line in today's `journal/` (relative dates become real dates) |
 | "what are my todos?" / "I did the homework" | Grouped list / the todo is ticked in place |
 | "save this: Ghostty, a GPU terminal I want to try" / "idea: a small time-loop game" / "TIL: `nix why-depends` shows the dependency chain" | A wiki page each (`entities/`, `ideas/`, `concepts/`), filed under a topic hub such as *Linux › Tools*; a new hub is created and announced when nothing fits |
+| "Friday 14:00 dentist" / "every Monday 10:00 class" / "cancel tomorrow's meeting" | A page in `calendar/`, synced to your calendar |
+| "add Ahmet to my contacts, his number is …" | A page in `contacts/`, synced to your address book |
 | "what did I do this week?" | `brain recap` summary |
 | "check the brain" | Lint report first, fixes only after your approval |
 
@@ -98,9 +103,50 @@ and each write is a git commit in your vault. Claude never pushes; that is up to
 The CLI is also usable by hand, from `vault/.brain/bin/brain`:
 
 ```
-brain today | journal | todo [--soon] | new <type> "<Title>" | log <op> "<Title>"
-brain search [--raw] <term> | recap [--days N] | lint-check
+brain today | journal | todo [--soon] | agenda [--days N] | new <type> "<Title>" | log <op> "<Title>"
+brain search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | lint-check
 ```
+
+## Calendar, contacts and todos (optional sync)
+
+Events (`calendar/`), contacts (`contacts/`) and journal todos can be pushed to any
+CalDAV/CardDAV server, such as SOGo/mailcow, Nextcloud, Radicale or Fastmail, so you see them
+in Thunderbird, on your phone or in webmail. The sync is **one way**: you tell Claude, the
+vault changes, and a git hook pushes the change after the commit.
+
+- **What it touches:** only resources named `brain-…` in the chosen calendar and address book. Your other events and contacts are never touched.
+- **Edits elsewhere:** if you edit a Brain item in another client, the next sync overwrites it with the vault's version.
+
+Setup:
+
+1. Create an app password for your account that allows CalDAV/CardDAV, if your server supports it, and save it in your keyring.
+2. Create `~/.config/second-brain/sync.conf`:
+
+   ```ini
+   # the server's DAV root (/.well-known/caldav redirects there)
+   url=https://mail.example.com/SOGo/dav/
+   user=you@example.com
+   # collection name or display name
+   calendar=personal
+   addressbook=personal
+   # a command that prints the password, e.g. secret-tool lookup … or pass show …
+   password_cmd=kwallet-query -r dav -f second-brain kdewallet
+   # or a file that holds only the password (chmod 600)
+   # password_file=~/.config/second-brain/dav.pass
+   ```
+
+3. Test the connection; this only reads:
+
+   ```bash
+   ~/Documents/Brain/.brain/bin/brain sync --check
+   ```
+
+4. Subscribe to the same calendar and address book in Thunderbird.
+
+The installer adds the vault's git hooks: `pre-commit` gives new items stable ids and
+`post-commit` runs the sync in the background. Logs go to
+`~/.local/state/second-brain/sync.log`. Run `brain sync --dry-run` to see what would be sent,
+or `brain sync --full` to resend everything. Sync needs `node`.
 
 ## Languages
 

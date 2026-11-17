@@ -31,6 +31,8 @@ briefly.
 | `daily/YYYY-MM-DD.md` | Your work log: decisions, finished work, learnings, open threads | You, without asking |
 | `journal/YYYY-MM-DD.md` | The user's timeline: what they did, todos, pointers to notes saved that day | You, whenever the user tells you something to note (`brain-journal`) |
 | `projects/<slug>.md` | Active and past work: status, next step, links | You, without asking |
+| `calendar/<yyyy>/<date>-<slug>.md` | Events, one page each; synced to the CalDAV calendar | You, when the user schedules something (`brain-calendar`) |
+| `contacts/<slug>.md` | People's contact details; synced to the CardDAV address book | You, when the user gives contact details (`brain-contacts`) |
 | `raw/` | Copies of external sources (articles, PDFs, transcripts) | You save them, **then never modify them** |
 | `wiki/sources/` | One summary per source | You |
 | `wiki/concepts/` | Concepts, methods, commands, how-tos, things learned | You |
@@ -50,10 +52,12 @@ CLI: `$BRAIN/.brain/bin/brain`
 - `brain today`: creates today's daily file if missing, prints its path.
 - `brain journal`: creates today's journal file if missing, prints its path.
 - `brain todo [--soon]`: open todos in `journal/` sorted by due date, with `file:line`; `--soon` shows only overdue ones and those due in the next 3 days.
-- `brain new <source|concept|entity|tool|idea|topic|synthesis|project> "<Title>"`: creates a page from its template, prints its path (`tool` is an entity page for tools and sites).
+- `brain new <source|concept|entity|tool|idea|topic|synthesis|project|contact> "<Title>"`: creates a page from its template, prints its path (`tool` is an entity page for tools and sites). Events: `brain new event "<Title>" YYYY-MM-DD`.
 - `brain log <ingest|query|lint|note|setup> "<Title>"`: appends a line to `log.md`.
 - `brain search [--raw] <term...>`: title matches first; `--raw` also searches `raw/`. Case-insensitive, Turkish İ/ı aware.
 - `brain recap [--days N]`: daily notes and log entries from the last N days.
+- `brain agenda [--days N]`: upcoming events, recurrences expanded.
+- `brain sync [--check|--dry-run|--full]`: push todos, events and contacts to the server; `--check` only tests the connection.
 - `brain lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, missing frontmatter.
 
 Always create new pages with `brain new`, then edit them. Write files with Edit/Write.
@@ -101,6 +105,8 @@ contain several kinds; split it.
 | --- | --- | --- |
 | Something that happened, something they did | `journal/` › Log | `brain-journal` |
 | A todo or reminder | `journal/` › Todos, with `due:` | `brain-journal` |
+| An event with a time slot: appointment, class, meeting, trip | `calendar/` | `brain-calendar` |
+| A person's contact details | `contacts/` | `brain-contacts` |
 | A named thing worth remembering: a tool, site, app, library, person, game, anime… | `wiki/entities/` (`kind:`, `url:`) | `brain-note` |
 | A method, command, how-to, fact or something learned | `wiki/concepts/` | `brain-note` |
 | An idea | `wiki/ideas/` | `brain-note` |
@@ -120,6 +126,22 @@ Categories are **topic hubs** in `wiki/topics/`, also called maps of content.
 - **New hubs:** when nothing fits, create a hub with `brain new topic`, add it to `index.md` › Topics, and tell the user in one line: `New topic: …` (in their language). The user may rename or merge hubs; follow their wish.
 - **Hubs and tags:** hubs say what a page is about. `tags:` are for finer facets (`open-source`, `free`, `kde`).
 - **Language:** hub names and contents are written in the conversation language; the group headings inside hubs are English.
+
+## Calendar, todos and contacts (sync)
+
+Todos (`journal/`), events (`calendar/`) and contacts (`contacts/`) are pushed **one way**,
+from the vault to the user's CalDAV/CardDAV server (`brain sync`), so they show in
+Thunderbird, phones and webmail. The vault is the source:
+
+- **Who changes what:** you change them; the user only views them elsewhere. An edit made in another client to a Brain item is overwritten on the next sync.
+- **Ids:** every item has a stable id. Todos carry an Obsidian block id at the end of the line (` ^t-3f9a1c`); events and contacts have `uid:` in their frontmatter. The vault's pre-commit hook adds missing ids. Never change or remove an existing id.
+- **When it runs:** the vault's post-commit hook runs the sync in the background after every commit that touches these folders. Logs go to `~/.local/state/second-brain/sync.log`.
+- **What it touches:** only server resources whose name starts with `brain-`. Everything else in the user's calendar and address book is never touched.
+- **Removing items:**
+  - An event with `status: cancelled` is removed from the server; its page stays in the vault.
+  - A deleted page or todo line is deleted from the server.
+  - Cancelled todos (`[-]`) stay on the server as cancelled.
+- **Credentials:** the connection settings are in `~/.config/second-brain/sync.conf`, and the password is in the user's keyring. Never ask for, read, print or store a password.
 
 ## Ingest (external source)
 
@@ -153,7 +175,7 @@ Follow the `brain-lint` skill:
   ```yaml
   ---
   title: …
-  type: source|concept|entity|idea|topic|synthesis|project|daily|journal
+  type: source|concept|entity|idea|topic|synthesis|project|daily|journal|event|contact
   lang: tr|en|…      # language of the page content
   kind: tool|site|app|library|service|person|org|game|anime|…   # entities only
   url:               # entities: the thing's home page, if any
@@ -186,7 +208,7 @@ Follow the `brain-lint` skill:
   ```
   git -C "$BRAIN" add -A && git -C "$BRAIN" commit -m "<type>: <short title>"
   ```
-  `<type>` is one of `memory`, `journal`, `note`, `ingest`, `query`, `lint`, `core`, `project`, `system`.
+  `<type>` is one of `memory`, `journal`, `note`, `calendar`, `contact`, `ingest`, `query`, `lint`, `core`, `project`, `system`.
 - Do not push. The user or a scheduled task pushes.
 
 ## Relation to Claude's built-in memory

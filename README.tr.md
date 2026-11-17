@@ -21,6 +21,8 @@ veritabanı ya da API anahtarı gerekmez; hook'lar küçük bash betikleridir.
   Core.md                     sen kimsin: "beni tanı" röportajıyla dolar
   daily/                      Claude'un iş kaydı: kararlar, sonuçlar, öğrenimler, açık uçlar
   journal/                    zaman çizelgen: yaptıkların, yapılacaklar (tarihli), kaydettiklerin
+  calendar/                   etkinlikler, her biri bir sayfa (CalDAV takvimine eşitlenir)
+  contacts/                   kişiler ve iletişim bilgileri (CardDAV rehberine eşitlenir)
   projects/                   proje başına bir not: durum, sonraki adım, kararlar
   raw/                        işlenen kaynakların birebir kopyası (asla değiştirilmez)
   wiki/                       derlenen sayfalar: topics/ (kategori hub'ları) concepts/ entities/ ideas/ sources/ synthesis/
@@ -36,6 +38,7 @@ Claude Code'a dört noktadan bağlanır:
   - `brain` hafızayı kaydeder ve tanışma röportajını yürütür;
   - `brain-journal` zaman çizelgeni ve yapılacaklarını tutar;
   - `brain-note` araçları, siteleri, fikirleri ve öğrendiklerini konu hub'larında kategorize edilmiş, birbirine bağlı wiki sayfalarına dönüştürür;
+  - `brain-calendar` ve `brain-contacts` etkinlikleri ve kişileri tutar;
   - `brain-ingest` kaynak ekler;
   - `brain-ask` kaynak göstererek cevap verir;
   - `brain-lint` sağlık kontrolü yapar.
@@ -89,6 +92,8 @@ Normal konuş, istediğin dilde. Birkaç örnek:
 | "not al: bugün sınavı bitirdim" / "cuma için hatırlat: ödev teslimi" | Bugünkü `journal/` dosyasına bir satır ("cuma" gibi göreli tarihler gerçek tarihe çevrilir) |
 | "yapılacaklarım ne?" / "ödevi bitirdim" | Gruplanmış liste / ilgili madde yerinde işaretlenir |
 | "kaydet: Ghostty, denemek istediğim GPU hızlandırmalı terminal" / "fikir: zaman döngülü küçük bir oyun" / "şunu öğrendim: `nix why-depends` bağımlılık zincirini gösterir" | Her biri bir wiki sayfası olur (`entities/`, `ideas/`, `concepts/`) ve *Linux › Tools* gibi bir konu hub'ına yerleşir; uyan konu yoksa yeni hub açılır ve haber verilir |
+| "cuma 14:00 diş randevusu" / "her pazartesi 10:00 ders" / "yarınki toplantıyı iptal et" | `calendar/` altında bir sayfa, takvimine eşitlenir |
+| "Ahmet'i rehbere ekle, numarası …" | `contacts/` altında bir sayfa, rehberine eşitlenir |
 | "bu hafta ne yaptım?" | `brain recap` özeti |
 | "beyni kontrol et" | Önce bir lint raporu, düzeltmeler ancak senin onayınla |
 
@@ -99,9 +104,51 @@ kalmış.
 CLI'ı elle de kullanabilirsin; yolu `vault/.brain/bin/brain`:
 
 ```
-brain today | journal | todo [--soon] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-brain search [--raw] <terim> | recap [--days N] | lint-check
+brain today | journal | todo [--soon] | agenda [--days N] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
+brain search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | lint-check
 ```
+
+## Takvim, rehber ve yapılacaklar (isteğe bağlı eşitleme)
+
+Etkinlikler (`calendar/`), kişiler (`contacts/`) ve journal'daki yapılacaklar herhangi bir
+CalDAV/CardDAV sunucusuna (SOGo/mailcow, Nextcloud, Radicale, Fastmail…) gönderilebilir. Böylece
+onları Thunderbird'de, telefonunda ya da webmail'de görürsün. Eşitleme **tek yönlü**:
+Claude'a söylersin, vault değişir, commit'ten sonra bir git hook'u değişikliği gönderir.
+
+- **Neye dokunur:** seçilen takvim ve rehberde yalnızca `brain-…` adlı kayıtlara. Diğer etkinlik ve kişilerine asla dokunulmaz.
+- **Başka yerde yapılan düzenleme:** bir Brain kaydını başka bir uygulamada düzenlersen, bir sonraki eşitleme onu vault'taki hâliyle ezer.
+
+Kurulum:
+
+1. Sunucun destekliyorsa hesabın için CalDAV/CardDAV yetkili bir app password oluştur ve anahtar zincirine kaydet.
+2. `~/.config/second-brain/sync.conf` dosyasını oluştur:
+
+   ```ini
+   # sunucunun DAV kökü (/.well-known/caldav buraya yönlenir)
+   url=https://mail.example.com/SOGo/dav/
+   user=sen@example.com
+   # koleksiyon adı ya da görünen adı
+   calendar=personal
+   addressbook=personal
+   # şifreyi yazdıran bir komut; örn. secret-tool lookup … ya da pass show …
+   password_cmd=kwallet-query -r dav -f second-brain kdewallet
+   # ya da yalnızca şifreyi içeren bir dosya (chmod 600)
+   # password_file=~/.config/second-brain/dav.pass
+   ```
+
+3. Bağlantıyı test et; bu komut yalnızca okur:
+
+   ```bash
+   ~/Documents/Brain/.brain/bin/brain sync --check
+   ```
+
+4. Thunderbird'de aynı takvime ve adres defterine abone ol.
+
+Kurulum betiği vault'a iki git hook'u ekler: `pre-commit` yeni kayıtlara kalıcı kimlik verir,
+`post-commit` eşitlemeyi arka planda çalıştırır. Kayıtlar
+`~/.local/state/second-brain/sync.log` dosyasına yazılır. Ne gönderileceğini görmek için
+`brain sync --dry-run`, hepsini yeniden göndermek için `brain sync --full` kullan. Eşitleme
+`node` gerektirir.
 
 ## Diller
 

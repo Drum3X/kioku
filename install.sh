@@ -67,7 +67,7 @@ if [ "$mode" != "--uninstall" ]; then
     ln -s "$SYS" "$link"; changes+=("linked $link → $SYS")
   fi
 
-  for d in daily journal projects raw/inbox raw/assets wiki/topics wiki/sources wiki/concepts wiki/entities wiki/ideas wiki/synthesis; do
+  for d in daily journal calendar contacts projects raw/inbox raw/assets wiki/topics wiki/sources wiki/concepts wiki/entities wiki/ideas wiki/synthesis; do
     mkdir -p "$VAULT/$d"
     [ -n "$(ls -A "$VAULT/$d")" ] || touch "$VAULT/$d/.gitkeep"
   done
@@ -92,6 +92,10 @@ if [ "$mode" != "--uninstall" ]; then
       warn "git init done, but the first commit failed (set git user.name / user.email, then commit)"
     fi
   fi
+
+  # Vault git hooks: stable ids for todos/events/contacts, background sync after commits
+  hk="$("$VAULT/.brain/bin/brain" sync --setup 2>&1)" || warn "git hooks: $hk"
+  [ -n "$hk" ] && changes+=("git hooks: ${hk//$'\n'/, }")
 fi
 
 # ---- 2. Skills (symlinks into ~/.claude/skills) ----
@@ -122,8 +126,9 @@ The user's personal second brain is \`$VAULT\` (Obsidian vault + git). The user 
 - Decisions, finished work, durable learnings, preferences, open threads → record them with the \`brain\` skill (without asking; except Core.md).
 - Questions that need past knowledge → search Brain first (\`brain-ask\`). A link/PDF to "add to the brain" → \`brain-ingest\`. Maintenance → \`brain-lint\`.
 - The user's own notes: timeline and todos ("today I did …", reminders) → \`brain-journal\` (journal/); durable things (tools, sites, ideas, things learned) → \`brain-note\` (wiki pages categorized in topic hubs, wiki/topics/). Don't mix them into your work log (daily/).
+- Events and appointments → \`brain-calendar\` (calendar/); contact details → \`brain-contacts\` (contacts/). Both sync one-way to the user's CalDAV/CardDAV server after each commit; never handle the password.
 - Languages: system text (headings, entry types, frontmatter) is English; note content follows the language of its source or conversation.
-- CLI: \`$VAULT/.brain/bin/brain\` (today, journal, todo, new, log, search, recap, lint-check).
+- CLI: \`$VAULT/.brain/bin/brain\` (today, journal, todo, agenda, new, log, search, recap, sync, lint-check).
 - Built-in auto memory is only for working preferences about how to help the user; knowledge, decisions, projects and the user's profile go into Brain. Never write the same thing in both places.
 <!-- brain:end -->
 EOF

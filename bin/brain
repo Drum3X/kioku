@@ -21,7 +21,12 @@ Usage: brain <command> [args]
   today                         Create today's daily note if missing, print its path
   journal                       Create today's journal note (the user's own notes) if missing, print its path
   todo [--soon]                 Open todos in journal/, by due date; --soon: overdue and next 3 days
-  new <type> "<Title>"          Create a page from its template: source|concept|entity|tool|idea|topic|synthesis|project
+  agenda [--days N]             Upcoming events from calendar/ (default 7 days, recurrences expanded)
+  sync [--check|--dry-run|--full]  Push todos, events and contacts to CalDAV/CardDAV (one-way)
+  sync --ids [FILE...]          Give todos, events and contacts stable ids
+  sync --setup                  Install the vault git hooks (ids before commit, sync after)
+  new <type> "<Title>"          Create a page: source|concept|entity|tool|idea|topic|synthesis|project|contact
+  new event "<Title>" DATE      Create an event in calendar/YYYY/
   log <op> "<Title>"            Append to log.md: ingest|query|lint|note|setup
   search [--raw] <term...>      Search; title matches first. Case-insensitive, Turkish İ/ı aware
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
@@ -89,6 +94,7 @@ cmd_todo() {
         i = index($0, ":"); file = substr($0, 1, i-1); rest = substr($0, i+1)
         j = index(rest, ":"); ln = substr(rest, 1, j-1); text = substr(rest, j+1)
         sub(/^[ \t]*- \[ \] /, "", text)
+        sub(/[ \t]+\^t-[0-9a-z]+[ \t]*$/, "", text)
         due = "9999-99-99"
         if (match(text, /due: ?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/)) due = substr(text, RSTART+RLENGTH-10, 10)
         print due, text, file ":" ln }' | sort)"
@@ -101,9 +107,22 @@ cmd_todo() {
 }
 
 cmd_new() {
-  [ $# -ge 2 ] || die 'usage: brain new <type> "<Title>"'
+  [ $# -ge 2 ] || die 'usage: brain new <type> "<Title>"   (event: brain new event "<Title>" YYYY-MM-DD)'
   local type="$1"; shift; local title="$*" dir
+  if [ "$type" = event ]; then
+    local d="${!#}"
+    [[ "$d" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [ $# -ge 2 ] || die 'usage: brain new event "<Title>" YYYY-MM-DD'
+    title="${*:1:$#-1}"
+    local slug; slug="$(slugify "$title")"; [ -n "$slug" ] || die "could not make a slug from the title"
+    local f="$BRAIN/calendar/${d:0:4}/$d-$slug.md"
+    [ -e "$f" ] && die "already exists: $f"
+    mkdir -p "$(dirname "$f")"
+    render "$TPL/event.md" "$title" | sed "s|^start:\$|start: $d|" > "$f"
+    echo "$f"
+    return
+  fi
   case "$type" in
+    contact) dir="contacts" ;;
     source) dir="wiki/sources" ;;
     concept) dir="wiki/concepts" ;;
     entity|tool) dir="wiki/entities" ;;
@@ -116,8 +135,58 @@ cmd_new() {
   local slug; slug="$(slugify "$title")"; [ -n "$slug" ] || die "could not make a slug from the title"
   local f="$BRAIN/$dir/$slug.md"
   [ -e "$f" ] && die "already exists: $f"
+  mkdir -p "$BRAIN/$dir"
   render "$TPL/$type.md" "$title" > "$f"
   echo "$f"
+}
+
+# Calendar, todos and contacts ↔ CalDAV/CardDAV (one-way, vault → server). Needs node.
+sync_js() {
+  command -v node >/dev/null || die "node is required for calendar/contacts sync"
+  BRAIN_DIR="$BRAIN" node "$BRAIN/.brain/bin/brain-sync.mjs" "$@"
+}
+
+cmd_agenda() { sync_js agenda "$@"; }
+
+cmd_sync() {
+  case "${1:-}" in
+    --ids) shift; sync_js ids "$@" ;;
+    --setup) setup_git_hooks ;;
+    *) sync_js sync "$@" ;;
+  esac
+}
+
+# Vault git hooks: pre-commit gives new todos/events/contacts stable ids; post-commit
+# pushes them to the server in the background (only when sync.conf exists).
+setup_git_hooks() {
+  local hd="$BRAIN/.git/hooks"
+  [ -d "$BRAIN/.git" ] || die "the vault is not a git repository"
+  mkdir -p "$hd"
+  write_hook() {
+    local f="$hd/$1"
+    if [ -e "$f" ] && ! grep -q 'second-brain:' "$f"; then
+      echo "brain: $f exists and is not ours; left untouched" >&2; return
+    fi
+    printf '%s\n' "$2" > "$f.new" && chmod +x "$f.new"
+    if [ -f "$f" ] && cmp -s "$f" "$f.new"; then rm "$f.new"; else mv "$f.new" "$f"; echo "installed $1 hook"; fi
+  }
+  write_hook pre-commit '#!/usr/bin/env bash
+# second-brain: give new todos, events and contacts in this commit a stable id
+B="$(git rev-parse --show-toplevel)/.brain/bin/brain"
+[ -x "$B" ] && command -v node >/dev/null || exit 0
+mapfile -t files < <(git diff --cached --name-only --diff-filter=ACM -- journal calendar contacts)
+[ ${#files[@]} -gt 0 ] || exit 0
+mapfile -t changed < <("$B" sync --ids "${files[@]}" 2>/dev/null)
+[ ${#changed[@]} -gt 0 ] && git add -- "${changed[@]}"
+exit 0'
+  write_hook post-commit '#!/usr/bin/env bash
+# second-brain: push todos, events and contacts to CalDAV/CardDAV after each commit
+B="$(git rev-parse --show-toplevel)/.brain/bin/brain"
+[ -x "$B" ] || exit 0
+[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/second-brain/sync.conf" ] || exit 0
+git diff-tree --root --no-commit-id --name-only -r HEAD -- journal calendar contacts | grep -q . || exit 0
+( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; nohup "$B" sync --quiet >/dev/null 2>&1 & )
+exit 0'
 }
 
 cmd_log() {
@@ -129,7 +198,7 @@ cmd_log() {
 }
 
 cmd_search() {
-  local dirs=(Core.md projects wiki daily journal index.md)
+  local dirs=(Core.md projects wiki daily journal calendar contacts index.md)
   if [ "${1:-}" = "--raw" ]; then dirs+=(raw); shift; fi
   [ $# -ge 1 ] || die "usage: brain search [--raw] <term...>"
   local re; re="$(search_re "$*")"
@@ -236,6 +305,14 @@ cmd_lint_check() {
   done
   [ "$e" -eq 0 ] && echo "(none)"; issues=$((issues+e))
 
+  echo "## Calendar, todos and contacts"
+  if command -v node >/dev/null; then
+    local vo; vo="$(BRAIN_DIR="$BRAIN" node "$BRAIN/.brain/bin/brain-sync.mjs" validate 2>&1)" || true
+    if [ -n "$vo" ]; then printf '%s\n' "$vo"; issues=$((issues+$(printf '%s\n' "$vo" | grep -c '^- '))); else echo "(none)"; fi
+  else
+    echo "(skipped: node not found)"
+  fi
+
   echo "## inbox"
   local ib; ib="$(find raw/inbox -type f ! -name .gitkeep 2>/dev/null | wc -l | tr -d ' ')"
   echo "$ib unprocessed file(s)"
@@ -247,6 +324,8 @@ cmd_lint_check() {
 case "${1:-}" in
   today) shift; cmd_today "$@" ;;
   journal) shift; cmd_journal "$@" ;;
+  agenda) shift; cmd_agenda "$@" ;;
+  sync) shift; cmd_sync "$@" ;;
   todo) shift; cmd_todo "$@" ;;
   new) shift; cmd_new "$@" ;;
   log) shift; cmd_log "$@" ;;
