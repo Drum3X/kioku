@@ -143,7 +143,7 @@ kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla 
 CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosyasına bir bağlantı):
 
 ```
-kioku today | journal | todo [--soon] | agenda [--days N] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
+kioku today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
 kioku search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
 

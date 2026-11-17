@@ -56,7 +56,7 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku log <ingest|query|lint|note|setup> "<Title>"`: appends a line to `log.md`.
 - `kioku search [--raw] <term...>`: title matches first; `--raw` also searches `raw/`. Case-insensitive, Turkish İ/ı aware.
 - `kioku recap [--days N]`: daily notes and log entries from the last N days.
-- `kioku agenda [--days N]`: upcoming events, recurrences expanded.
+- `kioku agenda [--days N] [--past]`: upcoming events, recurrences expanded; events that already ended are left out (`--past` keeps today's). The session-start list is a snapshot from when the session began: run this again instead of relying on it.
 - `kioku sync [--check|--dry-run|--full]`: push todos, events and contacts to the server; `--check` only tests the connection.
 - `kioku remote on|off|status|now`: keep vault copies on several machines in step through the git remote.
 - `kioku update [--check]`: update Kioku itself (pull + install step); only when the user asks, or when the session context says the install step is out of date and the user agrees.

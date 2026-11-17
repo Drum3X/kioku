@@ -147,7 +147,7 @@ and each write is a git commit in your vault. Claude never pushes, unless you tu
 The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
-kioku today | journal | todo [--soon] | agenda [--days N] | new <type> "<Title>" | log <op> "<Title>"
+kioku today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
 kioku search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
 

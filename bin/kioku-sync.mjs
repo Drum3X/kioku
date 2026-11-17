@@ -4,7 +4,7 @@
 //   sync [--check | --dry-run | --full | --quiet]   one-way push of journal todos, calendar
 //                                                   events and contacts to CalDAV/CardDAV
 //   ids [FILE...]                                   give todos/events/contacts stable ids
-//   agenda [--days N]                               upcoming events (recurrences expanded)
+//   agenda [--days N] [--past]                      upcoming events (recurrences expanded; ended ones only with --past)
 //
 // Safety: only resources whose file name starts with "kioku-" (or the legacy "brain-") are ever written or deleted.
 
@@ -351,14 +351,20 @@ function occurrences(ev, from, to) {
 function cmdAgenda(args) {
   const di = args.indexOf('--days');
   const days = di >= 0 ? Math.max(1, +args[di + 1] || 7) : 7;
-  const from = new Date(); from.setHours(0, 0, 0, 0);
+  const past = args.includes('--past');   // also today's events that have already ended
+  const now = new Date();
+  const from = new Date(now); from.setHours(0, 0, 0, 0);
   const to = addDays(from, days);
   const rows = [];
   for (const ev of readEvents([])) {
     if (String(ev.data.status).toLowerCase() === 'cancelled') continue;
+    const span = ev.endD - ev.start.d;
     for (const d of occurrences(ev, from, to)) {
+      const end = new Date(d.getTime() + span);
+      if (end <= now && !past) continue;
+      const when = end <= now ? ' (ended)' : d <= now ? ' (now)' : '';
       const dayName = d.toLocaleDateString('en-GB', { weekday: 'short' });
-      const time = ev.allDay ? 'all day' : `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const time = (ev.allDay ? 'all day' : `${pad(d.getHours())}:${pad(d.getMinutes())}`) + when;
       const loc = ev.data.location ? ` (${ev.data.location})` : '';
       const rec = ev.data.rrule ? ' [recurring]' : '';
       rows.push([d.getTime(), `- ${dayName} ${isoDay(d)} ${time} ${ev.title}${loc}${rec} — ${rel(ev.file)}`]);
@@ -581,7 +587,7 @@ try {
   else if (cmd === 'ids') cmdIds(args);
   else if (cmd === 'agenda') cmdAgenda(args);
   else if (cmd === 'validate') cmdValidate();
-  else { console.error('usage: kioku-sync.mjs sync [--check|--dry-run|--full|--quiet] | ids [FILE...] | agenda [--days N] | validate'); process.exit(2); }
+  else { console.error('usage: kioku-sync.mjs sync [--check|--dry-run|--full|--quiet] | ids [FILE...] | agenda [--days N] [--past] | validate'); process.exit(2); }
 } catch (e) {
   unlock();
   die(e.message);

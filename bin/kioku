@@ -26,7 +26,8 @@ Usage: kioku <command> [args]
   today                         Create today's daily note if missing, print its path
   journal                       Create today's journal note (the user's own notes) if missing, print its path
   todo [--soon]                 Open todos in journal/, by due date; --soon: overdue and next 3 days
-  agenda [--days N]             Upcoming events from calendar/ (default 7 days, recurrences expanded)
+  agenda [--days N] [--past]    Upcoming events from calendar/ (default 7 days, recurrences expanded);
+                                ended ones are left out, --past keeps today's
   sync [--check|--dry-run|--full]  Push todos, events and contacts to CalDAV/CardDAV (one-way)
   sync --ids [FILE...]          Give todos, events and contacts stable ids
   sync --setup                  Install the vault git hooks (ids before commit, sync after)

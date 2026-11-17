@@ -52,7 +52,7 @@ on the next sync, so changes always go through you.
 
 ## What's coming up?
 
-"What's on this week?", "am I free on Thursday?": run `kioku agenda --days N` and answer briefly. Include due todos from `kioku todo --soon` when they are relevant.
+"What's on this week?", "am I free on Thursday?": run `kioku agenda --days N` and answer briefly. It leaves out events that have already ended (add `--past` for "what was on today"); events marked `(now)` are under way. The session-start agenda is a snapshot from when the session began, so run it again rather than quoting that list later in a session. Include due todos from `kioku todo --soon` when they are relevant.
 
 ## If the sync fails
 
