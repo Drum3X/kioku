@@ -51,13 +51,53 @@ Contradictions are flagged and every claim keeps a link to its source.
 ## Requirements
 
 - Claude Code
-- bash 4+, `jq`, `ripgrep`, `git`
+- bash 4+, `jq`, `ripgrep`, `git` (the Nix package brings its own)
 - `node` (optional): used to make file names from non-Latin titles (`машинное-обучение.md`, `機械学習.md`)
 - Obsidian (optional): only for browsing
 
 Developed and used on Linux (NixOS). macOS should work with a newer bash (`brew install bash jq ripgrep`). On Windows, use WSL. Neither macOS nor Windows has been tested yet.
 
 ## Install
+
+### NixOS / Home Manager (flake)
+
+Add the flake as an input and enable the Home Manager module:
+
+```nix
+# flake.nix
+inputs.kioku = {
+  url = "github:Drum3X/kioku";
+  inputs.nixpkgs.follows = "nixpkgs";
+};
+```
+
+```nix
+# a Home Manager module
+{config, inputs, ...}: {
+  imports = [inputs.kioku.homeManagerModules.default];
+  programs.kioku = {
+    enable = true;
+    vault = "${config.home.homeDirectory}/Documents/Kioku"; # the default
+  };
+}
+```
+
+The module works like this:
+- **Command:** it puts `kioku` and its tools (`jq`, `ripgrep`, `git`, `node`) on your PATH.
+- **Wiring:** on every switch, it runs the same steps as `install.sh`. The vault's `.kioku` link points at the package in the Nix store, and the version is pinned in your `flake.lock`.
+- **Updating:** run `nix flake update kioku`, then rebuild.
+
+`~/.claude/settings.json` and `~/.claude/CLAUDE.md` are also edited by Claude Code itself. The
+module merges its entries into them, as `install.sh` does, rather than owning the files.
+
+**Working on Kioku itself:** set `programs.kioku.source = "/path/to/your/checkout";`. The vault
+then links to that checkout, so your edits take effect without a rebuild. Remove the line to go
+back to the pinned version.
+
+**Removing:** disabling the module does not unwire Claude Code. Run `kioku-install --uninstall`
+from the package first.
+
+### Other systems
 
 ```bash
 git clone https://github.com/Drum3X/kioku ~/Projects/kioku

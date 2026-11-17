@@ -51,13 +51,49 @@ işaretlenir ve her iddia kaynağına bağlı kalır.
 ## Gereksinimler
 
 - Claude Code
-- bash 4+, `jq`, `ripgrep`, `git`
+- bash 4+, `jq`, `ripgrep`, `git` (Nix paketi bunları kendisi getirir)
 - `node` (isteğe bağlı): Latin dışı başlıklardan dosya adı üretmek için (`машинное-обучение.md`, `機械学習.md`)
 - Obsidian (isteğe bağlı): sadece gezinmek için
 
 Linux'ta (NixOS) geliştirildi ve kullanılıyor. macOS'ta daha yeni bir bash ile çalışması beklenir (`brew install bash jq ripgrep`). Windows'ta WSL kullan. macOS ve Windows henüz test edilmedi.
 
 ## Kurulum
+
+### NixOS / Home Manager (flake)
+
+Flake'i input olarak ekle ve Home Manager modülünü aç:
+
+```nix
+# flake.nix
+inputs.kioku = {
+  url = "github:Drum3X/kioku";
+  inputs.nixpkgs.follows = "nixpkgs";
+};
+```
+
+```nix
+# bir Home Manager modülü
+{config, inputs, ...}: {
+  imports = [inputs.kioku.homeManagerModules.default];
+  programs.kioku = {
+    enable = true;
+    vault = "${config.home.homeDirectory}/Documents/Kioku"; # varsayılan
+  };
+}
+```
+
+Modül şunları yapar:
+- **Komut:** `kioku` komutunu ve kullandığı araçları (`jq`, `ripgrep`, `git`, `node`) PATH'e koyar.
+- **Bağlantılar:** her switch'te `install.sh` ile aynı adımları çalıştırır. Vault'taki `.kioku` bağlantısı Nix store'daki pakete gider; sürüm `flake.lock`'ta sabittir.
+- **Güncelleme:** `nix flake update kioku`, ardından rebuild.
+
+`~/.claude/settings.json` ve `~/.claude/CLAUDE.md` dosyalarını Claude Code da düzenlediği için modül bu dosyaların sahibi olmaz. Kendi satırlarını, `install.sh` gibi, onlara ekler.
+
+**Kioku'nun kendisi üzerinde çalışıyorsan:** `programs.kioku.source = "/checkout/yolu";` ayarla. Vault o zaman bu checkout'a bağlanır ve yaptığın değişiklikler rebuild gerektirmeden geçerli olur. Sabit sürüme dönmek için satırı sil.
+
+**Kaldırma:** modülü kapatmak Claude Code bağlantılarını kaldırmaz. Önce paketteki `kioku-install --uninstall` komutunu çalıştır.
+
+### Diğer sistemler
 
 ```bash
 git clone https://github.com/Drum3X/kioku ~/Projects/kioku

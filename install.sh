@@ -5,19 +5,25 @@
 #   ./install.sh [--vault PATH]       install or update (default vault: the one already
 #                                     installed, otherwise ~/Documents/Kioku)
 #   ./install.sh --uninstall          remove the Claude Code wiring (the vault is kept)
+#
+#   --relink        re-point an existing .kioku link at this copy (used by the Nix module,
+#                   whose store path changes on every update)
+#   --no-bin-link   don't link the kioku command into ~/.local/bin (a package provides it)
 set -euo pipefail
 export PATH="/etc/profiles/per-user/${USER:-$(id -un)}/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 die() { echo "kioku: $*" >&2; exit 1; }
 warn() { echo "WARNING: $*" >&2; }
 
-mode="install"; vault_arg=""
+mode="install"; vault_arg=""; relink=""; bin_link=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --vault) vault_arg="${2:-}"; [ -n "$vault_arg" ] || die "--vault needs a path"; shift 2 ;;
     --vault=*) vault_arg="${1#--vault=}"; shift ;;
     --uninstall) mode="--uninstall"; shift ;;
-    -h|--help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --relink) relink=1; shift ;;
+    --no-bin-link) bin_link=""; shift ;;
+    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
 done
@@ -74,14 +80,17 @@ today="$(date +%F)"
 
 # ---- 1. Vault ----
 if [ "$mode" != "--uninstall" ]; then
-  chmod +x "$SYS/bin/kioku" "$SYS"/hooks/*.sh
+  chmod +x "$SYS/bin/kioku" "$SYS"/hooks/*.sh 2>/dev/null || true   # read-only in the Nix store
   [ -e "$VAULT" ] || changes+=("vault created: $VAULT")
   mkdir -p "$VAULT"
 
   migrate_legacy
   link="$VAULT/.kioku"
   if [ -L "$link" ]; then
-    [ "$(cd "$link" && pwd -P)" = "$SYS" ] || die "$link points somewhere else ($(readlink "$link")); remove it or install from that checkout"
+    if [ "$(cd "$link" 2>/dev/null && pwd -P)" != "$SYS" ]; then
+      [ -n "$relink" ] || die "$link points somewhere else ($(readlink "$link")); remove it or install from that checkout (or pass --relink)"
+      ln -sfn "$SYS" "$link"; changes+=("relinked $link → $SYS")
+    fi
   elif [ -e "$link" ]; then
     die "$link is a real folder (older layout). Move it out of the vault, then re-run."
   else
@@ -121,7 +130,7 @@ fi
 
 # ---- 1b. The kioku command on PATH (~/.local/bin/kioku → the vault's CLI) ----
 BIN="$HOME/.local/bin"; cli="$BIN/kioku"; cli_src="$VAULT/.kioku/bin/kioku"
-if [ "$mode" = "--uninstall" ]; then
+if [ "$mode" = "--uninstall" ] || [ -z "$bin_link" ]; then
   if [ -L "$cli" ] && [ "$(readlink "$cli")" = "$cli_src" ]; then rm "$cli"; changes+=("removed $cli"); fi
 else
   if [ -L "$cli" ] && [ "$(readlink "$cli")" = "$cli_src" ]; then :
