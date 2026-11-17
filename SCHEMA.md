@@ -58,6 +58,7 @@ CLI: `$BRAIN/.brain/bin/brain`
 - `brain recap [--days N]`: daily notes and log entries from the last N days.
 - `brain agenda [--days N]`: upcoming events, recurrences expanded.
 - `brain sync [--check|--dry-run|--full]`: push todos, events and contacts to the server; `--check` only tests the connection.
+- `brain remote on|off|status|now`: keep vault copies on several machines in step through the git remote.
 - `brain lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, missing frontmatter.
 
 Always create new pages with `brain new`, then edit them. Write files with Edit/Write.
@@ -213,7 +214,7 @@ Follow the `brain-lint` skill:
   git -C "$BRAIN" add -A && git -C "$BRAIN" commit -m "<type>: <short title>"
   ```
   `<type>` is one of `memory`, `journal`, `note`, `calendar`, `contact`, `ingest`, `query`, `lint`, `core`, `project`, `system`.
-- Do not push. The user or a scheduled task pushes.
+- Do not push yourself. If the vault has autosync on (`brain remote on`, for copies on several machines), the post-commit hook pulls and pushes after each commit and each session starts with a pull. If the session context reports a sync conflict, tell the user and offer to resolve it.
 
 ## Relation to Claude's built-in memory
 

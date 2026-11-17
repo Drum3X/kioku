@@ -98,14 +98,13 @@ Normal konuş, istediğin dilde. Birkaç örnek:
 | "beyni kontrol et" | Önce bir lint raporu, düzeltmeler ancak senin onayınla |
 
 `Core.md` değişiklikleri her zaman senin onayını ister. Geri kalan her şey sormadan
-kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude asla push yapmaz; o sana
-kalmış.
+kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla makine için `brain remote`'u açmadıysan asla push yapmaz; o sana kalmış.
 
 CLI'ı elle de kullanabilirsin; yolu `vault/.brain/bin/brain`:
 
 ```
 brain today | journal | todo [--soon] | agenda [--days N] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-brain search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | lint-check
+brain search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | lint-check
 ```
 
 ## Takvim, rehber ve yapılacaklar (isteğe bağlı eşitleme)
@@ -164,6 +163,23 @@ Kurulum betiği vault'a iki git hook'u ekler: `pre-commit` yeni kayıtlara kalı
 `~/.local/state/second-brain/sync.log` dosyasına yazılır. Ne gönderileceğini görmek için
 `brain sync --dry-run`, hepsini yeniden göndermek için `brain sync --full` kullan. Eşitleme
 `node` gerektirir.
+
+## Birden fazla makine ve telefon (isteğe bağlı)
+
+Vault'un bir kopyasını ikinci bir makinede tutabilirsin. Bu makine örneğin sürekli açık bir sunucu olabilir. Telefondan oradaki Claude ile [Remote Control](https://code.claude.com/docs/en/remote-control) üzerinden konuşursun.
+
+1. Vault'u bir kez özel bir git reposuna push et: `git -C ~/Documents/Brain push -u origin HEAD`.
+2. Her makinede `brain remote on` çalıştır. Bundan sonra:
+   - her oturum bir `git pull` ile başlar;
+   - her commit arka planda pull edilir, rebase yapılır ve push edilir.
+3. Sunucuda:
+   - bu repoyu ve vault'u klonla, `install.sh` çalıştır, ardından `brain remote on`;
+   - vault klasöründe `claude remote-control` başlat (tmux içinde ya da servis olarak);
+   - sunucu, Claude uygulamasında Code bölümünde görünür.
+
+İki makine aynı günlük ya da journal dosyasına satır eklerse git iki tarafı da korur (`.gitattributes` içindeki `merge=union`). Gerçek bir çakışmada hiçbir şey zorla birleştirilmez: yerel commit'ler kalır, push yapılmaz ve bir sonraki oturum seni uyarır.
+
+Sunucu UTC'de çalışıyorsa `TZ` ayarla; böylece "bugün" ve etkinlik saatleri seninkiyle aynı olur. Durumu `brain remote status` gösterir, kayıtlar `~/.local/state/second-brain/git-sync.log` dosyasına yazılır.
 
 ## Diller
 

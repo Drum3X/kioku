@@ -25,6 +25,7 @@ Usage: brain <command> [args]
   sync [--check|--dry-run|--full]  Push todos, events and contacts to CalDAV/CardDAV (one-way)
   sync --ids [FILE...]          Give todos, events and contacts stable ids
   sync --setup                  Install the vault git hooks (ids before commit, sync after)
+  remote on|off|status|pull|now Keep vault copies on several machines in step via git (pull/push)
   new <type> "<Title>"          Create a page: source|concept|entity|tool|idea|topic|synthesis|project|contact
   new event "<Title>" DATE      Create an event in calendar/YYYY/
   log <op> "<Title>"            Append to log.md: ingest|query|lint|note|setup
@@ -180,13 +181,73 @@ mapfile -t changed < <("$B" sync --ids "${files[@]}" 2>/dev/null)
 [ ${#changed[@]} -gt 0 ] && git add -- "${changed[@]}"
 exit 0'
   write_hook post-commit '#!/usr/bin/env bash
-# second-brain: push todos, events and contacts to CalDAV/CardDAV after each commit
+# second-brain: after each commit, push the vault to its git remote (brain remote on) and
+# todos, events and contacts to CalDAV/CardDAV
 B="$(git rev-parse --show-toplevel)/.brain/bin/brain"
-[ -x "$B" ] || exit 0
-[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/second-brain/sync.conf" ] || exit 0
-git diff-tree --root --no-commit-id --name-only -r HEAD -- journal calendar contacts | grep -q . || exit 0
-( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; nohup "$B" sync --quiet >/dev/null 2>&1 & )
+[ -x "$B" ] && [ -z "${BRAIN_GIT_SYNCING:-}" ] || exit 0
+dav=; [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/second-brain/sync.conf" ] && git diff-tree --root --no-commit-id --name-only -r HEAD -- journal calendar contacts | grep -q . && dav=1
+git=; [ "$(git config --bool brain.autosync)" = true ] && git=1
+[ -n "$dav$git" ] || exit 0
+( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; nohup bash -c "${git:+\"\$1\" remote now;} ${dav:+\"\$1\" sync --quiet;} :" _ "$B" >/dev/null 2>&1 & )
 exit 0'
+}
+
+# Keep several copies of the vault (e.g. a laptop and a server) in step through its git remote.
+# Enabled per clone with `brain remote on` (git config brain.autosync). After each commit the
+# post-commit hook pulls (rebase) and pushes in the background; each session starts with a pull.
+REMOTE_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/second-brain"
+cmd_remote() {
+  local g=(git -C "$BRAIN")
+  case "${1:-status}" in
+    on)
+      "${g[@]}" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1 || die "the vault branch has no upstream; push it once with: git -C $BRAIN push -u origin HEAD"
+      "${g[@]}" config brain.autosync true; setup_git_hooks >/dev/null
+      echo "autosync on: pull before each session, push after each commit" ;;
+    off) "${g[@]}" config --unset brain.autosync || true; echo "autosync off" ;;
+    status)
+      if [ "$("${g[@]}" config --bool brain.autosync 2>/dev/null)" = true ]; then echo "autosync: on"; else echo "autosync: off"; fi
+      [ -f "$REMOTE_STATE/git-sync.conflict" ] && echo "conflict: $(cat "$REMOTE_STATE/git-sync.conflict")"
+      "${g[@]}" status -sb | head -1 ;;
+    pull|now) remote_sync "$1" ;;
+    *) die "usage: brain remote on|off|status|pull|now" ;;
+  esac
+}
+
+tmo() { if command -v timeout >/dev/null; then timeout "$@"; else shift; "$@"; fi; }
+
+remote_sync() {
+  [ "$(git -C "$BRAIN" config --bool brain.autosync 2>/dev/null)" = true ] || return 0
+  mkdir -p "$REMOTE_STATE"
+  local lock="$REMOTE_STATE/git-sync.lock" log="$REMOTE_STATE/git-sync.log"
+  find "$lock" -maxdepth 0 -mmin +2 -exec rmdir {} + 2>/dev/null || true   # stale lock from a killed run
+  local i got=; for i in 1 2 3 4 5 6 7 8 9 10; do mkdir "$lock" 2>/dev/null && { got=1; break; }; sleep 1; done
+  [ -n "$got" ] || { echo "brain: git sync busy ($lock)" >&2; return 1; }
+  trap "rmdir '$lock' 2>/dev/null" EXIT
+  export BRAIN_GIT_SYNCING=1 GIT_TERMINAL_PROMPT=0
+  local g=(git -C "$BRAIN") out rc=0
+  if [ -d "$BRAIN/.git/rebase-merge" ] || [ -d "$BRAIN/.git/rebase-apply" ]; then
+    echo "a rebase is in progress in the vault; resolve it, then run brain remote now" > "$REMOTE_STATE/git-sync.conflict"; return 1
+  fi
+  local try
+  for try in 1 2 3; do
+    rc=0; out="$(tmo 20 "${g[@]}" pull --rebase --autostash -q 2>&1)" || rc=$?
+    if [ $rc -ne 0 ]; then
+      "${g[@]}" rebase --abort >/dev/null 2>&1 || true
+      printf '%s pull failed: %s\n' "$(date '+%F %T')" "$out" >> "$log"
+      if printf '%s' "$out" | grep -qi conflict; then
+        echo "pull conflicted with the remote ($(date '+%F %T')); local commits kept, nothing pushed" > "$REMOTE_STATE/git-sync.conflict"
+      fi
+      return 1
+    fi
+    rm -f "$REMOTE_STATE/git-sync.conflict"
+    [ "$1" = pull ] && return 0
+    [ -n "$("${g[@]}" log '@{u}..HEAD' --oneline 2>/dev/null)" ] || return 0
+    rc=0; out="$(tmo 30 "${g[@]}" push -q 2>&1)" || rc=$?
+    [ $rc -eq 0 ] && return 0
+    printf '%s' "$out" | grep -qiE 'rejected|fetch first|non-fast-forward' || break
+    sleep $try
+  done
+  printf '%s push failed: %s\n' "$(date '+%F %T')" "$out" >> "$log"; return 1
 }
 
 cmd_log() {
@@ -326,6 +387,7 @@ case "${1:-}" in
   journal) shift; cmd_journal "$@" ;;
   agenda) shift; cmd_agenda "$@" ;;
   sync) shift; cmd_sync "$@" ;;
+  remote) shift; cmd_remote "$@" ;;
   todo) shift; cmd_todo "$@" ;;
   new) shift; cmd_new "$@" ;;
   log) shift; cmd_log "$@" ;;

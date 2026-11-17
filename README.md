@@ -98,13 +98,13 @@ Talk normally, in any language. A few examples:
 | "check the brain" | Lint report first, fixes only after your approval |
 
 Changes to `Core.md` always need your approval. Everything else is recorded without asking,
-and each write is a git commit in your vault. Claude never pushes; that is up to you.
+and each write is a git commit in your vault. Claude never pushes, unless you turn on `brain remote` for several machines.
 
 The CLI is also usable by hand, from `vault/.brain/bin/brain`:
 
 ```
 brain today | journal | todo [--soon] | agenda [--days N] | new <type> "<Title>" | log <op> "<Title>"
-brain search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | lint-check
+brain search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | lint-check
 ```
 
 ## Calendar, contacts and todos (optional sync)
@@ -162,6 +162,26 @@ The installer adds the vault's git hooks: `pre-commit` gives new items stable id
 `post-commit` runs the sync in the background. Logs go to
 `~/.local/state/second-brain/sync.log`. Run `brain sync --dry-run` to see what would be sent,
 or `brain sync --full` to resend everything. Sync needs `node`.
+
+## Several machines and your phone (optional)
+
+You can keep a copy of the vault on a second machine, such as an always-on server, and talk
+to Claude there from your phone with [Remote Control](https://code.claude.com/docs/en/remote-control).
+
+1. Push the vault to a private git remote once: `git -C ~/Documents/Brain push -u origin HEAD`.
+2. On each machine, run `brain remote on`. From then on:
+   - every session starts with a `git pull`;
+   - every commit is pulled, rebased and pushed in the background.
+3. On the server:
+   - clone this repo and the vault, run `install.sh`, then `brain remote on`;
+   - start `claude remote-control` inside the vault, in tmux or as a service;
+   - in the Claude app, the server appears under Code.
+
+When two machines append to the same daily or journal file, git keeps both sides (`merge=union`
+in `.gitattributes`). A real conflict is never forced: the local commits stay, nothing is
+pushed, and the next session tells you about it. Set `TZ` on a server that runs in UTC, so
+"today" and event times match yours. `brain remote status` shows the state; logs go to
+`~/.local/state/second-brain/git-sync.log`.
 
 ## Languages
 

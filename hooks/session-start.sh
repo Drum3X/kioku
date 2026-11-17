@@ -29,9 +29,18 @@ cap() { head -c "$1"; }
 out=""
 add() { out+="$1"$'\n'; }
 
+# Several copies of the vault (brain remote on): fetch the other machines' notes first.
+st="${XDG_STATE_HOME:-$HOME/.local/state}/second-brain"
+if [ "$(git -C "$BRAIN" config --bool brain.autosync 2>/dev/null)" = true ]; then
+  "$BRAIN/.brain/bin/brain" remote pull >/dev/null 2>&1 || true
+fi
+
 add "# Brain — session context"
 add "The user's second brain: $BRAIN (rules: $BRAIN/.brain/SCHEMA.md and personal rules in $BRAIN/CLAUDE.md — read before writing to the vault)."
 add "The user does not write notes: you record decisions, finished work and durable learnings (brain skill). Note content follows the source/conversation language; system text is English."
+if [ -f "$st/git-sync.conflict" ]; then
+  add "Vault sync problem: $(cat "$st/git-sync.conflict" 2>/dev/null). Tell the user once; offer to resolve it (git -C $BRAIN pull --rebase, fix the conflict keeping both sides, then brain remote now)."
+fi
 add ""
 
 # 1. Core
