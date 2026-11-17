@@ -1,6 +1,6 @@
 ---
 name: kioku-journal
-description: The user's timeline in their second brain (journal/ in the Kioku vault) — what they did today, what happened, todos and reminders with due dates — taken instantly from chat in any session. Use when the user says "not al: bugün …", "bugün … yaptım", "hatırlat", "yapılacaklara ekle", "yapılacaklarım ne", "şunu yaptım, işaretle" (or "today I …", "remind me", "add a todo", "what are my todos"). Durable things (tools, sites, ideas, things learned) go to kioku-note; Claude's own work log is the brain skill / daily/.
+description: The user's timeline in their second brain (journal/ in the Kioku vault) — what they did today, what happened, todos and reminders with due dates — taken instantly from chat in any session. Use when the user says "not al: bugün …", "bugün … yaptım", "hatırlat", "yapılacaklara ekle", "yapılacaklarım ne", "şunu yaptım, işaretle" (or "today I …", "remind me", "add a todo", "what are my todos"). Durable things (tools, sites, ideas, things learned) go to kioku-note; Claude's own work log is the kioku skill / daily/.
 argument-hint: "[note text]"
 ---
 
