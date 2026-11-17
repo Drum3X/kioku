@@ -1,6 +1,6 @@
-# Brain
+# Kioku
 
-@.brain/SCHEMA.md
+@.kioku/SCHEMA.md
 
 ## Personal rules
 

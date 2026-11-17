@@ -1,14 +1,14 @@
 ---
-name: brain-ingest
-description: Processes an external source (URL, article, paper, PDF, video transcript, thread, document) into the user's second brain (the Brain vault) — saves it under raw/, writes a wiki/sources summary, updates related concept and entity pages. Use when the user says "add this to the brain", "ingest this", "process this article" (Turkish: "beyne at", "bunu işle"), or asks to process files waiting in raw/inbox.
+name: kioku-ingest
+description: Processes an external source (URL, article, paper, PDF, video transcript, thread, document) into the user's second brain (the Kioku vault) — saves it under raw/, writes a wiki/sources summary, updates related concept and entity pages. Use when the user says "add this to the brain", "ingest this", "process this article" (Turkish: "beyne at", "bunu işle"), or asks to process files waiting in raw/inbox.
 argument-hint: "[URL | file path] (empty: list raw/inbox)"
 ---
 
-# brain-ingest
+# kioku-ingest
 
-Vault: `$BRAIN` — the vault path from the Brain section of your instructions (`~/.claude/CLAUDE.md`).
-Rules: `$BRAIN/.brain/SCHEMA.md` (Ingest and Languages sections); personal rules in `$BRAIN/CLAUDE.md`
-CLI: `$BRAIN/.brain/bin/brain`
+Vault: `$VAULT` — the vault path from the Kioku section of your instructions (`~/.claude/CLAUDE.md`).
+Rules: `$VAULT/.kioku/SCHEMA.md` (Ingest and Languages sections); personal rules in `$VAULT/CLAUDE.md`
+CLI: `$VAULT/.kioku/bin/kioku`
 
 Process sources one at a time. If several were given, save all of them to `raw/` first,
 then process each in turn. **Write summaries and new pages in the source's language.**
@@ -21,7 +21,7 @@ then process each in turn. **Write summaries and new pages in the source's langu
 
 ## 1. Save to raw/
 
-File: `raw/<yyyy>/<slug>.md`. Once saved, **never modify it**. Use `brain new source` once
+File: `raw/<yyyy>/<slug>.md`. Once saved, **never modify it**. Use `kioku new source` once
 to see the slug it produces, or follow the slug rule in the schema.
 
 ```yaml
@@ -49,7 +49,7 @@ Skip this step if the user said "process without asking".
 
 ## 3. Source summary
 
-1. Create the page with `brain new source "<Title>"`.
+1. Create the page with `kioku new source "<Title>"`.
 2. Fill the frontmatter:
    - `lang` (the source's language);
    - `sources: [raw/<yyyy>/<slug>.md]`;
@@ -62,7 +62,7 @@ Skip this step if the user said "process without asking".
 
 ## 4. Update the wiki
 
-- Update the related `wiki/concepts/` and `wiki/entities/` pages, or create them with `brain new`. Usually 3–15 pages are touched.
+- Update the related `wiki/concepts/` and `wiki/entities/` pages, or create them with `kioku new`. Usually 3–15 pages are touched.
 - A new page is written in the source's language. Additions to an existing page are written in that page's language (see its `lang:`).
 - Cite every addition: `([[wiki/sources/<slug>]])`. Update `updated`.
 - If something contradicts existing knowledge, don't overwrite it. Keep both views with their sources and add a `> [!warning] Contradiction` callout.
@@ -71,9 +71,9 @@ Skip this step if the user said "process without asking".
 ## 5. Record and commit
 
 1. For each new page, add one line under the right heading in `index.md`: `- [[path|Title]] — one sentence`.
-2. Run `brain log ingest "<Title>"`.
+2. Run `kioku log ingest "<Title>"`.
 3. Commit:
    ```
-   git -C "$BRAIN" add -A && git -C "$BRAIN" commit -qm "ingest: <Title>"
+   git -C "$VAULT" add -A && git -C "$VAULT" commit -qm "ingest: <Title>"
    ```
 4. Give the user a short list of the pages created and updated.

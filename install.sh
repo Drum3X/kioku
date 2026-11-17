@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# second-brain installer: sets up (or connects) a vault and wires it into Claude Code
+# kioku installer: sets up (or connects) a vault and wires it into Claude Code
 # so the brain is available from every project. Safe to re-run.
 #
 #   ./install.sh [--vault PATH]       install or update (default vault: the one already
-#                                     installed, otherwise ~/Documents/Brain)
+#                                     installed, otherwise ~/Documents/Kioku)
 #   ./install.sh --uninstall          remove the Claude Code wiring (the vault is kept)
 set -euo pipefail
 export PATH="/etc/profiles/per-user/${USER:-$(id -un)}/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-die() { echo "second-brain: $*" >&2; exit 1; }
+die() { echo "kioku: $*" >&2; exit 1; }
 warn() { echo "WARNING: $*" >&2; }
 
 mode="install"; vault_arg=""
@@ -37,28 +37,49 @@ changes=()
 installed_vault() {
   [ -f "$SETTINGS" ] || return 0
   jq -r '.hooks.SessionStart[]?.hooks[]?.command // empty' "$SETTINGS" 2>/dev/null \
-    | sed -n 's|/\.brain/hooks/session-start\.sh$||p' | head -n 1
+    | sed -nE 's#/\.(kioku|brain)/hooks/session-start\.sh$##p' | head -n 1
 }
 OLD="$(installed_vault)"
 VAULT="${vault_arg:-$OLD}"
-VAULT="${VAULT:-$HOME/Documents/Brain}"
+VAULT="${VAULT:-$HOME/Documents/Kioku}"
 VAULT="${VAULT/#\~/$HOME}"
 case "$VAULT" in /*) ;; *) VAULT="$PWD/$VAULT" ;; esac
 VAULT="${VAULT%/}"
 # Only one vault is wired at a time: installing another one replaces the old wiring.
 [ "$OLD" = "$VAULT" ] && OLD=""
 
-SS="$VAULT/.brain/hooks/session-start.sh"
-ST="$VAULT/.brain/hooks/stop-check.sh"
+# Earlier versions were called second-brain (vault link .brain, CLI brain, skills brain-*).
+migrate_legacy() {
+  local c="${XDG_CONFIG_HOME:-$HOME/.config}" s="${XDG_STATE_HOME:-$HOME/.local/state}" d
+  for d in "$c" "$s"; do
+    if [ -d "$d/second-brain" ] && [ ! -e "$d/kioku" ]; then mv "$d/second-brain" "$d/kioku"; changes+=("moved $d/second-brain → $d/kioku"); fi
+  done
+  if [ -L "$VAULT/.brain" ]; then rm "$VAULT/.brain"; changes+=("removed the old .brain link"); fi
+  if [ -f "$VAULT/CLAUDE.md" ] && grep -qF '@.brain/SCHEMA.md' "$VAULT/CLAUDE.md"; then
+    sed -i.bak 's|@\.brain/SCHEMA\.md|@.kioku/SCHEMA.md|' "$VAULT/CLAUDE.md" && rm -f "$VAULT/CLAUDE.md.bak"; changes+=("CLAUDE.md: schema import now @.kioku/SCHEMA.md")
+  fi
+  if [ -d "$VAULT/.git" ] && [ "$(git -C "$VAULT" config --bool brain.autosync 2>/dev/null)" = true ]; then
+    git -C "$VAULT" config kioku.autosync true; git -C "$VAULT" config --unset brain.autosync; changes+=("autosync setting moved to kioku.autosync")
+  fi
+  local l
+  for l in "$CL"/skills/brain "$CL"/skills/brain-*; do
+    [ -L "$l" ] && case "$(readlink "$l")" in */.brain/skills/*) rm "$l"; changes+=("old skill link removed: ${l##*/}") ;; esac
+  done
+  return 0
+}
+
+SS="$VAULT/.kioku/hooks/session-start.sh"
+ST="$VAULT/.kioku/hooks/stop-check.sh"
 today="$(date +%F)"
 
 # ---- 1. Vault ----
 if [ "$mode" != "--uninstall" ]; then
-  chmod +x "$SYS/bin/brain" "$SYS"/hooks/*.sh
+  chmod +x "$SYS/bin/kioku" "$SYS"/hooks/*.sh
   [ -e "$VAULT" ] || changes+=("vault created: $VAULT")
   mkdir -p "$VAULT"
 
-  link="$VAULT/.brain"
+  migrate_legacy
+  link="$VAULT/.kioku"
   if [ -L "$link" ]; then
     [ "$(cd "$link" && pwd -P)" = "$SYS" ] || die "$link points somewhere else ($(readlink "$link")); remove it or install from that checkout"
   elif [ -e "$link" ]; then
@@ -81,12 +102,12 @@ if [ "$mode" != "--uninstall" ]; then
     changes+=("created $rel")
   done < <(cd "$SYS/skeleton" && find . -type f | sort)
 
-  grep -qxF '.brain' "$VAULT/.gitignore" 2>/dev/null || { printf '\n.brain\n' >> "$VAULT/.gitignore"; changes+=(".gitignore: added .brain"); }
-  grep -qF '@.brain/SCHEMA.md' "$VAULT/CLAUDE.md" || warn "$VAULT/CLAUDE.md does not import the schema; add a line: @.brain/SCHEMA.md"
+  grep -qxF '.kioku' "$VAULT/.gitignore" 2>/dev/null || { printf '\n.kioku\n' >> "$VAULT/.gitignore"; changes+=(".gitignore: added .kioku"); }
+  grep -qF '@.kioku/SCHEMA.md' "$VAULT/CLAUDE.md" || warn "$VAULT/CLAUDE.md does not import the schema; add a line: @.kioku/SCHEMA.md"
 
   if [ ! -d "$VAULT/.git" ]; then
     git -C "$VAULT" init -q
-    if git -C "$VAULT" add -A && git -C "$VAULT" commit -qm "Brain: initial vault" 2>/dev/null; then
+    if git -C "$VAULT" add -A && git -C "$VAULT" commit -qm "Kioku: initial vault" 2>/dev/null; then
       changes+=("git repository initialized")
     else
       warn "git init done, but the first commit failed (set git user.name / user.email, then commit)"
@@ -94,46 +115,46 @@ if [ "$mode" != "--uninstall" ]; then
   fi
 
   # Vault git hooks: stable ids for todos/events/contacts, background sync after commits
-  hk="$("$VAULT/.brain/bin/brain" sync --setup 2>&1)" || warn "git hooks: $hk"
+  hk="$("$VAULT/.kioku/bin/kioku" sync --setup 2>&1)" || warn "git hooks: $hk"
   [ -n "$hk" ] && changes+=("git hooks: ${hk//$'\n'/, }")
 fi
 
 # ---- 2. Skills (symlinks into ~/.claude/skills) ----
 mkdir -p "$CL/skills"
 for d in "$SYS"/skills/*/; do
-  name="$(basename "$d")"; tgt="$CL/skills/$name"; src="$VAULT/.brain/skills/$name"
+  name="$(basename "$d")"; tgt="$CL/skills/$name"; src="$VAULT/.kioku/skills/$name"
   if [ "$mode" = "--uninstall" ]; then
     if [ -L "$tgt" ] && [ "$(readlink "$tgt")" = "$src" ]; then rm "$tgt"; changes+=("skill removed: $name"); fi
     continue
   fi
   if [ -L "$tgt" ] && [ "$(readlink "$tgt")" = "$src" ]; then continue
-  elif [ -n "$OLD" ] && [ -L "$tgt" ] && [ "$(readlink "$tgt")" = "$OLD/.brain/skills/$name" ]; then
+  elif [ -n "$OLD" ] && [ -L "$tgt" ] && [ "$(readlink "$tgt")" = "$OLD/.kioku/skills/$name" ]; then
     ln -sfn "$src" "$tgt"; changes+=("skill moved to the new vault: $name")
-  elif [ -e "$tgt" ] || [ -L "$tgt" ]; then warn "$tgt already exists and does not belong to Brain; left untouched."
+  elif [ -e "$tgt" ] || [ -L "$tgt" ]; then warn "$tgt already exists and does not belong to Kioku; left untouched."
   else ln -s "$src" "$tgt"; changes+=("skill linked: $name")
   fi
 done
 
 # ---- 3. Block in ~/.claude/CLAUDE.md ----
 block="$(cat <<EOF
-<!-- brain:start — managed by second-brain/install.sh; manual edits are overwritten on the next install -->
-## Brain (second brain)
+<!-- kioku:start — managed by kioku/install.sh; manual edits are overwritten on the next install -->
+## Kioku (second brain)
 
 The user's personal second brain is \`$VAULT\` (Obsidian vault + git). The user does not write notes by hand; you keep the records.
 
 - At session start, the SessionStart hook adds Core.md, recent daily notes, active projects and due todos to the context.
-- Before writing anything to the vault, read \`$VAULT/.brain/SCHEMA.md\` (the rules) and \`$VAULT/CLAUDE.md\` (personal rules) and follow them.
-- Decisions, finished work, durable learnings, preferences, open threads → record them with the \`brain\` skill (without asking; except Core.md).
-- Questions that need past knowledge → search Brain first (\`brain-ask\`). A link/PDF to "add to the brain" → \`brain-ingest\`. Maintenance → \`brain-lint\`.
-- The user's own notes: timeline and todos ("today I did …", reminders) → \`brain-journal\` (journal/); durable things (tools, sites, ideas, things learned) → \`brain-note\` (wiki pages categorized in topic hubs, wiki/topics/). Don't mix them into your work log (daily/).
-- Events and appointments → \`brain-calendar\` (calendar/); contact details → \`brain-contacts\` (contacts/). Both sync one-way to the user's CalDAV/CardDAV server after each commit; never handle the password.
+- Before writing anything to the vault, read \`$VAULT/.kioku/SCHEMA.md\` (the rules) and \`$VAULT/CLAUDE.md\` (personal rules) and follow them.
+- Decisions, finished work, durable learnings, preferences, open threads → record them with the \`kioku\` skill (without asking; except Core.md).
+- Questions that need past knowledge → search Kioku first (\`kioku-ask\`). A link/PDF to "add to the brain" → \`kioku-ingest\`. Maintenance → \`kioku-lint\`.
+- The user's own notes: timeline and todos ("today I did …", reminders) → \`kioku-journal\` (journal/); durable things (tools, sites, ideas, things learned) → \`kioku-note\` (wiki pages categorized in topic hubs, wiki/topics/). Don't mix them into your work log (daily/).
+- Events and appointments → \`kioku-calendar\` (calendar/); contact details → \`kioku-contacts\` (contacts/). Both sync one-way to the user's CalDAV/CardDAV server after each commit; never handle the password.
 - Languages: system text (headings, entry types, frontmatter) is English; note content follows the language of its source or conversation.
-- CLI: \`$VAULT/.brain/bin/brain\` (today, journal, todo, agenda, new, log, search, recap, sync, lint-check).
-- Built-in auto memory is only for working preferences about how to help the user; knowledge, decisions, projects and the user's profile go into Brain. Never write the same thing in both places.
-<!-- brain:end -->
+- CLI: \`$VAULT/.kioku/bin/kioku\` (today, journal, todo, agenda, new, log, search, recap, sync, lint-check).
+- Built-in auto memory is only for working preferences about how to help the user; knowledge, decisions, projects and the user's profile go into Kioku. Never write the same thing in both places.
+<!-- kioku:end -->
 EOF
 )"
-strip_block() { awk '/<!-- brain:start/{s=1} !s{print} /<!-- brain:end -->/{s=0}' "$1"; }
+strip_block() { awk '/<!-- (kioku|brain):start/{s=1} !s{print} /<!-- (kioku|brain):end -->/{s=0}' "$1"; }
 if [ -f "$UMD" ]; then cur="$(<"$UMD")"; rest="$(strip_block "$UMD")"; else cur=""; rest=""; fi
 rest="$(printf '%s' "$rest" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
 if [ "$mode" = "--uninstall" ]; then new="$rest"; else new="${rest:+$rest$'\n\n'}$block"; fi
@@ -145,17 +166,18 @@ fi
 # ---- 4. ~/.claude/settings.json (merged with jq) ----
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
 jq empty "$SETTINGS" || die "$SETTINGS is not valid JSON; left untouched."
-[ -f "$SETTINGS.brain.bak" ] || cp "$SETTINGS" "$SETTINGS.brain.bak"
+[ -f "$SETTINGS.kioku.bak" ] || cp "$SETTINGS" "$SETTINGS.kioku.bak"
 tmp="$(mktemp)"
 jq --arg ss "$SS" --arg st "$ST" --arg dir "$VAULT" --arg old "$OLD" --arg mode "$mode" '
   def drop(cmd): map(select(((.hooks // []) | map(.command) | index(cmd)) | not));
+  def droplegacy(d): reduce ("session-start.sh", "stop-check.sh") as $h (.; drop("\(d)/.brain/hooks/\($h)"));
   def without(xs; ys): (xs // []) - ys;
   def rules(d): ["Read(/\(d)/**)", "Edit(/\(d)/**)"];
   ([$dir] + (if $old == "" then [] else [$old] end)) as $dirs
   | rules($dir) as $rules
   | ($dirs | map(rules(.)) | add) as $allrules
-  | .hooks.SessionStart = ((.hooks.SessionStart // []) | drop($ss) | drop("\($old)/.brain/hooks/session-start.sh"))
-  | .hooks.Stop         = ((.hooks.Stop // []) | drop($st) | drop("\($old)/.brain/hooks/stop-check.sh"))
+  | .hooks.SessionStart = ((.hooks.SessionStart // []) | drop($ss) | drop("\($old)/.kioku/hooks/session-start.sh") | droplegacy($dir) | droplegacy($old))
+  | .hooks.Stop         = ((.hooks.Stop // []) | drop($st) | drop("\($old)/.kioku/hooks/stop-check.sh") | droplegacy($dir) | droplegacy($old))
   | .permissions.additionalDirectories = without(.permissions.additionalDirectories; $dirs)
   | .permissions.allow = without(.permissions.allow; $allrules)
   | .sandbox.filesystem.allowWrite = without(.sandbox.filesystem.allowWrite; $dirs)
@@ -178,15 +200,15 @@ jq --arg ss "$SS" --arg st "$ST" --arg dir "$VAULT" --arg old "$OLD" --arg mode 
   | if (.sandbox | length) == 0 then del(.sandbox) else . end
 ' "$SETTINGS" > "$tmp"
 if ! cmp -s <(jq -S . "$SETTINGS") <(jq -S . "$tmp"); then
-  cat "$tmp" > "$SETTINGS"; changes+=("~/.claude/settings.json updated (backup: settings.json.brain.bak)")
+  cat "$tmp" > "$SETTINGS"; changes+=("~/.claude/settings.json updated (backup: settings.json.kioku.bak)")
 fi
 rm -f "$tmp"
 
 # ---- Summary ----
-if [ ${#changes[@]} -eq 0 ]; then echo "Brain: no changes (already up to date). Vault: $VAULT"
-else printf 'Brain (vault: %s):\n' "$VAULT"; printf '  - %s\n' "${changes[@]}"; fi
+if [ ${#changes[@]} -eq 0 ]; then echo "Kioku: no changes (already up to date). Vault: $VAULT"
+else printf 'Kioku (vault: %s):\n' "$VAULT"; printf '  - %s\n' "${changes[@]}"; fi
 if [ "$mode" = "--uninstall" ]; then
-  echo "The vault and its .brain link were kept. Delete them yourself if you no longer want them."
+  echo "The vault and its .kioku link were kept. Delete them yourself if you no longer want them."
 else
   echo "Open a new Claude Code session; hooks and skills take effect there. Say \"get to know me\" to start."
 fi

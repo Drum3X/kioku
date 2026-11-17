@@ -4,7 +4,7 @@
 *.jpg binary
 *.jpeg binary
 *.webp binary
-# Append-mostly files: when two machines add lines at once, keep both sides (brain remote)
+# Append-mostly files: when two machines add lines at once, keep both sides (kioku remote)
 daily/*.md merge=union
 journal/**/*.md merge=union
 log.md merge=union

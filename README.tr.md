@@ -1,4 +1,4 @@
-# second-brain
+# kioku
 
 [English](README.md) | **Türkçe**
 
@@ -16,7 +16,7 @@ veritabanı ya da API anahtarı gerekmez; hook'lar küçük bash betikleridir.
 ## Nasıl çalışır
 
 ```
-~/Documents/Brain/            vault'un (özel, kendi git deposun)
+~/Documents/Kioku/            vault'un (özel, kendi git deposun)
   CLAUDE.md                   şemayı içe alır + kişisel kuralların
   Core.md                     sen kimsin: "beni tanı" röportajıyla dolar
   daily/                      Claude'un iş kaydı: kararlar, sonuçlar, öğrenimler, açık uçlar
@@ -27,7 +27,7 @@ veritabanı ya da API anahtarı gerekmez; hook'lar küçük bash betikleridir.
   raw/                        işlenen kaynakların birebir kopyası (asla değiştirilmez)
   wiki/                       derlenen sayfalar: topics/ (kategori hub'ları) concepts/ entities/ ideas/ sources/ synthesis/
   index.md  log.md            beynin haritası (önce konular), yalnızca sona eklenen işlem kaydı
-  .brain → second-brain/      bu repoya bağlantı: şema, hook'lar, skill'ler, CLI, şablonlar
+  .kioku → kioku/      bu repoya bağlantı: şema, hook'lar, skill'ler, CLI, şablonlar
 ```
 
 Claude Code'a dört noktadan bağlanır:
@@ -35,13 +35,13 @@ Claude Code'a dört noktadan bağlanır:
 - **SessionStart hook'u:** hangi projede olursa olsun her oturum yaklaşık 1k token'lık kısa bir bağlamla başlar: `Core.md`, o klasörün notu, aktif projeler, vakti gelen yapılacaklar, iş kaydının son iki günü ve bir wiki özeti. Günlüğün bu bağlama girmez; tek istisna vakti gelen yapılacaklardır.
 - **Stop hook'u:** bir oturumda gerçek bir iş yapılmış ama hiçbir şey kaydedilmemişse, Claude'dan bir kez önemli olanı kaydetmesi istenir. Kısa soru-cevap oturumlarına karışmaz.
 - **Skill'ler:**
-  - `brain` hafızayı kaydeder ve tanışma röportajını yürütür;
-  - `brain-journal` zaman çizelgeni ve yapılacaklarını tutar;
-  - `brain-note` araçları, siteleri, fikirleri ve öğrendiklerini konu hub'larında kategorize edilmiş, birbirine bağlı wiki sayfalarına dönüştürür;
-  - `brain-calendar` ve `brain-contacts` etkinlikleri ve kişileri tutar;
-  - `brain-ingest` kaynak ekler;
-  - `brain-ask` kaynak göstererek cevap verir;
-  - `brain-lint` sağlık kontrolü yapar.
+  - `kioku` hafızayı kaydeder ve tanışma röportajını yürütür;
+  - `kioku-journal` zaman çizelgeni ve yapılacaklarını tutar;
+  - `kioku-note` araçları, siteleri, fikirleri ve öğrendiklerini konu hub'larında kategorize edilmiş, birbirine bağlı wiki sayfalarına dönüştürür;
+  - `kioku-calendar` ve `kioku-contacts` etkinlikleri ve kişileri tutar;
+  - `kioku-ingest` kaynak ekler;
+  - `kioku-ask` kaynak göstererek cevap verir;
+  - `kioku-lint` sağlık kontrolü yapar.
 - **Şema ([SCHEMA.md](SCHEMA.md)):** Claude'un uyduğu kurallar: neyin nereye yazılacağı, diller, kaynak gösterme, asla yazılmayacaklar (sırlar), commit biçimi.
 
 Şemanın ana fikri LLM Wiki'den geliyor: her soruda ham belgeleri yeniden aramak (RAG)
@@ -60,22 +60,22 @@ Linux'ta (NixOS) geliştirildi ve kullanılıyor. macOS'ta daha yeni bir bash il
 ## Kurulum
 
 ```bash
-git clone https://github.com/Drum3X/second-brain ~/Projects/second-brain
+git clone https://github.com/Drum3X/kioku ~/Projects/kioku
 ```
 
 ```bash
-~/Projects/second-brain/install.sh
+~/Projects/kioku/install.sh
 ```
 
 Klonladığın klasörü yerinde bırak, çünkü vault ona bağlanıyor. Varsayılan vault
-`~/Documents/Brain`. Başka bir klasör ya da mevcut bir Obsidian vault'u için `--vault YOL`
+`~/Documents/Kioku`. Başka bir klasör ya da mevcut bir Obsidian vault'u için `--vault YOL`
 kullan; mevcut notlarına dokunulmaz. Kurulum betiği şunları yapar:
 
 1. vault klasörlerini ve başlangıç dosyalarını oluşturur. Var olan dosyaları asla ezmez.
-2. `vault/.brain`'i bu klasöre bağlar; vault henüz bir git deposu değilse `git init` çalıştırır.
+2. `vault/.kioku`'i bu klasöre bağlar; vault henüz bir git deposu değilse `git init` çalıştırır.
 3. skill'leri `~/.claude/skills/` altına bağlar.
-4. `~/.claude/CLAUDE.md` dosyasına kısa bir Brain bölümü ekler.
-5. `~/.claude/settings.json` dosyasına hook'ları, vault için okuma/düzenleme izinlerini ve bir sandbox yazma kuralını ekler. Yedeği `settings.json.brain.bak` olarak saklanır.
+4. `~/.claude/CLAUDE.md` dosyasına kısa bir Kioku bölümü ekler.
+5. `~/.claude/settings.json` dosyasına hook'ları, vault için okuma/düzenleme izinlerini ve bir sandbox yazma kuralını ekler. Yedeği `settings.json.kioku.bak` olarak saklanır.
 
 Tekrar çalıştırmak güvenli. Sonra yeni bir Claude Code oturumu aç ve **"beni tanı"** de.
 
@@ -94,17 +94,17 @@ Normal konuş, istediğin dilde. Birkaç örnek:
 | "kaydet: Ghostty, denemek istediğim GPU hızlandırmalı terminal" / "fikir: zaman döngülü küçük bir oyun" / "şunu öğrendim: `nix why-depends` bağımlılık zincirini gösterir" | Her biri bir wiki sayfası olur (`entities/`, `ideas/`, `concepts/`) ve *Linux › Tools* gibi bir konu hub'ına yerleşir; uyan konu yoksa yeni hub açılır ve haber verilir |
 | "cuma 14:00 diş randevusu" / "her pazartesi 10:00 ders" / "yarınki toplantıyı iptal et" | `calendar/` altında bir sayfa, takvimine eşitlenir |
 | "Ahmet'i rehbere ekle, numarası …" | `contacts/` altında bir sayfa, rehberine eşitlenir |
-| "bu hafta ne yaptım?" | `brain recap` özeti |
+| "bu hafta ne yaptım?" | `kioku recap` özeti |
 | "beyni kontrol et" | Önce bir lint raporu, düzeltmeler ancak senin onayınla |
 
 `Core.md` değişiklikleri her zaman senin onayını ister. Geri kalan her şey sormadan
-kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla makine için `brain remote`'u açmadıysan asla push yapmaz; o sana kalmış.
+kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla makine için `kioku remote`'u açmadıysan asla push yapmaz; o sana kalmış.
 
-CLI'ı elle de kullanabilirsin; yolu `vault/.brain/bin/brain`:
+CLI'ı elle de kullanabilirsin; yolu `vault/.kioku/bin/kioku`:
 
 ```
-brain today | journal | todo [--soon] | agenda [--days N] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-brain search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | lint-check
+kioku today | journal | todo [--soon] | agenda [--days N] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
+kioku search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | lint-check
 ```
 
 ## Takvim, rehber ve yapılacaklar (isteğe bağlı eşitleme)
@@ -114,13 +114,13 @@ CalDAV/CardDAV sunucusuna (SOGo/mailcow, Nextcloud, Radicale, Fastmail…) gönd
 onları Thunderbird'de, telefonunda ya da webmail'de görürsün. Eşitleme **tek yönlü**:
 Claude'a söylersin, vault değişir, commit'ten sonra bir git hook'u değişikliği gönderir.
 
-- **Neye dokunur:** seçilen takvim ve rehberde yalnızca `brain-…` adlı kayıtlara. Diğer etkinlik ve kişilerine asla dokunulmaz.
-- **Başka yerde yapılan düzenleme:** bir Brain kaydını başka bir uygulamada düzenlersen, bir sonraki eşitleme onu vault'taki hâliyle ezer.
+- **Neye dokunur:** seçilen takvim ve rehberde yalnızca `kioku-…` adlı kayıtlara. Diğer etkinlik ve kişilerine asla dokunulmaz.
+- **Başka yerde yapılan düzenleme:** bir Kioku kaydını başka bir uygulamada düzenlersen, bir sonraki eşitleme onu vault'taki hâliyle ezer.
 
 Kurulum:
 
 1. Sunucun destekliyorsa hesabın için yalnızca CalDAV/CardDAV yetkili bir app password oluştur.
-2. `~/.config/second-brain/sync.conf` dosyasını oluştur:
+2. `~/.config/kioku/sync.conf` dosyasını oluştur:
 
    ```ini
    # sunucunun DAV kökü (/.well-known/caldav buraya yönlenir)
@@ -131,24 +131,24 @@ Kurulum:
    addressbook=personal
    ```
 
-3. Şifreyi, başka hiçbir şey olmadan, `~/.config/second-brain/dav.pass` dosyasına yaz ve dosyayı sadece senin okuyabileceğin hâle getir:
+3. Şifreyi, başka hiçbir şey olmadan, `~/.config/kioku/dav.pass` dosyasına yaz ve dosyayı sadece senin okuyabileceğin hâle getir:
 
    ```bash
-   chmod 600 ~/.config/second-brain/dav.pass
+   chmod 600 ~/.config/kioku/dav.pass
    ```
 
    Dosyayı başkaları okuyabiliyorsa eşitleme çalışmayı reddeder. Bu yöntem Linux, macOS ve WSL'de aynı şekilde çalışır.
 
    Bunun yerine bir anahtar zinciri kullanmak istersen, `password_cmd=` alanına şifreyi yazdıran herhangi bir komut yaz. Örnekler:
-   - Linux: `secret-tool lookup service second-brain`
-   - macOS: `security find-generic-password -s second-brain -w`
+   - Linux: `secret-tool lookup service kioku`
+   - macOS: `security find-generic-password -s kioku -w`
    - her sistemde: `pass show dav`
    - 1Password: `op read op://…`
 
 4. Bağlantıyı test et; bu komut yalnızca okur:
 
    ```bash
-   ~/Documents/Brain/.brain/bin/brain sync --check
+   ~/Documents/Kioku/.kioku/bin/kioku sync --check
    ```
 
 5. Thunderbird'de ve telefonunda aynı takvime ve adres defterine abone ol. Android'de DAVx⁵ kullan (yapılacaklar için Tasks.org ya da jtx Board). iOS'ta bir CalDAV/CardDAV hesabı ekle; yapılacaklar Anımsatıcılar'da görünür.
@@ -160,26 +160,26 @@ Kurulum:
 
 Kurulum betiği vault'a iki git hook'u ekler: `pre-commit` yeni kayıtlara kalıcı kimlik verir,
 `post-commit` eşitlemeyi arka planda çalıştırır. Kayıtlar
-`~/.local/state/second-brain/sync.log` dosyasına yazılır. Ne gönderileceğini görmek için
-`brain sync --dry-run`, hepsini yeniden göndermek için `brain sync --full` kullan. Eşitleme
+`~/.local/state/kioku/sync.log` dosyasına yazılır. Ne gönderileceğini görmek için
+`kioku sync --dry-run`, hepsini yeniden göndermek için `kioku sync --full` kullan. Eşitleme
 `node` gerektirir.
 
 ## Birden fazla makine ve telefon (isteğe bağlı)
 
 Vault'un bir kopyasını ikinci bir makinede tutabilirsin. Bu makine örneğin sürekli açık bir sunucu olabilir. Telefondan oradaki Claude ile [Remote Control](https://code.claude.com/docs/en/remote-control) üzerinden konuşursun.
 
-1. Vault'u bir kez özel bir git reposuna push et: `git -C ~/Documents/Brain push -u origin HEAD`.
-2. Her makinede `brain remote on` çalıştır. Bundan sonra:
+1. Vault'u bir kez özel bir git reposuna push et: `git -C ~/Documents/Kioku push -u origin HEAD`.
+2. Her makinede `kioku remote on` çalıştır. Bundan sonra:
    - her oturum bir `git pull` ile başlar;
    - her commit arka planda pull edilir, rebase yapılır ve push edilir.
 3. Sunucuda:
-   - bu repoyu ve vault'u klonla, `install.sh` çalıştır, ardından `brain remote on`;
+   - bu repoyu ve vault'u klonla, `install.sh` çalıştır, ardından `kioku remote on`;
    - vault klasöründe `claude remote-control` başlat (tmux içinde ya da servis olarak);
    - sunucu, Claude uygulamasında Code bölümünde görünür.
 
 İki makine aynı günlük ya da journal dosyasına satır eklerse git iki tarafı da korur (`.gitattributes` içindeki `merge=union`). Gerçek bir çakışmada hiçbir şey zorla birleştirilmez: yerel commit'ler kalır, push yapılmaz ve bir sonraki oturum seni uyarır.
 
-Sunucu UTC'de çalışıyorsa `TZ` ayarla; böylece "bugün" ve etkinlik saatleri seninkiyle aynı olur. Durumu `brain remote status` gösterir, kayıtlar `~/.local/state/second-brain/git-sync.log` dosyasına yazılır.
+Sunucu UTC'de çalışıyorsa `TZ` ayarla; böylece "bugün" ve etkinlik saatleri seninkiyle aynı olur. Durumu `kioku remote status` gösterir, kayıtlar `~/.local/state/kioku/git-sync.log` dosyasına yazılır.
 
 ## Diller
 
@@ -193,25 +193,25 @@ konuştuğun dilde yazılır. Her sayfa dilini `lang:` alanında tutar. Arama T�
 - **Kişisel kurallar:** Claude'a söyle ("bundan sonra …"); onayınla vault'undaki `CLAUDE.md` dosyasının *Personal rules* bölümüne ekler.
 - **Özel sayfalar:** `private: true` olan bir sayfa oturum başı bağlamına girmez.
 - **Ortam değişkenleri**, `~/.claude/settings.json` içinde `env` altına yazılır:
-  - `BRAIN_STOP_CHECK=0` Stop hook'unu kapatır.
-  - `BRAIN_STOP_MIN_TOOLS=10` kaç araç çağrısının "gerçek iş" sayılacağını belirler.
-  - `BRAIN_CONTEXT_MAX=12000` oturum başı bağlamın üst sınırını bayt olarak belirler.
+  - `KIOKU_STOP_CHECK=0` Stop hook'unu kapatır.
+  - `KIOKU_STOP_MIN_TOOLS=10` kaç araç çağrısının "gerçek iş" sayılacağını belirler.
+  - `KIOKU_CONTEXT_MAX=12000` oturum başı bağlamın üst sınırını bayt olarak belirler.
 
 ## Güncelleme ve kaldırma
 
 ```bash
-git -C ~/Projects/second-brain pull
+git -C ~/Projects/kioku pull
 ```
 
 ```bash
-~/Projects/second-brain/install.sh
+~/Projects/kioku/install.sh
 ```
 
 Vault bu klasöre bağlı olduğu için hook'lar, skill'ler ve şema `git pull` ile güncellenir.
 Kurulum betiğini tekrar çalıştırmak yalnızca betiğin kendisi değiştiyse gerekir.
 
 ```bash
-~/Projects/second-brain/install.sh --uninstall
+~/Projects/kioku/install.sh --uninstall
 ```
 
 Bu komut skill'leri, `~/.claude/CLAUDE.md` bölümünü ve ayar girdilerini kaldırır. Vault'un

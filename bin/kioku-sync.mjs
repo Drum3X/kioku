@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// second-brain sync engine (no dependencies, Node 18+). Called through `brain sync|agenda`.
+// kioku sync engine (no dependencies, Node 18+). Called through `kioku sync|agenda`.
 //
 //   sync [--check | --dry-run | --full | --quiet]   one-way push of journal todos, calendar
 //                                                   events and contacts to CalDAV/CardDAV
 //   ids [FILE...]                                   give todos/events/contacts stable ids
 //   agenda [--days N]                               upcoming events (recurrences expanded)
 //
-// Safety: only resources whose file name starts with "brain-" are ever written or deleted.
+// Safety: only resources whose file name starts with "kioku-" (or the legacy "brain-") are ever written or deleted.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,17 +14,20 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
 
-const BRAIN = process.env.BRAIN_DIR || path.resolve(path.dirname(process.argv[1]), '../..');
-const CONF_FILE = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'second-brain', 'sync.conf');
-const STATE_DIR = path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'), 'second-brain');
+const VAULT = process.env.KIOKU_DIR || path.resolve(path.dirname(process.argv[1]), '../..');
+const CONF_FILE = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'kioku', 'sync.conf');
+const STATE_DIR = path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'), 'kioku');
 const STATE_FILE = path.join(STATE_DIR, 'sync-state.json');
 const LOG_FILE = path.join(STATE_DIR, 'sync.log');
 const LOCK_FILE = path.join(STATE_DIR, 'sync.lock');
-const PREFIX = 'brain-';
+const PREFIX = 'kioku-';
+// Names used by earlier versions; still treated as ours so they can be cleaned up.
+const LEGACY = ['brain-'];
+const isMine = (name) => [PREFIX, ...LEGACY].some((p) => name.startsWith(p));
 
 // ---------- small helpers ----------
 const pad = (n) => String(n).padStart(2, '0');
-const rel = (f) => path.relative(BRAIN, f);
+const rel = (f) => path.relative(VAULT, f);
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const hex6 = () => crypto.randomBytes(3).toString('hex');
 let quiet = false;
@@ -33,7 +36,7 @@ function log(msg) {
   fs.mkdirSync(STATE_DIR, { recursive: true });
   fs.appendFileSync(LOG_FILE, `${new Date().toISOString()} ${msg}\n`);
 }
-function die(msg, code = 1) { console.error(`brain sync: ${msg}`); log(`ERROR ${msg}`); process.exit(code); }
+function die(msg, code = 1) { console.error(`kioku sync: ${msg}`); log(`ERROR ${msg}`); process.exit(code); }
 
 function mdFiles(dir) {
   const out = [];
@@ -130,7 +133,7 @@ function fold(line) {
   return parts.join('\r\n ');
 }
 const serialize = (lines) => lines.filter((l) => l !== null && l !== undefined).map(fold).join('\r\n') + '\r\n';
-const vcal = (inner) => ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//second-brain//brain-sync//EN', ...inner, 'END:VCALENDAR'];
+const vcal = (inner) => ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//kioku//kioku-sync//EN', ...inner, 'END:VCALENDAR'];
 
 // ---------- read the vault ----------
 const TODO_RE = /^(\s*- \[)([ xX-])(\] )(.*)$/;
@@ -138,14 +141,14 @@ const TODO_ID_RE = /\s\^(t-[0-9a-z]+)\s*$/;
 
 function readTodos(problems) {
   const items = [];
-  for (const f of mdFiles(path.join(BRAIN, 'journal'))) {
+  for (const f of mdFiles(path.join(VAULT, 'journal'))) {
     const fileDay = path.basename(f, '.md');
     fs.readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
       const m = line.match(TODO_RE);
       if (!m) return;
       let text = m[4];
       const id = (text.match(TODO_ID_RE) || [])[1];
-      if (!id) { problems.push(`${rel(f)}:${i + 1}: todo without an id (run: brain sync --ids)`); return; }
+      if (!id) { problems.push(`${rel(f)}:${i + 1}: todo without an id (run: kioku sync --ids)`); return; }
       text = text.replace(TODO_ID_RE, '');
       const due = (text.match(/\(due:\s*(\d{4}-\d{2}-\d{2})\)/) || [])[1];
       const at = (text.match(/\(at:\s*(\d{1,2}:\d{2})\)/) || [])[1];
@@ -183,7 +186,7 @@ function readTodos(problems) {
       } else if (remindRaw !== undefined && !due) {
         problems.push(`${rel(f)}:${i + 1}: remind needs a due date`);
       }
-      lines.push(`DESCRIPTION:${esc(`Brain: ${rel(f)}`)}`, 'END:VTODO');
+      lines.push(`DESCRIPTION:${esc(`Kioku: ${rel(f)}`)}`, 'END:VTODO');
       items.push({ kind: 'calendar', uid: `${PREFIX}${id}`, src: `${rel(f)}:${i + 1}`, body: serialize(vcal(lines)) });
     });
   }
@@ -192,7 +195,7 @@ function readTodos(problems) {
 
 function readEvents(problems) {
   const events = [];
-  for (const f of mdFiles(path.join(BRAIN, 'calendar'))) {
+  for (const f of mdFiles(path.join(VAULT, 'calendar'))) {
     const { data, body } = parseFrontmatter(fs.readFileSync(f, 'utf8'));
     if (data.type && data.type !== 'event') continue;
     const start = parseLocal(data.start);
@@ -217,7 +220,7 @@ function eventItems(events, problems) {
   for (const ev of events) {
     const { data } = ev;
     if (String(data.status).toLowerCase() === 'cancelled') continue;   // removed from the server
-    if (!data.uid) { problems.push(`${rel(ev.file)}: event without uid (run: brain sync --ids)`); continue; }
+    if (!data.uid) { problems.push(`${rel(ev.file)}: event without uid (run: kioku sync --ids)`); continue; }
     const stampSrc = parseLocal(data.updated || data.created || ev.start.date);
     const lines = ['BEGIN:VEVENT', `UID:${PREFIX}${data.uid}`, `DTSTAMP:${utc((stampSrc || ev.start).d)}`, `SUMMARY:${esc(ev.title)}`];
     if (ev.allDay) lines.push(`DTSTART;VALUE=DATE:${ymd(ev.start.d)}`, `DTEND;VALUE=DATE:${ymd(ev.endD)}`);
@@ -229,7 +232,7 @@ function eventItems(events, problems) {
     if (data.location) lines.push(`LOCATION:${esc(data.location)}`);
     if (String(data.status).toLowerCase() === 'tentative') lines.push('STATUS:TENTATIVE');
     const desc = bodyText(ev.body);
-    lines.push(`DESCRIPTION:${esc((desc ? desc + '\n\n' : '') + `Brain: ${rel(ev.file)}`)}`);
+    lines.push(`DESCRIPTION:${esc((desc ? desc + '\n\n' : '') + `Kioku: ${rel(ev.file)}`)}`);
     const am = String(data.alarm || '').match(/^(\d+)\s*([mhd])$/);
     if (am) {
       const trig = am[2] === 'd' ? `-P${am[1]}D` : `-PT${am[1]}${am[2] === 'h' ? 'H' : 'M'}`;
@@ -243,14 +246,14 @@ function eventItems(events, problems) {
 
 function readContacts(problems) {
   const items = [];
-  for (const f of mdFiles(path.join(BRAIN, 'contacts'))) {
+  for (const f of mdFiles(path.join(VAULT, 'contacts'))) {
     const { data, body } = parseFrontmatter(fs.readFileSync(f, 'utf8'));
     if (data.type && data.type !== 'contact') continue;
-    if (!data.uid) { problems.push(`${rel(f)}: contact without uid (run: brain sync --ids)`); continue; }
+    if (!data.uid) { problems.push(`${rel(f)}: contact without uid (run: kioku sync --ids)`); continue; }
     const fn = data.title || path.basename(f, '.md');
     const parts = fn.trim().split(/\s+/);
     const family = parts.length > 1 ? parts.pop() : '';
-    const lines = ['BEGIN:VCARD', 'VERSION:3.0', 'PRODID:-//second-brain//brain-sync//EN', `UID:${PREFIX}${data.uid}`, `FN:${esc(fn)}`, `N:${esc(family)};${esc(parts.join(' '))};;;`];
+    const lines = ['BEGIN:VCARD', 'VERSION:3.0', 'PRODID:-//kioku//kioku-sync//EN', `UID:${PREFIX}${data.uid}`, `FN:${esc(fn)}`, `N:${esc(family)};${esc(parts.join(' '))};;;`];
     if (data.org) lines.push(`ORG:${esc(data.org)}`);
     for (const e of list(data.emails || data.email)) lines.push(`EMAIL;TYPE=INTERNET:${esc(e)}`);
     for (const p of list(data.phones || data.phone)) lines.push(`TEL;TYPE=CELL:${esc(p)}`);
@@ -271,10 +274,10 @@ function readContacts(problems) {
 // ---------- ids ----------
 function cmdIds(files) {
   const targets = files.length
-    ? files.map((p) => path.resolve(BRAIN, p)).filter((p) => fs.existsSync(p) && p.endsWith('.md'))
-    : [...mdFiles(path.join(BRAIN, 'journal')), ...mdFiles(path.join(BRAIN, 'calendar')), ...mdFiles(path.join(BRAIN, 'contacts'))];
+    ? files.map((p) => path.resolve(VAULT, p)).filter((p) => fs.existsSync(p) && p.endsWith('.md'))
+    : [...mdFiles(path.join(VAULT, 'journal')), ...mdFiles(path.join(VAULT, 'calendar')), ...mdFiles(path.join(VAULT, 'contacts'))];
   const used = new Set();
-  for (const f of [...mdFiles(path.join(BRAIN, 'journal')), ...mdFiles(path.join(BRAIN, 'calendar')), ...mdFiles(path.join(BRAIN, 'contacts'))]) {
+  for (const f of [...mdFiles(path.join(VAULT, 'journal')), ...mdFiles(path.join(VAULT, 'calendar')), ...mdFiles(path.join(VAULT, 'contacts'))]) {
     for (const m of fs.readFileSync(f, 'utf8').matchAll(/\^(t-[0-9a-z]+)|^uid:[ \t]*([ec]-[0-9a-z]+)/gm)) used.add(m[1] || m[2]);
   }
   const fresh = (p) => { let id; do id = `${p}-${hex6()}`; while (used.has(id)); used.add(id); return id; };
@@ -379,12 +382,12 @@ function readConf() {
   conf.addressbook ||= 'personal';
   return conf;
 }
-// Password lookup, in order: BRAIN_DAV_PASSWORD (tests), password_cmd (any command that prints
-// it), password_file (default ~/.config/second-brain/dav.pass). The file must not be readable
+// Password lookup, in order: KIOKU_DAV_PASSWORD (tests), password_cmd (any command that prints
+// it), password_file (default ~/.config/kioku/dav.pass). The file must not be readable
 // by others (chmod 600); this is checked on POSIX systems.
 const DEFAULT_PASS_FILE = path.join(path.dirname(CONF_FILE), 'dav.pass');
 function password(conf) {
-  if (process.env.BRAIN_DAV_PASSWORD !== undefined) return process.env.BRAIN_DAV_PASSWORD;
+  if (process.env.KIOKU_DAV_PASSWORD !== undefined) return process.env.KIOKU_DAV_PASSWORD;
   if (conf.password_cmd) {
     try { return execSync(conf.password_cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).replace(/\r?\n$/, ''); }
     catch { die('password_cmd failed (run it yourself to see why)'); }
@@ -465,12 +468,12 @@ async function listCollection(dav, url) {
     if (abs.replace(/\/?$/, '/') === url) continue;
     all.push(abs);
   }
-  const mine = all.filter((h) => decodeURIComponent(h.split('/').pop()).startsWith(PREFIX));
+  const mine = all.filter((h) => isMine(decodeURIComponent(h.split('/').pop())));
   return { all, mine };
 }
 
 function assertMine(href) {
-  if (!decodeURIComponent(new URL(href).pathname.split('/').pop()).startsWith(PREFIX)) throw new Error(`refusing to touch ${href}: not a ${PREFIX} resource`);
+  if (!isMine(decodeURIComponent(new URL(href).pathname.split('/').pop()))) throw new Error(`refusing to touch ${href}: not a ${PREFIX} resource`);
 }
 
 let locked = false;
@@ -504,8 +507,8 @@ async function cmdSync(args) {
 
   if (check) {
     const cal = await listCollection(dav, urls.calendar), ab = await listCollection(dav, urls.addressbook);
-    console.log(`calendar:     ${urls.calendar}\n              ${cal.all.length} items, ${cal.mine.length} from Brain`);
-    console.log(`address book: ${urls.addressbook}\n              ${ab.all.length} items, ${ab.mine.length} from Brain`);
+    console.log(`calendar:     ${urls.calendar}\n              ${cal.all.length} items, ${cal.mine.length} from Kioku`);
+    console.log(`address book: ${urls.addressbook}\n              ${ab.all.length} items, ${ab.mine.length} from Kioku`);
     const n = (k, p) => items.filter((i) => i.kind === k && i.uid.startsWith(p)).length;
     console.log(`vault:        ${n('calendar', PREFIX + 't-')} todos, ${n('calendar', PREFIX + 'e-')} events, ${n('addressbook', PREFIX)} contacts`);
     for (const p of problems) console.log(`warning: ${p}`);
@@ -516,13 +519,15 @@ async function cmdSync(args) {
   try {
     let state = {};
     try { state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch {}
-    if (state.vault !== BRAIN || state.calendar !== urls.calendar || state.addressbook !== urls.addressbook) state = { vault: BRAIN, ...urls, items: {} };
+    if (state.vault !== VAULT || state.calendar !== urls.calendar || state.addressbook !== urls.addressbook) state = { vault: VAULT, ...urls, items: {} };
     state.items ||= {};
     const want = new Map(items.map((i) => [i.href, i]));
     const del = new Set(Object.keys(state.items).filter((h) => !want.has(h)));
-    if (full) {
+    // --full, or the first sync after the resource prefix changed: remove our stray items.
+    if (full || state.prefix !== PREFIX) {
       for (const u of Object.values(urls)) for (const h of (await listCollection(dav, u)).mine) if (!want.has(h)) del.add(h);
     }
+    state.prefix = PREFIX;
     const put = items.filter((i) => full || state.items[i.href]?.hash !== i.hash);
     let ok = 0, failed = 0;
     for (const it of put) {
@@ -566,7 +571,7 @@ try {
   else if (cmd === 'ids') cmdIds(args);
   else if (cmd === 'agenda') cmdAgenda(args);
   else if (cmd === 'validate') cmdValidate();
-  else { console.error('usage: brain-sync.mjs sync [--check|--dry-run|--full|--quiet] | ids [FILE...] | agenda [--days N] | validate'); process.exit(2); }
+  else { console.error('usage: kioku-sync.mjs sync [--check|--dry-run|--full|--quiet] | ids [FILE...] | agenda [--days N] | validate'); process.exit(2); }
 } catch (e) {
   unlock();
   die(e.message);

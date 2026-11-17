@@ -4,20 +4,20 @@ set -euo pipefail
 export PATH="/etc/profiles/per-user/${USER:-$(id -un)}/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:$PATH"
 export LC_ALL=C.UTF-8
 
-# Vault = two levels above this script as reached through the vault's .brain link (logical
-# path, symlinks not resolved). BRAIN_DIR overrides.
-BRAIN="${BRAIN_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -L)}"
-TPL="$BRAIN/.brain/templates"
+# Vault = two levels above this script as reached through the vault's .kioku link (logical
+# path, symlinks not resolved). KIOKU_DIR overrides.
+VAULT="${KIOKU_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -L)}"
+TPL="$VAULT/.kioku/templates"
 today="$(date +%F)"
 # Date N days from today (N like -7 or +3); GNU date, or BSD/macOS date.
 day() { date -d "$1 days" +%F 2>/dev/null || date -v"$1"d +%F; }
 
-die() { echo "brain: $*" >&2; exit 2; }
-[ -d "$BRAIN" ] || die "vault not found: $BRAIN"
+die() { echo "kioku: $*" >&2; exit 2; }
+[ -d "$VAULT" ] || die "vault not found: $VAULT"
 
 usage() {
   cat <<'EOF'
-Usage: brain <command> [args]
+Usage: kioku <command> [args]
   today                         Create today's daily note if missing, print its path
   journal                       Create today's journal note (the user's own notes) if missing, print its path
   todo [--soon]                 Open todos in journal/, by due date; --soon: overdue and next 3 days
@@ -71,14 +71,14 @@ render() { # template title
 fm() { awk -v k="$2" 'NR==1&&$0!="---"{exit} NR>1&&$0=="---"{exit} NR>1{ if (index($0,k":")==1){ sub("^"k":[ \t]*",""); print; exit } }' "$1" 2>/dev/null; }
 
 cmd_today() {
-  local f="$BRAIN/daily/$today.md"
+  local f="$VAULT/daily/$today.md"
   [ -f "$f" ] || render "$TPL/daily.md" "$today" > "$f"
   echo "$f"
 }
 
 cmd_journal() {
-  mkdir -p "$BRAIN/journal"
-  local f="$BRAIN/journal/$today.md"
+  mkdir -p "$VAULT/journal"
+  local f="$VAULT/journal/$today.md"
   [ -f "$f" ] || render "$TPL/journal.md" "$today" > "$f"
   echo "$f"
 }
@@ -87,8 +87,8 @@ cmd_journal() {
 # --soon: only overdue and due within 3 days, plus a count of the rest.
 cmd_todo() {
   local soon=""; [ "${1:-}" = "--soon" ] && soon="$(day +3)"
-  [ -d "$BRAIN/journal" ] || { echo "(no open todos)"; return; }
-  cd "$BRAIN"
+  [ -d "$VAULT/journal" ] || { echo "(no open todos)"; return; }
+  cd "$VAULT"
   local rows
   rows="$(rg -n --no-heading --glob '*.md' -e '^[[:space:]]*- \[ \] ' journal 2>/dev/null \
     | awk -v OFS='\t' '{
@@ -104,18 +104,18 @@ cmd_todo() {
     { late = ($1 != "9999-99-99" && $1 < t) ? " (overdue)" : ""
       if (s != "" && ($1 == "9999-99-99" || $1 > s)) { rest++; next }
       print "- " $2 late " — " $3 }
-    END { if (rest) print "- … " rest " more open todo(s) without a near due date (brain todo)" }'
+    END { if (rest) print "- … " rest " more open todo(s) without a near due date (kioku todo)" }'
 }
 
 cmd_new() {
-  [ $# -ge 2 ] || die 'usage: brain new <type> "<Title>"   (event: brain new event "<Title>" YYYY-MM-DD)'
+  [ $# -ge 2 ] || die 'usage: kioku new <type> "<Title>"   (event: kioku new event "<Title>" YYYY-MM-DD)'
   local type="$1"; shift; local title="$*" dir
   if [ "$type" = event ]; then
     local d="${!#}"
-    [[ "$d" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [ $# -ge 2 ] || die 'usage: brain new event "<Title>" YYYY-MM-DD'
+    [[ "$d" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [ $# -ge 2 ] || die 'usage: kioku new event "<Title>" YYYY-MM-DD'
     title="${*:1:$#-1}"
     local slug; slug="$(slugify "$title")"; [ -n "$slug" ] || die "could not make a slug from the title"
-    local f="$BRAIN/calendar/${d:0:4}/$d-$slug.md"
+    local f="$VAULT/calendar/${d:0:4}/$d-$slug.md"
     [ -e "$f" ] && die "already exists: $f"
     mkdir -p "$(dirname "$f")"
     render "$TPL/event.md" "$title" | sed "s|^start:\$|start: $d|" > "$f"
@@ -134,9 +134,9 @@ cmd_new() {
     *) die "unknown type: $type" ;;
   esac
   local slug; slug="$(slugify "$title")"; [ -n "$slug" ] || die "could not make a slug from the title"
-  local f="$BRAIN/$dir/$slug.md"
+  local f="$VAULT/$dir/$slug.md"
   [ -e "$f" ] && die "already exists: $f"
-  mkdir -p "$BRAIN/$dir"
+  mkdir -p "$VAULT/$dir"
   render "$TPL/$type.md" "$title" > "$f"
   echo "$f"
 }
@@ -144,7 +144,7 @@ cmd_new() {
 # Calendar, todos and contacts ↔ CalDAV/CardDAV (one-way, vault → server). Needs node.
 sync_js() {
   command -v node >/dev/null || die "node is required for calendar/contacts sync"
-  BRAIN_DIR="$BRAIN" node "$BRAIN/.brain/bin/brain-sync.mjs" "$@"
+  KIOKU_DIR="$VAULT" node "$VAULT/.kioku/bin/kioku-sync.mjs" "$@"
 }
 
 cmd_agenda() { sync_js agenda "$@"; }
@@ -160,20 +160,20 @@ cmd_sync() {
 # Vault git hooks: pre-commit gives new todos/events/contacts stable ids; post-commit
 # pushes them to the server in the background (only when sync.conf exists).
 setup_git_hooks() {
-  local hd="$BRAIN/.git/hooks"
-  [ -d "$BRAIN/.git" ] || die "the vault is not a git repository"
+  local hd="$VAULT/.git/hooks"
+  [ -d "$VAULT/.git" ] || die "the vault is not a git repository"
   mkdir -p "$hd"
   write_hook() {
     local f="$hd/$1"
-    if [ -e "$f" ] && ! grep -q 'second-brain:' "$f"; then
-      echo "brain: $f exists and is not ours; left untouched" >&2; return
+    if [ -e "$f" ] && ! grep -qE '^# (kioku|second-brain):' "$f"; then
+      echo "kioku: $f exists and is not ours; left untouched" >&2; return
     fi
     printf '%s\n' "$2" > "$f.new" && chmod +x "$f.new"
     if [ -f "$f" ] && cmp -s "$f" "$f.new"; then rm "$f.new"; else mv "$f.new" "$f"; echo "installed $1 hook"; fi
   }
   write_hook pre-commit '#!/usr/bin/env bash
-# second-brain: give new todos, events and contacts in this commit a stable id
-B="$(git rev-parse --show-toplevel)/.brain/bin/brain"
+# kioku: give new todos, events and contacts in this commit a stable id
+B="$(git rev-parse --show-toplevel)/.kioku/bin/kioku"
 [ -x "$B" ] && command -v node >/dev/null || exit 0
 mapfile -t files < <(git diff --cached --name-only --diff-filter=ACM -- journal calendar contacts)
 [ ${#files[@]} -gt 0 ] || exit 0
@@ -181,52 +181,52 @@ mapfile -t changed < <("$B" sync --ids "${files[@]}" 2>/dev/null)
 [ ${#changed[@]} -gt 0 ] && git add -- "${changed[@]}"
 exit 0'
   write_hook post-commit '#!/usr/bin/env bash
-# second-brain: after each commit, push the vault to its git remote (brain remote on) and
+# kioku: after each commit, push the vault to its git remote (kioku remote on) and
 # todos, events and contacts to CalDAV/CardDAV
-B="$(git rev-parse --show-toplevel)/.brain/bin/brain"
-[ -x "$B" ] && [ -z "${BRAIN_GIT_SYNCING:-}" ] || exit 0
-dav=; [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/second-brain/sync.conf" ] && git diff-tree --root --no-commit-id --name-only -r HEAD -- journal calendar contacts | grep -q . && dav=1
-git=; [ "$(git config --bool brain.autosync)" = true ] && git=1
+B="$(git rev-parse --show-toplevel)/.kioku/bin/kioku"
+[ -x "$B" ] && [ -z "${KIOKU_GIT_SYNCING:-}" ] || exit 0
+dav=; [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/kioku/sync.conf" ] && git diff-tree --root --no-commit-id --name-only -r HEAD -- journal calendar contacts | grep -q . && dav=1
+git=; [ "$(git config --bool kioku.autosync)" = true ] && git=1
 [ -n "$dav$git" ] || exit 0
 ( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; nohup bash -c "${git:+\"\$1\" remote now;} ${dav:+\"\$1\" sync --quiet;} :" _ "$B" >/dev/null 2>&1 & )
 exit 0'
 }
 
 # Keep several copies of the vault (e.g. a laptop and a server) in step through its git remote.
-# Enabled per clone with `brain remote on` (git config brain.autosync). After each commit the
+# Enabled per clone with `kioku remote on` (git config kioku.autosync). After each commit the
 # post-commit hook pulls (rebase) and pushes in the background; each session starts with a pull.
-REMOTE_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/second-brain"
+REMOTE_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/kioku"
 cmd_remote() {
-  local g=(git -C "$BRAIN")
+  local g=(git -C "$VAULT")
   case "${1:-status}" in
     on)
-      "${g[@]}" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1 || die "the vault branch has no upstream; push it once with: git -C $BRAIN push -u origin HEAD"
-      "${g[@]}" config brain.autosync true; setup_git_hooks >/dev/null
+      "${g[@]}" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1 || die "the vault branch has no upstream; push it once with: git -C $VAULT push -u origin HEAD"
+      "${g[@]}" config kioku.autosync true; setup_git_hooks >/dev/null
       echo "autosync on: pull before each session, push after each commit" ;;
-    off) "${g[@]}" config --unset brain.autosync || true; echo "autosync off" ;;
+    off) "${g[@]}" config --unset kioku.autosync || true; echo "autosync off" ;;
     status)
-      if [ "$("${g[@]}" config --bool brain.autosync 2>/dev/null)" = true ]; then echo "autosync: on"; else echo "autosync: off"; fi
+      if [ "$("${g[@]}" config --bool kioku.autosync 2>/dev/null)" = true ]; then echo "autosync: on"; else echo "autosync: off"; fi
       [ -f "$REMOTE_STATE/git-sync.conflict" ] && echo "conflict: $(cat "$REMOTE_STATE/git-sync.conflict")"
       "${g[@]}" status -sb | head -1 ;;
     pull|now) remote_sync "$1" ;;
-    *) die "usage: brain remote on|off|status|pull|now" ;;
+    *) die "usage: kioku remote on|off|status|pull|now" ;;
   esac
 }
 
 tmo() { if command -v timeout >/dev/null; then timeout "$@"; else shift; "$@"; fi; }
 
 remote_sync() {
-  [ "$(git -C "$BRAIN" config --bool brain.autosync 2>/dev/null)" = true ] || return 0
+  [ "$(git -C "$VAULT" config --bool kioku.autosync 2>/dev/null)" = true ] || return 0
   mkdir -p "$REMOTE_STATE"
   local lock="$REMOTE_STATE/git-sync.lock" log="$REMOTE_STATE/git-sync.log"
   find "$lock" -maxdepth 0 -mmin +2 -exec rmdir {} + 2>/dev/null || true   # stale lock from a killed run
   local i got=; for i in 1 2 3 4 5 6 7 8 9 10; do mkdir "$lock" 2>/dev/null && { got=1; break; }; sleep 1; done
-  [ -n "$got" ] || { echo "brain: git sync busy ($lock)" >&2; return 1; }
+  [ -n "$got" ] || { echo "kioku: git sync busy ($lock)" >&2; return 1; }
   trap "rmdir '$lock' 2>/dev/null" EXIT
-  export BRAIN_GIT_SYNCING=1 GIT_TERMINAL_PROMPT=0
-  local g=(git -C "$BRAIN") out rc=0
-  if [ -d "$BRAIN/.git/rebase-merge" ] || [ -d "$BRAIN/.git/rebase-apply" ]; then
-    echo "a rebase is in progress in the vault; resolve it, then run brain remote now" > "$REMOTE_STATE/git-sync.conflict"; return 1
+  export KIOKU_GIT_SYNCING=1 GIT_TERMINAL_PROMPT=0
+  local g=(git -C "$VAULT") out rc=0
+  if [ -d "$VAULT/.git/rebase-merge" ] || [ -d "$VAULT/.git/rebase-apply" ]; then
+    echo "a rebase is in progress in the vault; resolve it, then run kioku remote now" > "$REMOTE_STATE/git-sync.conflict"; return 1
   fi
   local try
   for try in 1 2 3; do
@@ -251,19 +251,19 @@ remote_sync() {
 }
 
 cmd_log() {
-  [ $# -ge 2 ] || die 'usage: brain log <op> "<Title>"'
+  [ $# -ge 2 ] || die 'usage: kioku log <op> "<Title>"'
   local op="$1"; shift
   case "$op" in ingest|query|lint|note|setup) ;; *) die "unknown op: $op" ;; esac
-  printf '\n## [%s] %s | %s\n' "$today" "$op" "$*" >> "$BRAIN/log.md"
+  printf '\n## [%s] %s | %s\n' "$today" "$op" "$*" >> "$VAULT/log.md"
   echo "log.md: [$today] $op | $*"
 }
 
 cmd_search() {
   local dirs=(Core.md projects wiki daily journal calendar contacts index.md)
   if [ "${1:-}" = "--raw" ]; then dirs+=(raw); shift; fi
-  [ $# -ge 1 ] || die "usage: brain search [--raw] <term...>"
+  [ $# -ge 1 ] || die "usage: kioku search [--raw] <term...>"
   local re; re="$(search_re "$*")"
-  cd "$BRAIN"
+  cd "$VAULT"
   { rg -il --glob '*.md' -e "^title:.*$re" "${dirs[@]}" 2>/dev/null || true
     rg -il --glob '*.md' -e "$re" "${dirs[@]}" 2>/dev/null | sort || true
   } | awk '!seen[$0]++' | head -n 30 | while IFS= read -r f; do
@@ -289,23 +289,23 @@ cmd_recap() {
       echo "## $kind $d"
       awk 'NR==1&&$0=="---"{f=1;next} f&&$0=="---"{f=0;next} !f' "$f" | grep -v '^# ' | sed '/^[[:space:]]*$/d' \
         | awk '/^#/{h=$0; next} {if(h!=""){print h; h=""} print}' || true
-    done < <(ls -1 "$BRAIN/$kind"/[0-9]*.md 2>/dev/null | sort)
+    done < <(ls -1 "$VAULT/$kind"/[0-9]*.md 2>/dev/null | sort)
   done
   echo "## log.md"
-  grep '^## \[' "$BRAIN/log.md" | while IFS= read -r l; do
+  grep '^## \[' "$VAULT/log.md" | while IFS= read -r l; do
     local d="${l:4:10}"; [[ "$d" < "$since" ]] || echo "${l#\#\# }"
   done
 }
 
 cmd_lint_check() {
-  cd "$BRAIN"
+  cd "$VAULT"
   local issues=0
   # Every file (relative path) plus lookups without extension and by basename
   declare -A exists=() byname=()
   while IFS= read -r f; do
     exists["$f"]=1; exists["${f%.md}"]=1
     local b; b="$(basename "$f")"; byname["$b"]="$f"; byname["${b%.md}"]="$f"
-  done < <(find . \( -name .git -o -name .brain -o -name .obsidian -o -name .trash -o -name .claude \) -prune -o -type f -print | sed 's|^\./||')
+  done < <(find . \( -name .git -o -name .kioku -o -name .obsidian -o -name .trash -o -name .claude \) -prune -o -type f -print | sed 's|^\./||')
 
   resolve() { # link target → file path (empty if missing)
     local t="$1"; t="${t%%|*}"; t="${t%%#*}"; t="${t%%^*}"
@@ -325,7 +325,7 @@ cmd_lint_check() {
     local r; r="$(resolve "$link")"
     if [ -z "$r" ]; then echo "- $src → [[$link]]"; broken=$((broken+1)); continue; fi
     [ "$src" != "$r" ] && [ "$src" != "index.md" ] && inbound["$r"]=1
-  done < <(rg -N --no-heading --with-filename --glob '*.md' --glob '!.brain/**' --glob '!CLAUDE.md' -e '\[\[' . 2>/dev/null | sed 's|^\./||' \
+  done < <(rg -N --no-heading --with-filename --glob '*.md' --glob '!.kioku/**' --glob '!CLAUDE.md' -e '\[\[' . 2>/dev/null | sed 's|^\./||' \
            | awk '{ i=index($0,":"); src=substr($0,1,i-1); t=substr($0,i+1); gsub(/`[^`]*`/,"",t)
                     while (match(t,/\[\[[^]]+\]\]/)) { print src ":" substr(t,RSTART,RLENGTH); t=substr(t,RSTART+RLENGTH) } }')
   [ "$broken" -eq 0 ] && echo "(none)"; issues=$((issues+broken))
@@ -368,7 +368,7 @@ cmd_lint_check() {
 
   echo "## Calendar, todos and contacts"
   if command -v node >/dev/null; then
-    local vo; vo="$(BRAIN_DIR="$BRAIN" node "$BRAIN/.brain/bin/brain-sync.mjs" validate 2>&1)" || true
+    local vo; vo="$(KIOKU_DIR="$VAULT" node "$VAULT/.kioku/bin/kioku-sync.mjs" validate 2>&1)" || true
     if [ -n "$vo" ]; then printf '%s\n' "$vo"; issues=$((issues+$(printf '%s\n' "$vo" | grep -c '^- '))); else echo "(none)"; fi
   else
     echo "(skipped: node not found)"

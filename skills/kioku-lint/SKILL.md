@@ -1,17 +1,17 @@
 ---
-name: brain-lint
-description: Health check of the user's second brain (the Brain vault) — broken links, orphan pages, index gaps, contradictions, stale claims, missing concept pages, unclosed open threads. Use when the user says "check the brain", "clean up the brain", "brain lint" (Turkish: "beyni kontrol et", "beyni temizle"), or in the weekly maintenance task. NOT for linting code.
+name: kioku-lint
+description: Health check of the user's second brain (the Kioku vault) — broken links, orphan pages, index gaps, contradictions, stale claims, missing concept pages, unclosed open threads. Use when the user says "check the brain", "clean up the brain", "brain lint" (Turkish: "beyni kontrol et", "beyni temizle"), or in the weekly maintenance task. NOT for linting code.
 ---
 
-# brain-lint
+# kioku-lint
 
-Vault: `$BRAIN` — the vault path from the Brain section of your instructions (`~/.claude/CLAUDE.md`).
-Rules: `$BRAIN/.brain/SCHEMA.md` (Lint section); personal rules in `$BRAIN/CLAUDE.md`
-CLI: `$BRAIN/.brain/bin/brain`
+Vault: `$VAULT` — the vault path from the Kioku section of your instructions (`~/.claude/CLAUDE.md`).
+Rules: `$VAULT/.kioku/SCHEMA.md` (Lint section); personal rules in `$VAULT/CLAUDE.md`
+CLI: `$VAULT/.kioku/bin/kioku`
 
 ## 1. Deterministic checks
 
-Run `brain lint-check` and keep its output. It exits with code 1 when it finds issues;
+Run `kioku lint-check` and keep its output. It exits with code 1 when it finds issues;
 that is not an error.
 
 ## 2. Semantic checks
@@ -42,4 +42,4 @@ none of the fixes.
 - Do not touch files under `raw/`.
 - Prefer merging pages or adding a `> [!note] Outdated: …` callout over deleting.
 - Add any new pages to `index.md`.
-- Finally run `brain lint-check` again to verify, then `brain log lint "<summary>"`, and commit with `lint: <summary>`.
+- Finally run `kioku lint-check` again to verify, then `kioku log lint "<summary>"`, and commit with `lint: <summary>`.

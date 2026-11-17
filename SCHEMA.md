@@ -1,13 +1,13 @@
-# Brain — schema
+# Kioku — schema
 
-The vault (`$BRAIN`, given in the Brain section of `~/.claude/CLAUDE.md`) is the user's
+The vault (`$VAULT`, given in the Kioku section of `~/.claude/CLAUDE.md`) is the user's
 personal second brain: an Obsidian vault and a git repository. This file defines the rules of
 the system. Follow it before writing anything to the vault.
 
-This file is part of the shared system (`$BRAIN/.brain/` is a link to the second-brain
+This file is part of the shared system (`$VAULT/.kioku/` is a link to the kioku
 checkout). The vault's own `CLAUDE.md` imports it and holds the user's **personal rules**,
 which take precedence over this file. When the user wants a rule changed for themselves, ask,
-then write it under "Personal rules" in `$BRAIN/CLAUDE.md`. Don't edit this file.
+then write it under "Personal rules" in `$VAULT/CLAUDE.md`. Don't edit this file.
 
 **Core principle:** The user does not write notes by hand. You keep every record. The user
 talks, shares links and approves; you write information to the right place, with its source,
@@ -29,39 +29,39 @@ briefly.
 | --- | --- | --- |
 | `Core.md` | The user's identity, how to address them, preferences, working style | You, **only with the user's approval** |
 | `daily/YYYY-MM-DD.md` | Your work log: decisions, finished work, learnings, open threads | You, without asking |
-| `journal/YYYY-MM-DD.md` | The user's timeline: what they did, todos, pointers to notes saved that day | You, whenever the user tells you something to note (`brain-journal`) |
+| `journal/YYYY-MM-DD.md` | The user's timeline: what they did, todos, pointers to notes saved that day | You, whenever the user tells you something to note (`kioku-journal`) |
 | `projects/<slug>.md` | Active and past work: status, next step, links | You, without asking |
-| `calendar/<yyyy>/<date>-<slug>.md` | Events, one page each; synced to the CalDAV calendar | You, when the user schedules something (`brain-calendar`) |
-| `contacts/<slug>.md` | People's contact details; synced to the CardDAV address book | You, when the user gives contact details (`brain-contacts`) |
+| `calendar/<yyyy>/<date>-<slug>.md` | Events, one page each; synced to the CalDAV calendar | You, when the user schedules something (`kioku-calendar`) |
+| `contacts/<slug>.md` | People's contact details; synced to the CardDAV address book | You, when the user gives contact details (`kioku-contacts`) |
 | `raw/` | Copies of external sources (articles, PDFs, transcripts) | You save them, **then never modify them** |
 | `wiki/sources/` | One summary per source | You |
 | `wiki/concepts/` | Concepts, methods, commands, how-tos, things learned | You |
 | `wiki/entities/` | Things with a name: tools, sites, apps, libraries, people, organizations, games, anime… (`kind:`) | You |
-| `wiki/ideas/` | The user's ideas, one page each | You, when the user shares an idea (`brain-note`) |
+| `wiki/ideas/` | The user's ideas, one page each | You, when the user shares an idea (`kioku-note`) |
 | `wiki/topics/` | Topic hubs (maps of content) that categorize pages | You, on every new or moved page |
 | `wiki/synthesis/` | Comparisons, valuable query answers | You, when the user wants |
 | `index.md` | Map of the brain: topics first, then projects and other catalogues | You, on every new topic or project |
 | `log.md` | Append-only operation log | You, on every operation |
 | `CLAUDE.md` | Imports this schema; the user's personal rules | You, only with the user's approval |
-| `.brain/` | Link to the system checkout: schema, hooks, skills, CLI, templates | Never from the vault; system changes are made in the checkout |
+| `.kioku/` | Link to the system checkout: schema, hooks, skills, CLI, templates | Never from the vault; system changes are made in the checkout |
 
 ## Tools
 
-CLI: `$BRAIN/.brain/bin/brain`
+CLI: `$VAULT/.kioku/bin/kioku`
 
-- `brain today`: creates today's daily file if missing, prints its path.
-- `brain journal`: creates today's journal file if missing, prints its path.
-- `brain todo [--soon]`: open todos in `journal/` sorted by due date, with `file:line`; `--soon` shows only overdue ones and those due in the next 3 days.
-- `brain new <source|concept|entity|tool|idea|topic|synthesis|project|contact> "<Title>"`: creates a page from its template, prints its path (`tool` is an entity page for tools and sites). Events: `brain new event "<Title>" YYYY-MM-DD`.
-- `brain log <ingest|query|lint|note|setup> "<Title>"`: appends a line to `log.md`.
-- `brain search [--raw] <term...>`: title matches first; `--raw` also searches `raw/`. Case-insensitive, Turkish İ/ı aware.
-- `brain recap [--days N]`: daily notes and log entries from the last N days.
-- `brain agenda [--days N]`: upcoming events, recurrences expanded.
-- `brain sync [--check|--dry-run|--full]`: push todos, events and contacts to the server; `--check` only tests the connection.
-- `brain remote on|off|status|now`: keep vault copies on several machines in step through the git remote.
-- `brain lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, missing frontmatter.
+- `kioku today`: creates today's daily file if missing, prints its path.
+- `kioku journal`: creates today's journal file if missing, prints its path.
+- `kioku todo [--soon]`: open todos in `journal/` sorted by due date, with `file:line`; `--soon` shows only overdue ones and those due in the next 3 days.
+- `kioku new <source|concept|entity|tool|idea|topic|synthesis|project|contact> "<Title>"`: creates a page from its template, prints its path (`tool` is an entity page for tools and sites). Events: `kioku new event "<Title>" YYYY-MM-DD`.
+- `kioku log <ingest|query|lint|note|setup> "<Title>"`: appends a line to `log.md`.
+- `kioku search [--raw] <term...>`: title matches first; `--raw` also searches `raw/`. Case-insensitive, Turkish İ/ı aware.
+- `kioku recap [--days N]`: daily notes and log entries from the last N days.
+- `kioku agenda [--days N]`: upcoming events, recurrences expanded.
+- `kioku sync [--check|--dry-run|--full]`: push todos, events and contacts to the server; `--check` only tests the connection.
+- `kioku remote on|off|status|now`: keep vault copies on several machines in step through the git remote.
+- `kioku lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, missing frontmatter.
 
-Always create new pages with `brain new`, then edit them. Write files with Edit/Write.
+Always create new pages with `kioku new`, then edit them. Write files with Edit/Write.
 
 ## Memory: capturing from conversations
 
@@ -83,18 +83,18 @@ something, it is lost.
 - Secrets (see Prohibited).
 
 **How:**
-1. Open the daily file with `brain today`. One line per entry:
+1. Open the daily file with `kioku today`. One line per entry:
    `- HH:MM [project] type: text ([[link]])`, where type is `decision|done|learned|preference|open`.
    Example: `- 14:20 [config] decision: stay on ripgrep, not qmd yet; fewer than 200 pages ([[wiki/concepts/llm-wiki]])`
-2. If the work belongs to a project, update `projects/<slug>.md`: `status`, `next`, `updated`, and one line under History. If there is no project note and the work will recur, create one with `brain new project` and set `path:` to the project folder; the SessionStart hook will surface this note in sessions opened there.
+2. If the work belongs to a project, update `projects/<slug>.md`: `status`, `next`, `updated`, and one line under History. If there is no project note and the work will recur, create one with `kioku new project` and set `path:` to the project folder; the SessionStart hook will surface this note in sessions opened there.
 3. If there is a durable **learned** item, add it to the relevant `wiki/concepts/` or `wiki/entities/` page with `(source: [[daily/YYYY-MM-DD]])`. If the page doesn't exist, create it, give it a `Topics:` line and list it in its topic hub.
 4. If you learned something about the user that belongs in `Core.md` (identity, preference, working style), don't write it; ask first: "Shall I add this to Core: …?"
-5. After writing, tell the user in one line: `Saved to Brain: …`
+5. After writing, tell the user in one line: `Saved to Kioku: …`
 6. Commit (see Git).
 
 **When:** when a piece of work is finished, when a decision is made, near the end of a
 session. Not on every message. The Stop hook sometimes asks "is there anything to record?":
-if so, record it; if not, say `Brain: nothing to record` in one line.
+if so, record it; if not, say `Kioku: nothing to record` in one line.
 
 ## The user's notes: timeline vs. durable knowledge
 
@@ -104,14 +104,14 @@ contain several kinds; split it.
 
 | Kind | Goes to | Skill |
 | --- | --- | --- |
-| Something that happened, something they did | `journal/` › Log | `brain-journal` |
-| A todo or reminder | `journal/` › Todos, with `due:` | `brain-journal` |
-| An event with a time slot: appointment, class, meeting, trip | `calendar/` | `brain-calendar` |
-| A person's contact details | `contacts/` | `brain-contacts` |
-| A named thing worth remembering: a tool, site, app, library, person, game, anime… | `wiki/entities/` (`kind:`, `url:`) | `brain-note` |
-| A method, command, how-to, fact or something learned | `wiki/concepts/` | `brain-note` |
-| An idea | `wiki/ideas/` | `brain-note` |
-| Something to read and digest (article, paper, video) | `raw/` + `wiki/sources/` | `brain-ingest` |
+| Something that happened, something they did | `journal/` › Log | `kioku-journal` |
+| A todo or reminder | `journal/` › Todos, with `due:` | `kioku-journal` |
+| An event with a time slot: appointment, class, meeting, trip | `calendar/` | `kioku-calendar` |
+| A person's contact details | `contacts/` | `kioku-contacts` |
+| A named thing worth remembering: a tool, site, app, library, person, game, anime… | `wiki/entities/` (`kind:`, `url:`) | `kioku-note` |
+| A method, command, how-to, fact or something learned | `wiki/concepts/` | `kioku-note` |
+| An idea | `wiki/ideas/` | `kioku-note` |
+| Something to read and digest (article, paper, video) | `raw/` + `wiki/sources/` | `kioku-ingest` |
 
 - **Timeline notes** stay in the journal. Journal pages are kept out of the session-start context; only due and overdue todos are shown there.
 - **Durable notes** are compiled into the wiki, like LLM Wiki sources: find the page about the subject first and add the note there; create a page only when there is none. Each durable note leaves a pointer in the journal's `## Saved` section, so the timeline stays complete.
@@ -124,20 +124,20 @@ Categories are **topic hubs** in `wiki/topics/`, also called maps of content.
 - **Hubs:** a hub has a short overview and groups its pages under headings (`## Tools`, `## Concepts`, `## Ideas`, `## Projects`, …). Each line is `- [[path|Title]] — one sentence`.
 - **Topic line:** every wiki page (except hubs) starts, right under its H1, with `Topics: [[wiki/topics/x|X]] · [[wiki/topics/y|Y]]`. A page can belong to several topics.
 - **Keep the list small.** Reuse an existing hub when one fits. If a broader hub covers the note, add a heading inside it instead of creating a new hub.
-- **New hubs:** when nothing fits, create a hub with `brain new topic`, add it to `index.md` › Topics, and tell the user in one line: `New topic: …` (in their language). The user may rename or merge hubs; follow their wish.
+- **New hubs:** when nothing fits, create a hub with `kioku new topic`, add it to `index.md` › Topics, and tell the user in one line: `New topic: …` (in their language). The user may rename or merge hubs; follow their wish.
 - **Hubs and tags:** hubs say what a page is about. `tags:` are for finer facets (`open-source`, `free`, `kde`).
 - **Language:** hub names and contents are written in the conversation language; the group headings inside hubs are English.
 
 ## Calendar, todos and contacts (sync)
 
 Todos (`journal/`), events (`calendar/`) and contacts (`contacts/`) are pushed **one way**,
-from the vault to the user's CalDAV/CardDAV server (`brain sync`), so they show in
+from the vault to the user's CalDAV/CardDAV server (`kioku sync`), so they show in
 Thunderbird, phones and webmail. The vault is the source:
 
-- **Who changes what:** you change them; the user only views them elsewhere. An edit made in another client to a Brain item is overwritten on the next sync.
+- **Who changes what:** you change them; the user only views them elsewhere. An edit made in another client to a Kioku item is overwritten on the next sync.
 - **Ids:** every item has a stable id. Todos carry an Obsidian block id at the end of the line (` ^t-3f9a1c`); events and contacts have `uid:` in their frontmatter. The vault's pre-commit hook adds missing ids. Never change or remove an existing id.
-- **When it runs:** the vault's post-commit hook runs the sync in the background after every commit that touches these folders. Logs go to `~/.local/state/second-brain/sync.log`.
-- **What it touches:** only server resources whose name starts with `brain-`. Everything else in the user's calendar and address book is never touched.
+- **When it runs:** the vault's post-commit hook runs the sync in the background after every commit that touches these folders. Logs go to `~/.local/state/kioku/sync.log`.
+- **What it touches:** only server resources whose name starts with `kioku-`. Everything else in the user's calendar and address book is never touched.
 - **Removing items:**
   - An event with `status: cancelled` is removed from the server; its page stays in the vault.
   - A deleted page or todo line is deleted from the server.
@@ -146,36 +146,36 @@ Thunderbird, phones and webmail. The vault is the source:
   - An event with `alarm:` (for example `30m`) gets a reminder.
   - An open todo with `(at: HH:MM)` rings at its due time; `(remind: 1h)` rings that much earlier. Without `at:`, the reminder counts back from 09:00 on the due date.
   - Phones show these as notifications once they subscribe to the same calendar (DAVx⁵ on Android, a CalDAV account on iOS).
-- **Credentials:** the connection settings are in `~/.config/second-brain/sync.conf`, and the password is in a file only the user can read (`~/.config/second-brain/dav.pass`, or a command set in `password_cmd`). Never ask for, read, print or store a password.
+- **Credentials:** the connection settings are in `~/.config/kioku/sync.conf`, and the password is in a file only the user can read (`~/.config/kioku/dav.pass`, or a command set in `password_cmd`). Never ask for, read, print or store a password.
 
 ## Ingest (external source)
 
 When the user shares a link or a file and says "add it to the brain" (in any language),
-follow the `brain-ingest` skill. In short:
+follow the `kioku-ingest` skill. In short:
 
 1. **Save:** to `raw/<yyyy>/<slug>.md` with frontmatter `title, url, author, fetched, lang, type: article|paper|video|thread|doc|other`. Put the content below as-is: no summarizing, no commentary. If there is a PDF or image, put the original under `raw/assets/` and link it.
 2. **Discuss:** show 3–5 key points and ask what the user cares about. Skip this step if the user says "process without asking".
-3. **Summarize:** `brain new source` → `wiki/sources/<slug>.md`, in the source's language. The raw path goes in `sources:`. Every claim must be grounded in the source.
+3. **Summarize:** `kioku new source` → `wiki/sources/<slug>.md`, in the source's language. The raw path goes in `sources:`. Every claim must be grounded in the source.
 4. **Connect:** update or create the related concept and entity pages (usually 3–15 pages). If something contradicts existing knowledge, don't overwrite it: keep both views with their sources and add a `> [!warning] Contradiction` callout.
-5. **Record:** give every new page a `Topics:` line and list it in its topic hub(s) (new hubs go into `index.md` › Topics), `brain log ingest "<Title>"`, commit.
+5. **Record:** give every new page a `Topics:` line and list it in its topic hub(s) (new hubs go into `index.md` › Topics), `kioku log ingest "<Title>"`, commit.
 
 ## Query
 
-1. Read `index.md` and the relevant topic hubs first, then search with `brain search`, then read the pages.
+1. Read `index.md` and the relevant topic hubs first, then search with `kioku search`, then read the pages.
 2. Answer with citations: `[[wiki/concepts/x]]`. If the brain doesn't have it, say so plainly; if you answer from general knowledge, mark it as such.
 3. If the answer has lasting value (a comparison, a synthesis), offer to save it to `wiki/synthesis/`.
-4. Run `brain log query "<question>"` only if the answer was saved.
+4. Run `kioku log query "<question>"` only if the answer was saved.
 
 ## Lint (maintenance)
 
-Follow the `brain-lint` skill:
-1. Run `brain lint-check` first: broken links, orphan pages, pages missing from the index, missing frontmatter.
+Follow the `kioku-lint` skill:
+1. Run `kioku lint-check` first: broken links, orphan pages, pages missing from the index, missing frontmatter.
 2. Then check semantically: contradictions, stale claims (old `updated` dates), concepts mentioned often but without their own page, missing cross-links, open threads that should be closed.
-3. Show a report first and fix only after approval. Then `brain log lint`, commit.
+3. Show a report first and fix only after approval. Then `kioku log lint`, commit.
 
 ## Writing rules
 
-- **File names:** kebab-case slugs. Latin-script titles are transliterated to ASCII (`Çağdaş Öğrenme` → `cagdas-ogrenme.md`); non-Latin scripts are kept as-is (`машинное-обучение.md`, `機械学習.md`). The full title lives in `title:`. Always let `brain new` generate the slug.
+- **File names:** kebab-case slugs. Latin-script titles are transliterated to ASCII (`Çağdaş Öğrenme` → `cagdas-ogrenme.md`); non-Latin scripts are kept as-is (`машинное-обучение.md`, `機械学習.md`). The full title lives in `title:`. Always let `kioku new` generate the slug.
 - **Frontmatter** on every page:
   ```yaml
   ---
@@ -205,19 +205,19 @@ Follow the `brain-lint` skill:
 - **Never** write secrets: passwords, API keys, tokens, card numbers, ID numbers. The repo is pushed to GitHub.
 - Do not modify saved files under `raw/`.
 - Do not change `Core.md` without the user's approval. Do not delete, move or rename existing notes.
-- Do not touch `.brain/` unless the user asks.
+- Do not touch `.kioku/` unless the user asks.
 
 ## Git
 
 - Make one commit at the end of every meaningful write:
   ```
-  git -C "$BRAIN" add -A && git -C "$BRAIN" commit -m "<type>: <short title>"
+  git -C "$VAULT" add -A && git -C "$VAULT" commit -m "<type>: <short title>"
   ```
   `<type>` is one of `memory`, `journal`, `note`, `calendar`, `contact`, `ingest`, `query`, `lint`, `core`, `project`, `system`.
-- Do not push yourself. If the vault has autosync on (`brain remote on`, for copies on several machines), the post-commit hook pulls and pushes after each commit and each session starts with a pull. If the session context reports a sync conflict, tell the user and offer to resolve it.
+- Do not push yourself. If the vault has autosync on (`kioku remote on`, for copies on several machines), the post-commit hook pulls and pushes after each commit and each session starts with a pull. If the session context reports a sync conflict, tell the user and offer to resolve it.
 
 ## Relation to Claude's built-in memory
 
 Claude Code's auto memory is only for working preferences about how to help the user.
-Knowledge, decisions, projects and the user's profile go into Brain. Never write the same
+Knowledge, decisions, projects and the user's profile go into Kioku. Never write the same
 thing in both places.

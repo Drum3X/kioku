@@ -1,5 +1,5 @@
-# The system is a link to the second-brain checkout, versioned in its own repo
-.brain
+# The system is a link to the kioku checkout, versioned in its own repo
+.kioku
 # Obsidian: per-device state
 .obsidian/workspace*.json
 .obsidian/cache
