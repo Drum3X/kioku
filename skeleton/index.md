@@ -5,14 +5,8 @@ updated: {{date}}
 ---
 # Index
 
-Wiki catalog: one line per page, `- [[path|Title]] — one-sentence summary`. Claude updates it on every new page.
+Map of the brain. Topics are the categories (hubs in `wiki/topics/`), and every wiki page is listed in its hub. One line each: `- [[path|Title]] — one sentence`.
+
+## Topics
 
 ## Projects
-
-## Concepts
-
-## Entities
-
-## Sources
-
-## Syntheses

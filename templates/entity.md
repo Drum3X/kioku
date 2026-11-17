@@ -1,6 +1,8 @@
 ---
 title: {{title}}
 type: entity
+kind:
+url:
 lang:
 tags: []
 created: {{date}}
@@ -9,6 +11,8 @@ sources: []
 private: false
 ---
 # {{title}}
+
+Topics:
 
 ## What / who
 

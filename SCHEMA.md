@@ -29,14 +29,16 @@ briefly.
 | --- | --- | --- |
 | `Core.md` | The user's identity, how to address them, preferences, working style | You, **only with the user's approval** |
 | `daily/YYYY-MM-DD.md` | Your work log: decisions, finished work, learnings, open threads | You, without asking |
-| `journal/YYYY-MM-DD.md` | The user's own daily notes: what they did, todos, ideas | You, whenever the user tells you something to note (`brain-journal`) |
+| `journal/YYYY-MM-DD.md` | The user's timeline: what they did, todos, pointers to notes saved that day | You, whenever the user tells you something to note (`brain-journal`) |
 | `projects/<slug>.md` | Active and past work: status, next step, links | You, without asking |
 | `raw/` | Copies of external sources (articles, PDFs, transcripts) | You save them, **then never modify them** |
 | `wiki/sources/` | One summary per source | You |
-| `wiki/concepts/` | Concept pages | You |
-| `wiki/entities/` | People, tools, organizations, products | You |
+| `wiki/concepts/` | Concepts, methods, commands, how-tos, things learned | You |
+| `wiki/entities/` | Things with a name: tools, sites, apps, libraries, people, organizations, games, anime… (`kind:`) | You |
+| `wiki/ideas/` | The user's ideas, one page each | You, when the user shares an idea (`brain-note`) |
+| `wiki/topics/` | Topic hubs (maps of content) that categorize pages | You, on every new or moved page |
 | `wiki/synthesis/` | Comparisons, valuable query answers | You, when the user wants |
-| `index.md` | Wiki catalog, one line per page | You, on every new page |
+| `index.md` | Map of the brain: topics first, then projects and other catalogues | You, on every new topic or project |
 | `log.md` | Append-only operation log | You, on every operation |
 | `CLAUDE.md` | Imports this schema; the user's personal rules | You, only with the user's approval |
 | `.brain/` | Link to the system checkout: schema, hooks, skills, CLI, templates | Never from the vault; system changes are made in the checkout |
@@ -48,11 +50,11 @@ CLI: `$BRAIN/.brain/bin/brain`
 - `brain today`: creates today's daily file if missing, prints its path.
 - `brain journal`: creates today's journal file if missing, prints its path.
 - `brain todo [--soon]`: open todos in `journal/` sorted by due date, with `file:line`; `--soon` shows only overdue ones and those due in the next 3 days.
-- `brain new <source|concept|entity|synthesis|project> "<Title>"`: creates a page from its template, prints its path.
+- `brain new <source|concept|entity|tool|idea|topic|synthesis|project> "<Title>"`: creates a page from its template, prints its path (`tool` is an entity page for tools and sites).
 - `brain log <ingest|query|lint|note|setup> "<Title>"`: appends a line to `log.md`.
 - `brain search [--raw] <term...>`: title matches first; `--raw` also searches `raw/`. Case-insensitive, Turkish İ/ı aware.
 - `brain recap [--days N]`: daily notes and log entries from the last N days.
-- `brain lint-check`: broken links, orphan pages, pages missing from the index, missing frontmatter.
+- `brain lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, missing frontmatter.
 
 Always create new pages with `brain new`, then edit them. Write files with Edit/Write.
 
@@ -80,25 +82,44 @@ something, it is lost.
    `- HH:MM [project] type: text ([[link]])`, where type is `decision|done|learned|preference|open`.
    Example: `- 14:20 [config] decision: stay on ripgrep, not qmd yet; fewer than 200 pages ([[wiki/concepts/llm-wiki]])`
 2. If the work belongs to a project, update `projects/<slug>.md`: `status`, `next`, `updated`, and one line under History. If there is no project note and the work will recur, create one with `brain new project` and set `path:` to the project folder; the SessionStart hook will surface this note in sessions opened there.
-3. If there is a durable **learned** item, add it to the relevant `wiki/concepts/` or `wiki/entities/` page with `(source: [[daily/YYYY-MM-DD]])`. If the page doesn't exist, create it and add it to `index.md`.
+3. If there is a durable **learned** item, add it to the relevant `wiki/concepts/` or `wiki/entities/` page with `(source: [[daily/YYYY-MM-DD]])`. If the page doesn't exist, create it, give it a `Topics:` line and list it in its topic hub.
 4. If you learned something about the user that belongs in `Core.md` (identity, preference, working style), don't write it; ask first: "Shall I add this to Core: …?"
 5. After writing, tell the user in one line: `Saved to Brain: …`
 6. Commit (see Git).
 
-## Journal (the user's own notes)
-
-When the user tells you something to note ("not al", "hatırlat", "yapılacaklara ekle", "bir
-fikrim var", "bugün … yaptım"), follow the `brain-journal` skill. The note goes into
-`journal/`, not `daily/`:
-- `daily/` is your work log.
-- `journal/` holds what the user wants to remember: things they did, todos with `due:` dates, ideas.
-
-Journal pages stay out of the session-start context. Only due and overdue todos are shown
-there. Write only what the user said; never fill the journal from your own work.
-
-**When (memory):** when a piece of work is finished, when a decision is made, near the end of a
+**When:** when a piece of work is finished, when a decision is made, near the end of a
 session. Not on every message. The Stop hook sometimes asks "is there anything to record?":
 if so, record it; if not, say `Brain: nothing to record` in one line.
+
+## The user's notes: timeline vs. durable knowledge
+
+When the user tells you something to note ("not al", "kaydet", "hatırlat", "bir fikrim var",
+"şunu öğrendim", "bugün … yaptım"), first decide what kind of note it is. One message can
+contain several kinds; split it.
+
+| Kind | Goes to | Skill |
+| --- | --- | --- |
+| Something that happened, something they did | `journal/` › Log | `brain-journal` |
+| A todo or reminder | `journal/` › Todos, with `due:` | `brain-journal` |
+| A named thing worth remembering: a tool, site, app, library, person, game, anime… | `wiki/entities/` (`kind:`, `url:`) | `brain-note` |
+| A method, command, how-to, fact or something learned | `wiki/concepts/` | `brain-note` |
+| An idea | `wiki/ideas/` | `brain-note` |
+| Something to read and digest (article, paper, video) | `raw/` + `wiki/sources/` | `brain-ingest` |
+
+- **Timeline notes** stay in the journal. Journal pages are kept out of the session-start context; only due and overdue todos are shown there.
+- **Durable notes** are compiled into the wiki, like LLM Wiki sources: find the page about the subject first and add the note there; create a page only when there is none. Each durable note leaves a pointer in the journal's `## Saved` section, so the timeline stays complete.
+- Write only what the user said. When you fetch a URL to learn what something is, mark facts from the site with the link. Never fill the journal or notes from your own work; that goes to `daily/`.
+
+### Topics (categories)
+
+Categories are **topic hubs** in `wiki/topics/`, also called maps of content.
+
+- **Hubs:** a hub has a short overview and groups its pages under headings (`## Tools`, `## Concepts`, `## Ideas`, `## Projects`, …). Each line is `- [[path|Title]] — one sentence`.
+- **Topic line:** every wiki page (except hubs) starts, right under its H1, with `Topics: [[wiki/topics/x|X]] · [[wiki/topics/y|Y]]`. A page can belong to several topics.
+- **Keep the list small.** Reuse an existing hub when one fits. If a broader hub covers the note, add a heading inside it instead of creating a new hub.
+- **New hubs:** when nothing fits, create a hub with `brain new topic`, add it to `index.md` › Topics, and tell the user in one line: `New topic: …` (in their language). The user may rename or merge hubs; follow their wish.
+- **Hubs and tags:** hubs say what a page is about. `tags:` are for finer facets (`open-source`, `free`, `kde`).
+- **Language:** hub names and contents are written in the conversation language; the group headings inside hubs are English.
 
 ## Ingest (external source)
 
@@ -109,11 +130,11 @@ follow the `brain-ingest` skill. In short:
 2. **Discuss:** show 3–5 key points and ask what the user cares about. Skip this step if the user says "process without asking".
 3. **Summarize:** `brain new source` → `wiki/sources/<slug>.md`, in the source's language. The raw path goes in `sources:`. Every claim must be grounded in the source.
 4. **Connect:** update or create the related concept and entity pages (usually 3–15 pages). If something contradicts existing knowledge, don't overwrite it: keep both views with their sources and add a `> [!warning] Contradiction` callout.
-5. **Record:** one `index.md` line per new page, `brain log ingest "<Title>"`, commit.
+5. **Record:** give every new page a `Topics:` line and list it in its topic hub(s) (new hubs go into `index.md` › Topics), `brain log ingest "<Title>"`, commit.
 
 ## Query
 
-1. Read `index.md` first, then search with `brain search`, then read the relevant pages.
+1. Read `index.md` and the relevant topic hubs first, then search with `brain search`, then read the pages.
 2. Answer with citations: `[[wiki/concepts/x]]`. If the brain doesn't have it, say so plainly; if you answer from general knowledge, mark it as such.
 3. If the answer has lasting value (a comparison, a synthesis), offer to save it to `wiki/synthesis/`.
 4. Run `brain log query "<question>"` only if the answer was saved.
@@ -132,8 +153,11 @@ Follow the `brain-lint` skill:
   ```yaml
   ---
   title: …
-  type: source|concept|entity|synthesis|project|daily|journal
+  type: source|concept|entity|idea|topic|synthesis|project|daily|journal
   lang: tr|en|…      # language of the page content
+  kind: tool|site|app|library|service|person|org|game|anime|…   # entities only
+  url:               # entities: the thing's home page, if any
+  status: new|exploring|project|dropped                          # ideas only
   tags: []
   created: YYYY-MM-DD
   updated: YYYY-MM-DD
@@ -142,6 +166,7 @@ Follow the `brain-lint` skill:
   ---
   ```
   Update `updated` whenever you change a page.
+- **Topics line:** every wiki page except hubs has `Topics: [[wiki/topics/…]]` right under its H1 (see Topics).
 - **Links:** Obsidian wikilinks with the full path from the vault root: `[[wiki/concepts/llm-wiki|LLM Wiki]]`.
 - **Citations:** every claim links to a source: `… ([[wiki/sources/x]])` or `(source: [[daily/…]])`.
 - **Be brief.** Pages are working notes, not an encyclopedia. Prefer a summary and a link over a long quote.
@@ -161,7 +186,7 @@ Follow the `brain-lint` skill:
   ```
   git -C "$BRAIN" add -A && git -C "$BRAIN" commit -m "<type>: <short title>"
   ```
-  `<type>` is one of `memory`, `journal`, `ingest`, `query`, `lint`, `core`, `project`, `system`.
+  `<type>` is one of `memory`, `journal`, `note`, `ingest`, `query`, `lint`, `core`, `project`, `system`.
 - Do not push. The user or a scheduled task pushes.
 
 ## Relation to Claude's built-in memory

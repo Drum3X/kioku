@@ -21,11 +21,11 @@ Usage: brain <command> [args]
   today                         Create today's daily note if missing, print its path
   journal                       Create today's journal note (the user's own notes) if missing, print its path
   todo [--soon]                 Open todos in journal/, by due date; --soon: overdue and next 3 days
-  new <type> "<Title>"          Create a page from its template: source|concept|entity|synthesis|project
+  new <type> "<Title>"          Create a page from its template: source|concept|entity|tool|idea|topic|synthesis|project
   log <op> "<Title>"            Append to log.md: ingest|query|lint|note|setup
   search [--raw] <term...>      Search; title matches first. Case-insensitive, Turkish İ/ı aware
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
-  lint-check                    Broken links, orphan pages, index gaps, frontmatter
+  lint-check                    Broken links, orphans, uncatalogued or topic-less pages, frontmatter
 EOF
 }
 
@@ -106,8 +106,10 @@ cmd_new() {
   case "$type" in
     source) dir="wiki/sources" ;;
     concept) dir="wiki/concepts" ;;
-    entity) dir="wiki/entities" ;;
+    entity|tool) dir="wiki/entities" ;;
     synthesis) dir="wiki/synthesis" ;;
+    idea) dir="wiki/ideas" ;;
+    topic) dir="wiki/topics" ;;
     project) dir="projects" ;;
     *) die "unknown type: $type" ;;
   esac
@@ -206,10 +208,23 @@ cmd_lint_check() {
   for p in "${pages[@]}"; do [ -n "${inbound[$p]:-}" ] || { echo "- $p"; o=$((o+1)); }; done
   [ "$o" -eq 0 ] && echo "(none)"; issues=$((issues+o))
 
-  echo "## Missing from index.md"
-  local m=0
-  for p in "${pages[@]}"; do grep -qF "[[${p%.md}" index.md || { echo "- $p"; m=$((m+1)); }; done
+  echo "## Not catalogued (neither in index.md nor in a topic hub)"
+  local m=0 hubs=()
+  while IFS= read -r h; do hubs+=("$h"); done < <(find wiki/topics -name '*.md' 2>/dev/null | sort)
+  for p in "${pages[@]}"; do
+    local in_hub=""
+    if [[ "$p" != wiki/topics/* ]] && [ ${#hubs[@]} -gt 0 ] && grep -qF "[[${p%.md}" "${hubs[@]}"; then in_hub=1; fi
+    grep -qF "[[${p%.md}" index.md || [ -n "$in_hub" ] || { echo "- $p"; m=$((m+1)); }
+  done
   [ "$m" -eq 0 ] && echo "(none)"; issues=$((issues+m))
+
+  echo "## No topic (wiki page without a 'Topics: [[wiki/topics/…]]' line)"
+  local nt=0
+  for p in "${pages[@]}"; do
+    [[ "$p" == wiki/* && "$p" != wiki/topics/* ]] || continue
+    grep -qE '^Topics:.*\[\[wiki/topics/' "$p" || { echo "- $p"; nt=$((nt+1)); }
+  done
+  [ "$nt" -eq 0 ] && echo "(none)"; issues=$((issues+nt))
 
   echo "## Missing frontmatter"
   local e=0

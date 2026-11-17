@@ -20,11 +20,11 @@ database or API key; the hooks are small bash scripts.
   CLAUDE.md                   imports the schema + your personal rules
   Core.md                     who you are: filled in by a "get to know me" interview
   daily/                      Claude's work log: decisions, results, learnings, open threads
-  journal/                    your notes: what you did, todos (with due dates), ideas
+  journal/                    your timeline: what you did, todos (with due dates), what you saved
   projects/                   one note per project: status, next step, decisions
   raw/                        exact copies of sources you ingested (never edited)
-  wiki/                       pages Claude compiles: sources/ concepts/ entities/ synthesis/
-  index.md  log.md            wiki catalog, append-only operation log
+  wiki/                       compiled pages: topics/ (category hubs) concepts/ entities/ ideas/ sources/ synthesis/
+  index.md  log.md            map of the brain (topics first), append-only operation log
   .brain → second-brain/      link to this repo: schema, hooks, skills, CLI, templates
 ```
 
@@ -34,7 +34,8 @@ Claude Code is wired up in four places:
 - **Stop hook:** if a session did real work but recorded nothing, Claude is asked once to record what matters. Short Q&A sessions are left alone.
 - **Skills:**
   - `brain` records memory and runs the onboarding interview;
-  - `brain-journal` takes your notes;
+  - `brain-journal` keeps your timeline and todos;
+  - `brain-note` turns tools, sites, ideas and things you learned into linked wiki pages, categorized in topic hubs;
   - `brain-ingest` adds sources;
   - `brain-ask` answers with citations;
   - `brain-lint` runs a health check.
@@ -87,6 +88,7 @@ Talk normally, in any language. A few examples:
 | "what do we know about X?" | Answer from the wiki with `[[citations]]`; says so when the brain has nothing |
 | "note: finished the exam today" / "remind me Friday: submit homework" | A line in today's `journal/` (relative dates become real dates) |
 | "what are my todos?" / "I did the homework" | Grouped list / the todo is ticked in place |
+| "save this: Ghostty, a GPU terminal I want to try" / "idea: a small time-loop game" / "TIL: `nix why-depends` shows the dependency chain" | A wiki page each (`entities/`, `ideas/`, `concepts/`), filed under a topic hub such as *Linux › Tools*; a new hub is created and announced when nothing fits |
 | "what did I do this week?" | `brain recap` summary |
 | "check the brain" | Lint report first, fixes only after your approval |
 

@@ -26,6 +26,8 @@ most linked pages. Look for:
 - **Open threads:** `open:` entries in `daily/` that were closed or forgotten; `projects/` notes with `status: active` that haven't been updated in a long time.
 - **Uncited claims:** wiki claims without a source.
 - **Language drift:** pages whose content doesn't match their `lang:`, or that are missing `lang:`.
+- **Categories:** wiki pages without a `Topics:` line or not listed in their hub; hubs that are nearly empty (merge them into a broader hub) or too big (split them, or add headings); two hubs covering the same thing; duplicate pages about the same subject (merge them).
+- **Ideas:** ideas with `status: new` that have not been touched for a long time. Ask whether to keep, develop or drop each one.
 - **Unprocessed inbox:** files waiting in `raw/inbox/`.
 
 ## 3. Report and approval

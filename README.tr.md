@@ -20,11 +20,11 @@ veritabanı ya da API anahtarı gerekmez; hook'lar küçük bash betikleridir.
   CLAUDE.md                   şemayı içe alır + kişisel kuralların
   Core.md                     sen kimsin: "beni tanı" röportajıyla dolar
   daily/                      Claude'un iş kaydı: kararlar, sonuçlar, öğrenimler, açık uçlar
-  journal/                    senin notların: yaptıkların, yapılacaklar (tarihli), fikirler
+  journal/                    zaman çizelgen: yaptıkların, yapılacaklar (tarihli), kaydettiklerin
   projects/                   proje başına bir not: durum, sonraki adım, kararlar
   raw/                        işlenen kaynakların birebir kopyası (asla değiştirilmez)
-  wiki/                       Claude'un derlediği sayfalar: sources/ concepts/ entities/ synthesis/
-  index.md  log.md            wiki kataloğu, yalnızca sona eklenen işlem kaydı
+  wiki/                       derlenen sayfalar: topics/ (kategori hub'ları) concepts/ entities/ ideas/ sources/ synthesis/
+  index.md  log.md            beynin haritası (önce konular), yalnızca sona eklenen işlem kaydı
   .brain → second-brain/      bu repoya bağlantı: şema, hook'lar, skill'ler, CLI, şablonlar
 ```
 
@@ -34,7 +34,8 @@ Claude Code'a dört noktadan bağlanır:
 - **Stop hook'u:** bir oturumda gerçek bir iş yapılmış ama hiçbir şey kaydedilmemişse, Claude'dan bir kez önemli olanı kaydetmesi istenir. Kısa soru-cevap oturumlarına karışmaz.
 - **Skill'ler:**
   - `brain` hafızayı kaydeder ve tanışma röportajını yürütür;
-  - `brain-journal` notlarını alır;
+  - `brain-journal` zaman çizelgeni ve yapılacaklarını tutar;
+  - `brain-note` araçları, siteleri, fikirleri ve öğrendiklerini konu hub'larında kategorize edilmiş, birbirine bağlı wiki sayfalarına dönüştürür;
   - `brain-ingest` kaynak ekler;
   - `brain-ask` kaynak göstererek cevap verir;
   - `brain-lint` sağlık kontrolü yapar.
@@ -87,6 +88,7 @@ Normal konuş, istediğin dilde. Birkaç örnek:
 | "X hakkında ne biliyoruz?" | Wiki'den `[[kaynaklı]]` cevap; beyinde yoksa bunu söyler |
 | "not al: bugün sınavı bitirdim" / "cuma için hatırlat: ödev teslimi" | Bugünkü `journal/` dosyasına bir satır ("cuma" gibi göreli tarihler gerçek tarihe çevrilir) |
 | "yapılacaklarım ne?" / "ödevi bitirdim" | Gruplanmış liste / ilgili madde yerinde işaretlenir |
+| "kaydet: Ghostty, denemek istediğim GPU hızlandırmalı terminal" / "fikir: zaman döngülü küçük bir oyun" / "şunu öğrendim: `nix why-depends` bağımlılık zincirini gösterir" | Her biri bir wiki sayfası olur (`entities/`, `ideas/`, `concepts/`) ve *Linux › Tools* gibi bir konu hub'ına yerleşir; uyan konu yoksa yeni hub açılır ve haber verilir |
 | "bu hafta ne yaptım?" | `brain recap` özeti |
 | "beyni kontrol et" | Önce bir lint raporu, düzeltmeler ancak senin onayınla |
 

@@ -67,7 +67,7 @@ if [ "$mode" != "--uninstall" ]; then
     ln -s "$SYS" "$link"; changes+=("linked $link → $SYS")
   fi
 
-  for d in daily journal projects raw/inbox raw/assets wiki/sources wiki/concepts wiki/entities wiki/synthesis; do
+  for d in daily journal projects raw/inbox raw/assets wiki/topics wiki/sources wiki/concepts wiki/entities wiki/ideas wiki/synthesis; do
     mkdir -p "$VAULT/$d"
     [ -n "$(ls -A "$VAULT/$d")" ] || touch "$VAULT/$d/.gitkeep"
   done
@@ -121,7 +121,7 @@ The user's personal second brain is \`$VAULT\` (Obsidian vault + git). The user 
 - Before writing anything to the vault, read \`$VAULT/.brain/SCHEMA.md\` (the rules) and \`$VAULT/CLAUDE.md\` (personal rules) and follow them.
 - Decisions, finished work, durable learnings, preferences, open threads → record them with the \`brain\` skill (without asking; except Core.md).
 - Questions that need past knowledge → search Brain first (\`brain-ask\`). A link/PDF to "add to the brain" → \`brain-ingest\`. Maintenance → \`brain-lint\`.
-- The user's own notes (todos, reminders, ideas, "today I did …", "not al") → \`brain-journal\` (journal/). Don't mix them into your work log (daily/).
+- The user's own notes: timeline and todos ("today I did …", reminders) → \`brain-journal\` (journal/); durable things (tools, sites, ideas, things learned) → \`brain-note\` (wiki pages categorized in topic hubs, wiki/topics/). Don't mix them into your work log (daily/).
 - Languages: system text (headings, entry types, frontmatter) is English; note content follows the language of its source or conversation.
 - CLI: \`$VAULT/.brain/bin/brain\` (today, journal, todo, new, log, search, recap, lint-check).
 - Built-in auto memory is only for working preferences about how to help the user; knowledge, decisions, projects and the user's profile go into Brain. Never write the same thing in both places.

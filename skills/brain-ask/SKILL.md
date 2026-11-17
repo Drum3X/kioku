@@ -10,7 +10,7 @@ Vault: `$BRAIN` — the vault path from the Brain section of your instructions (
 Rules: `$BRAIN/.brain/SCHEMA.md` (Query section); personal rules in `$BRAIN/CLAUDE.md`
 CLI: `$BRAIN/.brain/bin/brain`
 
-1. **Search.** Read `$BRAIN/index.md` first. Extract 1–3 key terms from the question and run `brain search <term>` for each. Pages may be in different languages, so search in the question's language and in the likely languages of the sources (for example the English term too). For decisions and past work, look at results in `daily/` and `projects/` as well.
+1. **Search.** Read `$BRAIN/index.md` › Topics and the relevant topic hubs (`wiki/topics/`) first. Extract 1–3 key terms from the question and run `brain search <term>` for each. Pages may be in different languages, so search in the question's language and in the likely languages of the sources (for example the English term too). For decisions and past work, look at results in `daily/` and `projects/` as well.
 2. **Read.** Read the 3–8 most relevant pages. If a wiki claim looks doubtful or you need detail, go down to the `raw/` file listed in `sources:`.
 3. **Answer** briefly in the user's language, with the source next to every claim: `([[wiki/concepts/x]])`.
    - Say plainly what the brain doesn't have: "The brain has nothing on this."

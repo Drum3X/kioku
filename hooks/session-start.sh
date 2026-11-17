@@ -101,7 +101,7 @@ fi
 # 5. Wiki summary and recent operations
 cnt() { find "$BRAIN/wiki/$1" -name '*.md' 2>/dev/null | wc -l | tr -d ' '; }
 add "## Wiki"
-add "Concepts $(cnt concepts) · Entities $(cnt entities) · Sources $(cnt sources) · Syntheses $(cnt synthesis) · $(find "$BRAIN/raw/inbox" -type f ! -name .gitkeep 2>/dev/null | wc -l | tr -d ' ') unprocessed in inbox. For questions needing past knowledge, read index.md first or use '$BRAIN/.brain/bin/brain search'."
+add "Topics $(cnt topics) · Concepts $(cnt concepts) · Entities $(cnt entities) · Ideas $(cnt ideas) · Sources $(cnt sources) · Syntheses $(cnt synthesis) · $(find "$BRAIN/raw/inbox" -type f ! -name .gitkeep 2>/dev/null | wc -l | tr -d ' ') unprocessed in inbox. For questions needing past knowledge, read index.md and the topic hubs first or use '$BRAIN/.brain/bin/brain search'."
 if [ -f "$BRAIN/log.md" ]; then
   add "Recent operations:"
   add "$(grep '^## \[' "$BRAIN/log.md" | tail -n 5 | sed 's/^## /- /')"

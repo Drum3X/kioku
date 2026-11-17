@@ -20,7 +20,8 @@ language; headings and entry types stay English.
 | Request | Do |
 | --- | --- |
 | A decision, result, learning, preference or open thread | **Record** below |
-| The user wants to note something for themselves: a todo, reminder, idea, "bugün … yaptım" | `brain-journal` skill (journal/, not daily/) |
+| The user notes something that happened, or a todo/reminder | `brain-journal` skill (journal/, not daily/) |
+| The user wants to keep a tool, site, idea, command or something learned | `brain-note` skill (wiki page + topic hub) |
 | "What do we know about X?", anything needing past knowledge | `brain-ask` skill |
 | A link, PDF or article: "add it to the brain", "read and process this" | `brain-ingest` skill |
 | "Check the brain", "clean up", "brain lint" | `brain-lint` skill |
