@@ -22,6 +22,23 @@ tp="$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null)"
 mdir="${XDG_RUNTIME_DIR:-/tmp}/kioku-stop"
 mkdir -p "$mdir" 2>/dev/null || exit 0
 marker="$mdir/$sid"
+
+# Learnings written to the daily log in this session but not into the wiki (their daily line has
+# no [[wiki/…]] link yet). Asked once per session, separately from the check below.
+if [ ! -e "$marker.learned" ]; then
+  inputs="$(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .input | .. | strings' "$tp" 2>/dev/null)"
+  yday="$(date -d yesterday +%F 2>/dev/null || date -v-1d +%F)"
+  hits=""
+  while IFS= read -r l; do
+    txt="${l#*learned: }"
+    grep -qF -- "${txt:0:40}" <<<"$inputs" && hits+="- ${txt:0:160}"$'\n'
+  done < <(grep -hE '^- [0-9:]+ \[[^]]*\] learned:' "$VAULT/daily/$(date +%F).md" "$VAULT/daily/$yday.md" 2>/dev/null | grep -v '\[\[wiki/')
+  if [ -n "$hits" ]; then
+    : > "$marker.learned"
+    jq -n --arg h "$hits" '{decision:"block", reason:("Kioku: these learnings went into the daily log in this session but not into the wiki:\n" + $h + "Following step 3 of \"Memory: capturing from conversations\" in the Kioku schema, add each durable one to its wiki/concepts or wiki/entities page (Topics line, topic hub, source link to the daily note), then end its daily line with a link to that page, e.g. ([[wiki/concepts/x]]), and commit. Mention it to the user in one line.")}'
+    exit 0
+  fi
+fi
 [ -e "$marker" ] && exit 0
 
 # Count tool calls in the transcript: total, edits outside the vault, writes to the vault.

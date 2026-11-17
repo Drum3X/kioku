@@ -33,7 +33,11 @@ database or API key; the hooks are small bash scripts.
 Claude Code is wired up in four places:
 
 - **SessionStart hook:** every session, in any project, starts with a compact context of about 1k tokens: `Core.md`, the note for the current folder, active projects, due todos, the last two work-log days and a wiki summary. Your journal stays out of it, except for due todos.
-- **Stop hook:** if a session did real work but recorded nothing, Claude is asked once to record what matters. Short Q&A sessions are left alone.
+- **Stop hook:** Claude is asked to record, once each, in two cases:
+  - a session did real work but recorded nothing;
+  - a learning went into the work log but not into the wiki.
+
+  Short Q&A sessions are left alone.
 - **Skills:**
   - `kioku` records memory and runs the onboarding interview;
   - `kioku-journal` keeps your timeline and todos;

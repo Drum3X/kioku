@@ -36,7 +36,7 @@ language; headings and entry types stay English.
    `- HH:MM [project] decision|done|learned|preference|open: text ([[link]])`
    Infer the project from the session's folder or the topic.
 2. If the work belongs to a project, update `projects/<slug>.md` (`status`, `next`, `updated`, History). If there is no note and the topic will recur, create one with `kioku new project "<Name>"`, set `path:` to the folder's absolute path, and add it to `index.md` › Projects.
-3. If there is a durable learning, add it to the relevant `wiki/concepts/` or `wiki/entities/` page with `(source: [[daily/YYYY-MM-DD]])`. If you created a new page, add it to `index.md`.
+3. Every `learned` entry also goes into the wiki: add it to the relevant `wiki/concepts/` or `wiki/entities/` page with `(source: [[daily/YYYY-MM-DD]])`; a new page gets a `Topics:` line and a line in its topic hub (see `kioku-note`). Then end the daily line with a link to the page, e.g. `([[wiki/concepts/x]])`. Without that link, `kioku lint-check` and the Stop hook report it as not done. Too narrow for the wiki? Then it is not `learned`: use `done`/`decision` or the project note.
 4. Commit:
    ```
    git -C "$VAULT" add -A && git -C "$VAULT" commit -qm "memory: <short title>"

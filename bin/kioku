@@ -464,6 +464,14 @@ cmd_recap() {
   done
 }
 
+# Daily-log 'learned:' entries that were never written into a wiki page. Once a learning is in
+# the wiki, its daily line ends with a link to that page, e.g. ([[wiki/concepts/x]]).
+# Prints file:line:text, one per entry.
+unlinked_learned() {
+  rg -n --no-heading --with-filename --glob '*.md' -e '^- [0-9:]+ \[[^]]*\] learned:' "${@:-daily}" 2>/dev/null \
+    | grep -v '\[\[wiki/' || true
+}
+
 cmd_lint_check() {
   cd "$VAULT"
   local issues=0
@@ -532,6 +540,11 @@ cmd_lint_check() {
     [ -n "$miss" ] && { echo "- $p:$miss"; e=$((e+1)); }
   done
   [ "$e" -eq 0 ] && echo "(none)"; issues=$((issues+e))
+
+  echo "## Learned, not in the wiki (daily 'learned:' lines without a [[wiki/…]] link)"
+  local ln=0
+  while IFS= read -r l; do echo "- ${l:0:220}"; ln=$((ln+1)); done < <(unlinked_learned daily)
+  [ "$ln" -eq 0 ] && echo "(none)"; issues=$((issues+ln))
 
   echo "## Calendar, todos and contacts"
   if command -v node >/dev/null; then

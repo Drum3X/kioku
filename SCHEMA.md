@@ -60,7 +60,7 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku sync [--check|--dry-run|--full]`: push todos, events and contacts to the server; `--check` only tests the connection.
 - `kioku remote on|off|status|now`: keep vault copies on several machines in step through the git remote.
 - `kioku update [--check]`: update Kioku itself (pull + install step); only when the user asks, or when the session context says the install step is out of date and the user agrees.
-- `kioku lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, missing frontmatter.
+- `kioku lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, learned entries missing from the wiki, missing frontmatter.
 
 Always create new pages with `kioku new`, then edit them. Write files with Edit/Write.
 
@@ -88,7 +88,7 @@ something, it is lost.
    `- HH:MM [project] type: text ([[link]])`, where type is `decision|done|learned|preference|open`.
    Example: `- 14:20 [config] decision: stay on ripgrep, not qmd yet; fewer than 200 pages ([[wiki/concepts/llm-wiki]])`
 2. If the work belongs to a project, update `projects/<slug>.md`: `status`, `next`, `updated`, and one line under History. If there is no project note and the work will recur, create one with `kioku new project` and set `path:` to the project folder; the SessionStart hook will surface this note in sessions opened there.
-3. If there is a durable **learned** item, add it to the relevant `wiki/concepts/` or `wiki/entities/` page with `(source: [[daily/YYYY-MM-DD]])`. If the page doesn't exist, create it, give it a `Topics:` line and list it in its topic hub.
+3. Every **learned** item also goes into the wiki: add it to the relevant `wiki/concepts/` or `wiki/entities/` page with `(source: [[daily/YYYY-MM-DD]])`. If the page doesn't exist, create it, give it a `Topics:` line and list it in its topic hub. Then end the daily line with a link to that page, e.g. `([[wiki/concepts/kwin-shortcuts]])`: the link is how `kioku lint-check` and the Stop hook know it was done. If something is too narrow for a wiki page (it only matters to one project), it is not a `learned` entry: write it as `done` or `decision`, or in the project note.
 4. If you learned something about the user that belongs in `Core.md` (identity, preference, working style), don't write it; ask first: "Shall I add this to Core: …?"
 5. After writing, tell the user in one line: `Saved to Kioku: …`
 6. Commit (see Git).

@@ -33,7 +33,11 @@ veritabanı ya da API anahtarı gerekmez; hook'lar küçük bash betikleridir.
 Claude Code'a dört noktadan bağlanır:
 
 - **SessionStart hook'u:** hangi projede olursa olsun her oturum yaklaşık 1k token'lık kısa bir bağlamla başlar: `Core.md`, o klasörün notu, aktif projeler, vakti gelen yapılacaklar, iş kaydının son iki günü ve bir wiki özeti. Günlüğün bu bağlama girmez; tek istisna vakti gelen yapılacaklardır.
-- **Stop hook'u:** bir oturumda gerçek bir iş yapılmış ama hiçbir şey kaydedilmemişse, Claude'dan bir kez önemli olanı kaydetmesi istenir. Kısa soru-cevap oturumlarına karışmaz.
+- **Stop hook'u:** Claude'dan iki durumda, her biri için bir kez, kayıt yapması istenir:
+  - oturumda gerçek bir iş yapılmış ama hiçbir şey kaydedilmemişse;
+  - bir öğrenme iş günlüğüne yazılmış ama wikiye işlenmemişse.
+
+  Kısa soru-cevap oturumlarına karışmaz.
 - **Skill'ler:**
   - `kioku` hafızayı kaydeder ve tanışma röportajını yürütür;
   - `kioku-journal` zaman çizelgeni ve yapılacaklarını tutar;

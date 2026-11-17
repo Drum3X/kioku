@@ -1,6 +1,6 @@
 ---
 name: kioku-lint
-description: Health check of the user's second brain (the Kioku vault) — broken links, orphan pages, index gaps, contradictions, stale claims, missing concept pages, unclosed open threads. Use when the user says "check the brain", "clean up the brain", "brain lint" (Turkish: "beyni kontrol et", "beyni temizle"), or in the weekly maintenance task. NOT for linting code.
+description: Health check of the user's second brain (the Kioku vault) — broken links, orphan pages, index gaps, learnings missing from the wiki, contradictions, stale claims, missing concept pages, unclosed open threads. Use when the user says "check the brain", "clean up the brain", "brain lint" (Turkish: "beyni kontrol et", "beyni temizle"), or in the weekly maintenance task. NOT for linting code.
 ---
 
 # kioku-lint
@@ -13,6 +13,8 @@ CLI: `$VAULT/.kioku/bin/kioku`
 
 Run `kioku lint-check` and keep its output. It exits with code 1 when it finds issues;
 that is not an error.
+
+Its **Learned, not in the wiki** section lists daily `learned:` lines without a `[[wiki/…]]` link. The fix for each: add the knowledge to its concept or entity page (create it if needed, with a `Topics:` line and a hub entry), then append the page link to the daily line.
 
 ## 2. Semantic checks
 
