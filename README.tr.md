@@ -73,7 +73,7 @@ kullan; mevcut notlarına dokunulmaz. Kurulum betiği şunları yapar:
 
 1. vault klasörlerini ve başlangıç dosyalarını oluşturur. Var olan dosyaları asla ezmez.
 2. `vault/.kioku`'i bu klasöre bağlar; vault henüz bir git deposu değilse `git init` çalıştırır.
-3. skill'leri `~/.claude/skills/` altına bağlar.
+3. skill'leri `~/.claude/skills/` altına, `kioku` komutunu da `~/.local/bin/` altına bağlar (bu klasör `PATH`'te değilse uyarır).
 4. `~/.claude/CLAUDE.md` dosyasına kısa bir Kioku bölümü ekler.
 5. `~/.claude/settings.json` dosyasına hook'ları, vault için okuma/düzenleme izinlerini ve bir sandbox yazma kuralını ekler. Yedeği `settings.json.kioku.bak` olarak saklanır.
 
@@ -100,7 +100,7 @@ Normal konuş, istediğin dilde. Birkaç örnek:
 `Core.md` değişiklikleri her zaman senin onayını ister. Geri kalan her şey sormadan
 kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla makine için `kioku remote`'u açmadıysan asla push yapmaz; o sana kalmış.
 
-CLI'ı elle de kullanabilirsin; yolu `vault/.kioku/bin/kioku`:
+CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosyasına bir bağlantı):
 
 ```
 kioku today | journal | todo [--soon] | agenda [--days N] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"

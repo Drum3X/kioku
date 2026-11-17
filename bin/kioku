@@ -5,8 +5,13 @@ export PATH="/etc/profiles/per-user/${USER:-$(id -un)}/bin:/run/current-system/s
 export LC_ALL=C.UTF-8
 
 # Vault = two levels above this script as reached through the vault's .kioku link (logical
-# path, symlinks not resolved). KIOKU_DIR overrides.
-VAULT="${KIOKU_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -L)}"
+# path, symlinks not resolved). Called through a link on PATH (~/.local/bin/kioku), follow it
+# back to <vault>/.kioku/bin/kioku first. KIOKU_DIR overrides.
+self="${BASH_SOURCE[0]}"
+while [ -L "$self" ] && [[ "$self" != */.kioku/bin/kioku ]]; do
+  t="$(readlink "$self")"; [[ "$t" == /* ]] || t="$(dirname "$self")/$t"; self="$t"
+done
+VAULT="${KIOKU_DIR:-$(cd "$(dirname "$self")/../.." && pwd -L)}"
 TPL="$VAULT/.kioku/templates"
 today="$(date +%F)"
 # Date N days from today (N like -7 or +3); GNU date, or BSD/macOS date.

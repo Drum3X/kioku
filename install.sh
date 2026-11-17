@@ -119,6 +119,19 @@ if [ "$mode" != "--uninstall" ]; then
   [ -n "$hk" ] && changes+=("git hooks: ${hk//$'\n'/, }")
 fi
 
+# ---- 1b. The kioku command on PATH (~/.local/bin/kioku → the vault's CLI) ----
+BIN="$HOME/.local/bin"; cli="$BIN/kioku"; cli_src="$VAULT/.kioku/bin/kioku"
+if [ "$mode" = "--uninstall" ]; then
+  if [ -L "$cli" ] && [ "$(readlink "$cli")" = "$cli_src" ]; then rm "$cli"; changes+=("removed $cli"); fi
+else
+  if [ -L "$cli" ] && [ "$(readlink "$cli")" = "$cli_src" ]; then :
+  elif [ -L "$cli" ] && [[ "$(readlink "$cli")" == */.kioku/bin/kioku ]]; then ln -sfn "$cli_src" "$cli"; changes+=("$cli now points to this vault")
+  elif [ -e "$cli" ] || [ -L "$cli" ]; then warn "$cli already exists and is not ours; left untouched"
+  else mkdir -p "$BIN"; ln -s "$cli_src" "$cli"; changes+=("command linked: $cli")
+  fi
+  case ":$PATH:" in *":$BIN:"*) ;; *) warn "$BIN is not on your PATH; add it to use the kioku command (NixOS/home-manager: home.sessionPath = [ \"\$HOME/.local/bin\" ];)" ;; esac
+fi
+
 # ---- 2. Skills (symlinks into ~/.claude/skills) ----
 mkdir -p "$CL/skills"
 for d in "$SYS"/skills/*/; do

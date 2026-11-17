@@ -73,7 +73,7 @@ vault (your notes are not touched). The installer:
 
 1. creates the vault folders and starter files. Existing files are never overwritten.
 2. links `vault/.kioku` to the checkout, and runs `git init` in the vault if it is not a repo yet.
-3. links the skills into `~/.claude/skills/`.
+3. links the skills into `~/.claude/skills/`, and the `kioku` command into `~/.local/bin/` (it warns if that folder is not on your `PATH`).
 4. adds a short Kioku section to `~/.claude/CLAUDE.md`.
 5. adds the hooks, read/edit permissions for the vault and a sandbox write rule to `~/.claude/settings.json`. A backup is kept as `settings.json.kioku.bak`.
 
@@ -100,7 +100,7 @@ Talk normally, in any language. A few examples:
 Changes to `Core.md` always need your approval. Everything else is recorded without asking,
 and each write is a git commit in your vault. Claude never pushes, unless you turn on `kioku remote` for several machines.
 
-The CLI is also usable by hand, from `vault/.kioku/bin/kioku`:
+The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
 kioku today | journal | todo [--soon] | agenda [--days N] | new <type> "<Title>" | log <op> "<Title>"
