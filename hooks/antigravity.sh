@@ -39,7 +39,9 @@ case "$ev" in
     echo '{}' | "$here/prompt-pull.sh" | inject ;;
 
   stop)
-    [ "$(jq -r '.terminationReason // "model_stop"' <<<"$input")" = model_stop ] || noop
+    # Only a normal end of a turn (NO_TOOL_CALL / model_stop), not an error or the step limit;
+    # and only when the agent is really done (fullyIdle).
+    jq -e '(.terminationReason // "" | ascii_downcase | test("error|max_steps|exceeded|cancel") | not) and (.fullyIdle != false)' <<<"$input" >/dev/null || noop
     sid="$(jq -r '.conversationId // empty' <<<"$input")"
     tp="$(jq -r '.transcriptPath // empty' <<<"$input")"
     [ -n "$sid" ] && [ -f "$tp" ] || noop
