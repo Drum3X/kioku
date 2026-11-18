@@ -882,6 +882,9 @@ Following the kioku-lint skill, fix only the mechanical ones whose fix is unambi
       subject="Kioku: $(tr_or "weekly review" "haftalık değerlendirme") — $(brief_date)"
       body="$out" ;;
   esac
+  # Push what the job committed now: the post-commit hook pushes in the background, and that
+  # process does not outlive a systemd oneshot service (its leftovers are killed at the end).
+  if [ -z "$dry" ] && [ "$job" != morning ]; then remote_sync now || alog "$job: push failed (see git-sync.log)"; fi
   if [ "$rc" -ne 0 ]; then
     subject="Kioku: $job $(tr_or "run failed" "çalışması başarısız") (exit $rc)"
     body="$body"$'\n\n'"$(tail -n 20 "$AGENT_LOG" 2>/dev/null)"
@@ -915,10 +918,11 @@ WorkingDirectory=$VAULT
 ExecStart=$cli agent %i
 TimeoutStartSec=25min
 EOF
-  local job when
+  local job when; declare -A at=()
   for job in morning nightly weekly; do
     when="$(agent_schedule "$job")"
     case "$job" in morning) when="${when:-*-*-* 08:00}" ;; nightly) when="${when:-*-*-* 03:00}" ;; weekly) when="${when:-Sun *-*-* 20:00}" ;; esac
+    at[$job]="$when"
     [ "$(aconf "$job")" = off ] && { rm -f "$AGENT_UNITS/kioku-agent-$job.timer"; continue; }
     cat > "$AGENT_UNITS/kioku-agent-$job.timer" <<EOF
 # kioku: when the $job job runs (agents.conf: ${job}_at=, $job=off)
@@ -936,7 +940,7 @@ EOF
   done
   systemctl --user daemon-reload
   for job in morning nightly weekly; do
-    if [ -f "$AGENT_UNITS/kioku-agent-$job.timer" ]; then systemctl --user enable --now "kioku-agent-$job.timer" >/dev/null 2>&1 && echo "timer on: $job ($(agent_schedule "$job" || true))"
+    if [ -f "$AGENT_UNITS/kioku-agent-$job.timer" ]; then systemctl --user enable --now "kioku-agent-$job.timer" >/dev/null 2>&1 && echo "timer on: $job (${at[$job]}${tz:+ $tz})"
     else systemctl --user disable --now "kioku-agent-$job.timer" >/dev/null 2>&1 || true; echo "timer off: $job"; fi
   done
   if command -v loginctl >/dev/null && [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != yes ]; then
