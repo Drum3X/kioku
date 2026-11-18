@@ -274,7 +274,7 @@ facts or rules.
 
 ## Relation to the agent's built-in memory
 
-The agent's own memory (Claude Code's auto memory, Antigravity's Knowledge items) is only for
+The agent's own memory (Claude Code's auto memory, Antigravity's Knowledge items, Hermes's MEMORY.md and USER.md) is only for
 working preferences about how to help the user.
 Knowledge, decisions, projects and the user's profile go into Kioku. Never write the same
 thing in both places.
