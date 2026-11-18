@@ -256,7 +256,29 @@ Gözetimsiz çalışmalar (`claude -p`) yalnızca okuyabilir, vault içindeki do
    ```
    Telegram, Discord ya da ntfy için `notify=command` ve `notify_command=/betik/yolu` yaz: betik konuyu `$KIOKU_SUBJECT` içinde, metni stdin'den alır.
 2. Bir işi dene: `kioku agent morning --dry-run` göndermeden yazdırır; `kioku agent morning` gönderir.
-3. `kioku agent setup` systemd kullanıcı zamanlayıcılarını kurar (sunucuda lingering'i aç: `sudo loginctl enable-linger $USER`). `kioku agent status` sıradaki çalışmaları ve kaydı gösterir, `kioku agent remove` kaldırır.
+3. `kioku agent setup` zamanlamayı kurar:
+   - varsayılan olarak systemd kullanıcı zamanlayıcıları;
+   - `agents.conf` içinde `scheduler=hermes` varsa bunun yerine [Hermes Agent](https://github.com/NousResearch/hermes-agent)'ın zamanlayıcısındaki işler (aşağıya bak); systemd zamanlayıcıları kaldırılır.
+
+   systemd zamanlayıcıları için sunucuda lingering'i aç: `sudo loginctl enable-linger $USER`. `kioku agent status` sıradaki çalışmaları ve kaydı gösterir, `kioku agent remove` kaldırır.
+
+### Hermes Agent ile
+
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) kuruluysa (`hermes` komutu varsa) kurulum Kioku'yu ona da bağlar:
+
+- **Kurallar:** vault'taki `.hermes.md` dosyasına bir Kioku bölümü yazılır; Hermes vault'ta çalışırken bunu okur.
+- **Skill'ler:** Kioku'nun skill'leri Hermes'in `skills.external_dirs` listesine eklenir.
+- **Hazır skill'ler:** Hermes'in kendi `obsidian` ve `weekly-review-planning` skill'leri kapatılır, Kioku'nun işini başka kurallarla yapmasınlar diye.
+
+`--no-hermes` bunu kapatır ve kurulanları kaldırır. `scheduler=hermes` ile `kioku agent setup`, vault'ta çalışan üç Hermes işi oluşturur:
+
+| İş | Nasıl çalışır |
+| --- | --- |
+| `kioku-morning` | Betik işi; model çağrısı yok. |
+| `kioku-nightly` | Önce bir lint kontrolü çalışır, ajan yalnızca sorun varsa uyanır ve `kioku-lint` ile düzeltir. |
+| `kioku-weekly` | Hermes ajanı `kioku-review` ile çalışır. |
+
+Sonuçlar `hermes_deliver=` hedefine (örneğin `discord`) gider; `notify=hermes` Kioku'nun kendi mesajlarını da oraya yollar. Hermes'in hangi modeli kullanacağı senin seçimin (`hermes model`); bu seçimin maliyeti ve kullanım koşulları da senin sorumluluğunda.
 
 ## Google Antigravity (isteğe bağlı)
 

@@ -244,6 +244,8 @@ three jobs; each sends its result through `kioku notify` (`~/.config/kioku/agent
   mechanical ones and reports the rest.
 - **weekly:** a review of the last 7 days (`kioku-review`), saved under `reviews/` and sent.
 
+With `scheduler=hermes` in `agents.conf`, the same jobs run in Hermes Agent's cron instead, with the Hermes agent and the `kioku-lint` / `kioku-review` skills, in the vault (rules: `.hermes.md`).
+
 In an unattended run you may only read, edit files inside the vault, run the kioku CLI and git
 add/commit; nothing else is allowed. Do only what the job asks. Anything that needs the user
 (a contradiction, a page to create, a judgment call) goes into the final message, not into the

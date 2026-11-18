@@ -269,7 +269,29 @@ The unattended runs (`claude -p`) may only read, edit files in the vault, run th
    ```
    For Telegram, Discord or ntfy, set `notify=command` and `notify_command=/path/to/script`: the script gets the subject in `$KIOKU_SUBJECT` and the text on stdin.
 2. Try a job: `kioku agent morning --dry-run` prints instead of sending; `kioku agent morning` sends.
-3. `kioku agent setup` installs systemd user timers (on a server, enable lingering: `sudo loginctl enable-linger $USER`). `kioku agent status` shows the next runs and the log, `kioku agent remove` takes them away.
+3. `kioku agent setup` installs the schedule:
+   - by default, systemd user timers;
+   - with `scheduler=hermes` in `agents.conf`, jobs in [Hermes Agent](https://github.com/NousResearch/hermes-agent)'s cron instead (see below), and the systemd timers are removed.
+
+   For the systemd timers on a server, enable lingering: `sudo loginctl enable-linger $USER`. `kioku agent status` shows the next runs and the log, `kioku agent remove` takes them away.
+
+### With Hermes Agent
+
+If [Hermes Agent](https://github.com/NousResearch/hermes-agent) is installed (the `hermes` command exists), the installer also connects Kioku to it:
+
+- **Rules:** a Kioku block in the vault's `.hermes.md`, which Hermes reads when it works in the vault.
+- **Skills:** Kioku's skills are listed in Hermes's `skills.external_dirs`.
+- **Bundled skills:** Hermes's own `obsidian` and `weekly-review-planning` skills are turned off, so they don't do Kioku's job by other rules.
+
+`--no-hermes` turns this off and removes it. With `scheduler=hermes`, `kioku agent setup` creates three Hermes cron jobs that work in the vault:
+
+| Job | How it runs |
+| --- | --- |
+| `kioku-morning` | A script job; no model call. |
+| `kioku-nightly` | A lint pre-check that wakes the agent only when there are issues; the agent then fixes them with `kioku-lint`. |
+| `kioku-weekly` | The Hermes agent with `kioku-review`. |
+
+Results go to `hermes_deliver=` (for example `discord`), and `notify=hermes` sends Kioku's own messages there too. Which model Hermes uses is up to you (`hermes model`); that choice, its cost and its terms are your responsibility.
 
 ## Google Antigravity (optional)
 
