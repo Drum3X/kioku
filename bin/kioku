@@ -785,7 +785,11 @@ cmd_notify() {
       local c; c="$(aconf notify_command)"; [ -n "$c" ] || die "notify=command needs notify_command= in $AGENT_CONF"
       printf '%s\n' "$body" | KIOKU_SUBJECT="$subject" bash -c "$c" ;;
     stdout) printf '# %s\n\n%s\n' "$subject" "$body" ;;
-    *) die "unknown notify=$via in $AGENT_CONF (mail, command or stdout)" ;;
+    hermes)
+      command -v hermes >/dev/null || die "notify=hermes needs the hermes command"
+      local to; to="$(aconf hermes_deliver)"
+      printf '**%s**\n\n%s\n' "$subject" "$body" | hermes send --to "${to:-discord}" --file - >/dev/null || die "hermes send failed" ;;
+    *) die "unknown notify=$via in $AGENT_CONF (mail, command, hermes or stdout)" ;;
   esac
 }
 
@@ -811,10 +815,10 @@ alog() { mkdir -p "$REMOTE_STATE"; printf '%s %s\n' "$(date '+%F %T')" "$*" >> "
 cmd_agent() {
   case "${1:-}" in
     morning|nightly|weekly) agent_run "$@" ;;
-    setup) agent_setup ;;
-    remove) agent_remove ;;
-    status) agent_status ;;
-    *) die "usage: kioku agent morning|nightly|weekly [--dry-run] | setup | remove | status" ;;
+    setup) if [ "$(aconf scheduler)" = hermes ]; then agent_setup_hermes; else agent_setup; fi ;;
+    remove) agent_remove; agent_remove_hermes ;;
+    status) if [ "$(aconf scheduler)" = hermes ]; then hermes cron list 2>/dev/null | grep -i -A3 kioku- || echo "no Kioku jobs in Hermes"; echo "log: $AGENT_LOG"; tail -n 5 "$AGENT_LOG" 2>/dev/null | sed "s/^/  /" || true; else agent_status; fi ;;
+    *) die "usage: kioku agent morning|nightly|weekly [--dry-run|--print] | setup | remove | status" ;;
   esac
 }
 
@@ -842,7 +846,7 @@ agent_claude() {
 }
 
 agent_run() {
-  local job="$1" dry=; [ "${2:-}" = --dry-run ] && dry=1
+  local job="$1" dry= print=; case "${2:-}" in --dry-run) dry=1 ;; --print) print=1 ;; esac
   mkdir -p "$REMOTE_STATE"
   if command -v flock >/dev/null; then exec 9>"$REMOTE_STATE/agent.lock"; flock -n 9 || die "another kioku agent run is in progress"; fi
   [ -n "$dry" ] || remote_sync pull || true
@@ -889,7 +893,8 @@ Following the kioku-lint skill, fix only the mechanical ones whose fix is unambi
     subject="Kioku: $job $(tr_or "run failed" "çalışması başarısız") (exit $rc)"
     body="$body"$'\n\n'"$(tail -n 20 "$AGENT_LOG" 2>/dev/null)"
   fi
-  if [ -n "$dry" ]; then printf '# %s\n\n%s\n' "$subject" "$body"
+  if [ -n "$print" ]; then printf '**%s**\n\n%s\n' "$subject" "$body"; alog "$job: printed"
+  elif [ -n "$dry" ]; then printf '# %s\n\n%s\n' "$subject" "$body"
   else printf '%s\n' "$body" | cmd_notify "$subject" && alog "$job: sent \"$subject\"" || alog "$job: notify failed"; fi
   alog "$job: done (exit $rc)"
   return "$rc"
@@ -956,6 +961,61 @@ agent_remove() {
 agent_status() {
   systemctl --user list-timers --all --no-pager 'kioku-agent-*' 2>/dev/null | sed '/^$/d' | head -n 6
   echo "log: $AGENT_LOG"; tail -n 5 "$AGENT_LOG" 2>/dev/null | sed 's/^/  /' || true
+}
+
+# ---- Hermes as the scheduler (agents.conf: scheduler=hermes, hermes_deliver=discord) ----
+# morning: a no-agent script job (its stdout is delivered as is). nightly: a pre-run script runs
+# lint-check and wakes the agent only when there are issues; the Hermes agent then fixes them with
+# the kioku-lint skill. weekly: the Hermes agent with the kioku-review skill. All work in the vault.
+HSCRIPTS="${HERMES_HOME:-$HOME/.hermes}/scripts"
+hermes_jobs() { jq -r '(.jobs // .)[]? | select((.name // "") | startswith("kioku-")) | .id' "${HERMES_HOME:-$HOME/.hermes}/cron/jobs.json" 2>/dev/null || true; }
+hermes_cron_at() { # job → cron expression (agents.conf: <job>_cron=)
+  local c; c="$(aconf "$1_cron")"
+  [ -n "$c" ] && { printf '%s' "$c"; return; }
+  case "$1" in morning) echo "0 8 * * *" ;; nightly) echo "0 3 * * *" ;; weekly) echo "0 20 * * 0" ;; esac
+}
+agent_setup_hermes() {
+  command -v hermes >/dev/null || die "scheduler=hermes, but the hermes command was not found"
+  local cli; cli="$(cd "$(dirname "$self")" && pwd -L)/kioku"
+  local tz; tz="$(aconf timezone)"; tz="${tz:-${TZ:-$(timedatectl show -p Timezone --value 2>/dev/null)}}"
+  local to; to="$(aconf hermes_deliver)"; to="${to:-local}"
+  mkdir -p "$HSCRIPTS"
+  cat > "$HSCRIPTS/kioku-morning.sh" <<EOF
+#!/usr/bin/env bash
+# kioku: the morning brief (no model call); stdout is delivered by Hermes
+export KIOKU_DIR="$VAULT" TZ="$tz"
+exec "$cli" agent morning --print
+EOF
+  cat > "$HSCRIPTS/kioku-nightly-check.sh" <<EOF
+#!/usr/bin/env bash
+# kioku: nightly lint; wakes the Hermes agent only when there is something to fix
+export KIOKU_DIR="$VAULT" TZ="$tz"
+"$cli" remote pull >/dev/null 2>&1 || true
+out="\$("$cli" lint-check 2>&1)" && { echo '{"wakeAgent": false}'; exit 0; }
+printf '%s\n' "\$out"
+EOF
+  chmod +x "$HSCRIPTS"/kioku-*.sh
+  local id; for id in $(hermes_jobs); do hermes cron remove "$id" >/dev/null 2>&1 || true; done
+  local common=(--deliver "$to" --workdir "$VAULT" ${tz:+--timezone "$tz"} --no-wrap-response)
+  local nightly="Nightly maintenance of the Kioku vault (this folder). The text above is today's kioku lint-check report. Following the kioku-lint skill, fix only the mechanical issues whose fix is unambiguous: a broken link whose target clearly exists under another path, a page missing from its topic hub or the index, a missing Topics line or frontmatter field you can take from the page itself, a learned line whose wiki page clearly exists (add the link). Do not rewrite content, resolve contradictions, create pages for broken links, delete, move or rename anything, or touch Core.md, raw/ or .kioku/. Then run .kioku/bin/kioku lint-check again, commit with a message starting 'lint:' and run .kioku/bin/kioku remote now. Your final message is sent to the user: what you fixed (one line each) and what is left for them and why, short, in the language of the user's notes."
+  local weekly="Weekly review of the Kioku vault (this folder). First run .kioku/bin/kioku remote pull. Then use the kioku-review skill for the last 7 days ending today: read the material, write the review page under reviews/, commit it and run .kioku/bin/kioku remote now. Your final message is sent to the user: the review itself (the page body without frontmatter, in the language of the user's notes), then one line with the page path."
+  local job
+  for job in morning nightly weekly; do
+    [ "$(aconf "$job")" = off ] && { echo "job off: $job"; continue; }
+    case "$job" in
+      morning) hermes cron create "$(hermes_cron_at morning)" --name kioku-morning --no-agent --script kioku-morning.sh "${common[@]}" >/dev/null ;;
+      nightly) hermes cron create "$(hermes_cron_at nightly)" "$nightly" --name kioku-nightly --script kioku-nightly-check.sh --skill kioku-lint "${common[@]}" >/dev/null ;;
+      weekly)  hermes cron create "$(hermes_cron_at weekly)" "$weekly" --name kioku-weekly --skill kioku-review "${common[@]}" >/dev/null ;;
+    esac && echo "hermes job: kioku-$job ($(hermes_cron_at "$job")${tz:+ $tz}) → $to"
+  done
+  # The systemd timers would run the same jobs a second time.
+  if ls "$AGENT_UNITS"/kioku-agent-*.timer >/dev/null 2>&1; then agent_remove >/dev/null; echo "systemd timers removed (Hermes schedules the jobs now)"; fi
+}
+agent_remove_hermes() {
+  command -v hermes >/dev/null || return 0
+  local id n=0; for id in $(hermes_jobs); do hermes cron remove "$id" >/dev/null 2>&1 && n=$((n+1)); done
+  rm -f "$HSCRIPTS"/kioku-morning.sh "$HSCRIPTS"/kioku-nightly-check.sh
+  echo "removed $n Hermes job(s)"
 }
 
 # The SessionStart hook's context as plain text, for agents that have no such hook (Antigravity).
