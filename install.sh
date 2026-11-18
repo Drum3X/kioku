@@ -103,7 +103,7 @@ if [ "$mode" != "--uninstall" ]; then
     ln -s "$SYS" "$link"; changes+=("linked $link → $SYS")
   fi
 
-  for d in daily journal calendar contacts projects raw/inbox raw/assets wiki/topics wiki/sources wiki/concepts wiki/entities wiki/ideas wiki/synthesis; do
+  for d in daily journal calendar contacts projects reviews raw/inbox raw/assets wiki/topics wiki/sources wiki/concepts wiki/entities wiki/ideas wiki/synthesis; do
     mkdir -p "$VAULT/$d"
     [ -n "$(ls -A "$VAULT/$d")" ] || touch "$VAULT/$d/.gitkeep"
   done
@@ -173,7 +173,7 @@ The user's personal second brain is \`$VAULT\` (Obsidian vault + git). The user 
 - At session start, the SessionStart hook adds Core.md, recent daily notes, active projects and due todos to the context.
 - Before writing anything to the vault, read \`$VAULT/.kioku/SCHEMA.md\` (the rules) and \`$VAULT/CLAUDE.md\` (personal rules) and follow them.
 - Decisions, finished work, durable learnings, preferences, open threads → record them with the \`kioku\` skill (without asking; except Core.md).
-- Questions that need past knowledge → search Kioku first (\`kioku-ask\`). A link/PDF to "add to the brain" → \`kioku-ingest\`. Maintenance → \`kioku-lint\`.
+- Questions that need past knowledge → search Kioku first (\`kioku-ask\`). A link/PDF to "add to the brain" → \`kioku-ingest\`. Maintenance → \`kioku-lint\`. "How did this week go", reviews, challenging a plan → \`kioku-review\` (saved under reviews/).
 - The user's own notes: timeline and todos ("today I did …", reminders) → \`kioku-journal\` (journal/); durable things (tools, sites, ideas, things learned) → \`kioku-note\` (wiki pages categorized in topic hubs, wiki/topics/). Don't mix them into your work log (daily/).
 - Events and appointments → \`kioku-calendar\` (calendar/); contact details → \`kioku-contacts\` (contacts/). Both sync one-way to the user's CalDAV/CardDAV server after each commit; never handle the password.
 - Languages: system text (headings, entry types, frontmatter) is English; note content follows the language of its source or conversation.
@@ -206,7 +206,7 @@ The user's personal second brain is \`$VAULT\` (Obsidian vault + git). The user 
 - That context is a snapshot. Before answering about todos, the agenda or recent notes later in a conversation, run \`kioku todo --soon\`, \`kioku agenda\` or read the files again. When a message says "The vault was just updated from its git remote", re-read the files it lists.
 - Before writing anything to the vault, read \`$VAULT/.kioku/SCHEMA.md\` (the rules) and \`$VAULT/CLAUDE.md\` (personal rules; the file is named for Claude Code but applies to you too) and follow them.
 - Decisions, finished work, durable learnings, preferences, open threads → record them with the \`kioku\` skill (without asking; except Core.md). Before your final answer on a task, check yourself whether something should be recorded (a Stop hook reminds you once if nothing was).
-- Questions that need past knowledge → search Kioku first (\`kioku-ask\`). A link/PDF to "add to the brain" → \`kioku-ingest\`. Maintenance → \`kioku-lint\`.
+- Questions that need past knowledge → search Kioku first (\`kioku-ask\`). A link/PDF to "add to the brain" → \`kioku-ingest\`. Maintenance → \`kioku-lint\`. "How did this week go", reviews, challenging a plan → \`kioku-review\` (saved under reviews/).
 - The user's own notes: timeline and todos ("today I did …", reminders) → \`kioku-journal\` (journal/); durable things (tools, sites, ideas, things learned) → \`kioku-note\` (wiki pages categorized in topic hubs, wiki/topics/). Don't mix them into your work log (daily/).
 - Events and appointments → \`kioku-calendar\` (calendar/); contact details → \`kioku-contacts\` (contacts/). Both sync one-way to the user's CalDAV/CardDAV server after each commit; never handle the password.
 - Languages: system text (headings, entry types, frontmatter) is English; note content follows the language of its source or conversation.

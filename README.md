@@ -151,7 +151,7 @@ and each write is a git commit in your vault. Claude never pushes, unless you tu
 The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
-kioku doctor | capture "<text>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
+kioku agent <job>|setup|status | notify "<subject>" | doctor | capture "<text>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
 kioku search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
 
@@ -244,6 +244,32 @@ in `.gitattributes`). A real conflict is never forced: the local commits stay, n
 pushed, and the next session tells you about it. Set `TZ` on a server that runs in UTC, so
 "today" and event times match yours. `kioku remote status` shows the state; logs go to
 `~/.local/state/kioku/git-sync.log`.
+
+## Scheduled jobs (optional)
+
+On a machine that is always on, such as the server of the previous section, Kioku can work on a
+schedule and send you the result:
+
+| Job | Default time | What it does | Model call |
+| --- | --- | --- | --- |
+| `morning` | every day 08:00 | Today's events and due todos, plus inbox items and sync problems | None |
+| `nightly` | every day 03:00 | `kioku lint-check`; if it finds issues, Claude fixes the mechanical ones and reports the rest | Only when there are issues |
+| `weekly` | Sunday 20:00 | A review of the week (`kioku-review`): done, stuck, decisions, learned, next; saved under `reviews/` | Once a week |
+
+The unattended runs (`claude -p`) may only read, edit files in the vault, run the kioku CLI and
+`git add/commit`; everything else is refused, and they never touch `Core.md`.
+
+1. Settings go in `~/.config/kioku/agents.conf` (no secrets):
+   ```ini
+   notify=mail                # mail | command | stdout
+   mail_to=you@example.com    # default: user= from sync.conf
+   smtp=smtp://127.0.0.1:25   # the default: a mail server on the same machine
+   lang=en                    # en | tr: the morning brief's language
+   # morning_at=*-*-* 08:00   nightly_at=…   weekly_at=Sun *-*-* 20:00   weekly=off
+   ```
+   For Telegram, Discord or ntfy, set `notify=command` and `notify_command=/path/to/script`: the script gets the subject in `$KIOKU_SUBJECT` and the text on stdin.
+2. Try a job: `kioku agent morning --dry-run` prints instead of sending; `kioku agent morning` sends.
+3. `kioku agent setup` installs systemd user timers (on a server, enable lingering: `sudo loginctl enable-linger $USER`). `kioku agent status` shows the next runs and the log, `kioku agent remove` takes them away.
 
 ## Google Antigravity (optional)
 

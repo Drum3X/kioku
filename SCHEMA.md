@@ -32,6 +32,7 @@ briefly.
 | `journal/YYYY-MM-DD.md` | The user's timeline: what they did, todos, pointers to notes saved that day | You, whenever the user tells you something to note (`kioku-journal`) |
 | `projects/<slug>.md` | Active and past work: status, next step, links | You, without asking |
 | `calendar/<yyyy>/<date>-<slug>.md` | Events, one page each; synced to the CalDAV calendar | You, when the user schedules something (`kioku-calendar`) |
+| `reviews/<yyyy>/<slug>.md` | Weekly or monthly reviews: what the period amounted to | You, when the user asks or in the weekly job (`kioku-review`) |
 | `contacts/<slug>.md` | People's contact details; synced to the CardDAV address book | You, when the user gives contact details (`kioku-contacts`) |
 | `raw/` | Copies of external sources (articles, PDFs, transcripts) | You save them, **then never modify them** |
 | `wiki/sources/` | One summary per source | You |
@@ -61,6 +62,8 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku sync [--check|--dry-run|--full]`: push todos, events and contacts to the server; `--check` only tests the connection.
 - `kioku remote on|off|status|now`: keep vault copies on several machines in step through the git remote.
 - `kioku update [--check]`: update Kioku itself (pull + install step); only when the user asks, or when the session context says the install step is out of date and the user agrees.
+- `kioku agent morning|nightly|weekly [--dry-run]` / `kioku agent setup|status|remove`: the scheduled jobs (see "Scheduled jobs").
+- `kioku notify "<subject>" < body`: send a message the way `agents.conf` says (mail, a command such as a Telegram script, or stdout).
 - `kioku capture "<text>"`: the user's quick capture into `raw/inbox/` (see "Quick captures"); you don't need it in a session, where you file things directly.
 - `kioku doctor [--offline]`: checks the whole setup and says how to fix problems; run it when something seems broken (hooks not firing, sync failing).
 - `kioku check-file <file>`: the write check the PostToolUse hook runs after each vault write; when it reports problems, fix them in the same turn.
@@ -204,7 +207,7 @@ Follow the `kioku-lint` skill:
   ```yaml
   ---
   title: …
-  type: source|concept|entity|idea|topic|synthesis|project|daily|journal|event|contact
+  type: source|concept|entity|idea|topic|synthesis|project|daily|journal|event|contact|review
   lang: tr|en|…      # language of the page content
   kind: tool|site|app|library|service|person|org|game|anime|…   # entities only
   url:               # entities: the thing's home page, if any
@@ -230,6 +233,21 @@ Follow the `kioku-lint` skill:
 - Do not modify saved files under `raw/`.
 - Do not change `Core.md` without the user's approval. Do not delete, move or rename existing notes.
 - Do not touch `.kioku/` unless the user asks.
+
+## Scheduled jobs (kioku agent)
+
+On a machine that is always on (a server), `kioku agent setup` installs systemd timers for
+three jobs; each sends its result through `kioku notify` (`~/.config/kioku/agents.conf`):
+
+- **morning:** today's events and due todos; no model call.
+- **nightly:** `kioku lint-check`; only when it finds issues, an unattended run fixes the
+  mechanical ones and reports the rest.
+- **weekly:** a review of the last 7 days (`kioku-review`), saved under `reviews/` and sent.
+
+In an unattended run you may only read, edit files inside the vault, run the kioku CLI and git
+add/commit; nothing else is allowed. Do only what the job asks. Anything that needs the user
+(a contradiction, a page to create, a judgment call) goes into the final message, not into the
+vault. Never edit `Core.md`, never delete, move or rename notes.
 
 ## Untrusted content
 

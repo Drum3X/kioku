@@ -147,7 +147,7 @@ kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla 
 CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosyasına bir bağlantı):
 
 ```
-kioku doctor | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
+kioku agent <job>|setup|status | notify "<subject>" | doctor | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
 kioku search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
 
@@ -233,6 +233,30 @@ Vault'un bir kopyasını ikinci bir makinede tutabilirsin. Bu makine örneğin s
 İki makine aynı günlük ya da journal dosyasına satır eklerse git iki tarafı da korur (`.gitattributes` içindeki `merge=union`). Gerçek bir çakışmada hiçbir şey zorla birleştirilmez: yerel commit'ler kalır, push yapılmaz ve bir sonraki oturum seni uyarır.
 
 Sunucu UTC'de çalışıyorsa `TZ` ayarla; böylece "bugün" ve etkinlik saatleri seninkiyle aynı olur. Durumu `kioku remote status` gösterir, kayıtlar `~/.local/state/kioku/git-sync.log` dosyasına yazılır.
+
+## Zamanlanmış işler (isteğe bağlı)
+
+Sürekli açık bir makinede (örneğin önceki bölümdeki sunucuda) Kioku belirli saatlerde çalışıp sonucu sana gönderebilir:
+
+| İş | Varsayılan saat | Ne yapar | Model çağrısı |
+| --- | --- | --- | --- |
+| `morning` | her gün 08:00 | Bugünün etkinlikleri ve vakti gelen yapılacaklar; inbox'ta bekleyenler ve eşitleme sorunları | Yok |
+| `nightly` | her gün 03:00 | `kioku lint-check`; sorun bulursa Claude mekanik olanları düzeltir, kalanları bildirir | Yalnızca sorun varsa |
+| `weekly` | pazar 20:00 | Haftanın değerlendirmesi (`kioku-review`): bitenler, takılanlar, kararlar, öğrenilenler, sıradakiler; `reviews/` altına kaydedilir | Haftada bir |
+
+Gözetimsiz çalışmalar (`claude -p`) yalnızca okuyabilir, vault içindeki dosyaları düzenleyebilir, kioku CLI'ını ve `git add/commit` komutlarını çalıştırabilir; gerisi reddedilir, `Core.md`'ye de hiç dokunmazlar.
+
+1. Ayarlar `~/.config/kioku/agents.conf` dosyasında (şifre içermez):
+   ```ini
+   notify=mail                # mail | command | stdout
+   mail_to=sen@example.com    # varsayılan: sync.conf'taki user=
+   smtp=smtp://127.0.0.1:25   # varsayılan: aynı makinedeki mail sunucusu
+   lang=tr                    # en | tr: sabah özetinin dili
+   # morning_at=*-*-* 08:00   nightly_at=…   weekly_at=Sun *-*-* 20:00   weekly=off
+   ```
+   Telegram, Discord ya da ntfy için `notify=command` ve `notify_command=/betik/yolu` yaz: betik konuyu `$KIOKU_SUBJECT` içinde, metni stdin'den alır.
+2. Bir işi dene: `kioku agent morning --dry-run` göndermeden yazdırır; `kioku agent morning` gönderir.
+3. `kioku agent setup` systemd kullanıcı zamanlayıcılarını kurar (sunucuda lingering'i aç: `sudo loginctl enable-linger $USER`). `kioku agent status` sıradaki çalışmaları ve kaydı gösterir, `kioku agent remove` kaldırır.
 
 ## Google Antigravity (isteğe bağlı)
 
