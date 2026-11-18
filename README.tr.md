@@ -38,6 +38,9 @@ Claude Code'a dört noktadan bağlanır:
   - bir öğrenme iş günlüğüne yazılmış ama wikiye işlenmemişse.
 
   Kısa soru-cevap oturumlarına karışmaz.
+- **Yazma kontrolü (PostToolUse):** Claude vault'a bir dosya yazar yazmaz frontmatter'ı, `Topics:` satırı, `[[bağlantılar]]` ve yapılacaklar/etkinlikler kontrol edilir; Claude hatayı aynı turda düzeltir.
+- **Sıkıştırmadan önce (PreCompact):** uzun bir oturum sıkıştırılırken özet henüz kaydedilmemiş şeyleri listeler, Claude da hemen ardından onları kaydeder.
+- **Her mesajdan önce (UserPromptSubmit):** autosync açıksa önce vault pull edilir, böylece başka makinede yazılan notlar görünür.
 - **Skill'ler:**
   - `kioku` hafızayı kaydeder ve tanışma röportajını yürütür;
   - `kioku-journal` zaman çizelgeni ve yapılacaklarını tutar;
@@ -136,6 +139,7 @@ Normal konuş, istediğin dilde. Birkaç örnek:
 | "Ahmet'i rehbere ekle, numarası …" | `contacts/` altında bir sayfa, rehberine eşitlenir |
 | "bu hafta ne yaptım?" | `kioku recap` özeti |
 | "beyni kontrol et" | Önce bir lint raporu, düzeltmeler ancak senin onayınla |
+| *(terminalde ya da kısayolla)* `kioku capture "yarın bankayı ara"` | Oturum açmadan `raw/inbox/` klasörüne düşer; sonraki oturum işlemeyi önerir |
 
 `Core.md` değişiklikleri her zaman senin onayını ister. Geri kalan her şey sormadan
 kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla makine için `kioku remote`'u açmadıysan asla push yapmaz; o sana kalmış.
@@ -143,9 +147,14 @@ kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla 
 CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosyasına bir bağlantı):
 
 ```
-kioku context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
+kioku doctor | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
 kioku search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
+
+## Hızlı yakalama ve sorun giderme
+
+- **`kioku capture "metin ya da link"`** bir düşünceyi, yapılacağı ya da linki oturum açmadan `raw/inbox/` klasörüne atar (dosya için `kioku capture --file F`, stdin için `kioku capture -`). Commit edildiği için autosync açıksa diğer makinelere de gider. Sonraki oturum kaç tane beklediğini söyler ve işlemeyi önerir: notlar sanki sohbette söylenmiş gibi journal'a, wikiye ya da takvime gider; linkler ve dosyalar ingest edilir. Klavye kısayolu için `kioku capture --gui` küçük bir pencerede sorar (kdialog ya da zenity); Nix modülünde `programs.kioku.capture.gui = true;` bu araçları ve kısayol atanabilecek bir "Kioku capture" masaüstü girdisini getirir.
+- **`kioku doctor`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı, hook'lar, skill'ler, Antigravity, git ve autosync, CalDAV/CardDAV girişi, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrollerini atlar.
 
 ## Takvim, rehber ve yapılacaklar (isteğe bağlı eşitleme)
 
@@ -236,6 +245,7 @@ Antigravity kuruluysa (`~/.gemini` varsa) kurulum Kioku'yu orada da kurar:
   - `SessionStart` oturum bağlamını ekler;
   - `PreInvocation` autosync açıksa vault'u pull eder (en fazla 30 saniyede bir);
   - `Stop` Claude Code'daki gibi bir kez kayıt ister.
+  - Yazma kontrolü ve sıkıştırma notu yalnızca Claude Code'da var: Antigravity'nin `PostToolUse` hook'u ajana bir şey iletemiyor, sıkıştırma hook'u da yok.
 
 Hook'lar çalışmazsa kurallar ajana bağlamı `kioku context` ile kendisinin yüklemesini söyler.
 Her hook'un son girdisi hata ayıklama için `~/.local/state/kioku/antigravity-*.json` dosyasında tutulur.
@@ -254,7 +264,8 @@ konuştuğun dilde yazılır. Her sayfa dilini `lang:` alanında tutar. Arama T�
 - **Kişisel kurallar:** Claude'a söyle ("bundan sonra …"); onayınla vault'undaki `CLAUDE.md` dosyasının *Personal rules* bölümüne ekler.
 - **Özel sayfalar:** `private: true` olan bir sayfa oturum başı bağlamına girmez.
 - **Ortam değişkenleri**, `~/.claude/settings.json` içinde `env` altına yazılır:
-  - `KIOKU_STOP_CHECK=0` Stop hook'unu kapatır.
+  - `KIOKU_STOP_CHECK=0` Stop hook'unu ve sıkıştırma notunu kapatır.
+  - `KIOKU_WRITE_CHECK=0` yazma kontrolünü kapatır.
   - `KIOKU_STOP_MIN_TOOLS=10` kaç araç çağrısının "gerçek iş" sayılacağını belirler.
   - `KIOKU_CONTEXT_MAX=12000` oturum başı bağlamın üst sınırını bayt olarak belirler.
 

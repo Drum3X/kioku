@@ -25,6 +25,9 @@ usage() {
 Usage: kioku <command> [args]
   context                       Print the session-start context (Core, recent notes, todos, agenda);
                                 pulls first with autosync. For agents without a SessionStart hook
+  capture "TEXT" | - | --file F | --gui  Drop a thought, link or file into raw/inbox/ (no session needed)
+  doctor [--offline]            Check everything Kioku depends on and say how to fix problems
+  check-file FILE...            Frontmatter, links and todo/event checks for just-written files
   today                         Create today's daily note if missing, print its path
   journal                       Create today's journal note (the user's own notes) if missing, print its path
   todo [--soon]                 Open todos in journal/, by due date; --soon: overdue and next 3 days
@@ -475,24 +478,42 @@ unlinked_learned() {
     | grep -v '\[\[wiki/' || true
 }
 
+# Every vault file (relative path), plus lookups without extension and by basename, for resolve.
+# Run from the vault root.
+declare -A exists=() byname=()
+index_files() {
+  local f b
+  while IFS= read -r f; do
+    exists["$f"]=1; exists["${f%.md}"]=1
+    b="$(basename "$f")"; byname["$b"]="$f"; byname["${b%.md}"]="$f"
+  done < <(find . \( -name .git -o -name .kioku -o -name .obsidian -o -name .trash -o -name .claude \) -prune -o -type f -print | sed 's|^\./||')
+}
+resolve() { # link target → file path (empty if missing)
+  local t="$1"; t="${t%%|*}"; t="${t%%#*}"; t="${t%%^*}"
+  t="$(printf '%s' "$t" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  [ -n "$t" ] || { echo "."; return; }
+  if [ -n "${exists[$t]:-}" ]; then [ -f "$t" ] && echo "$t" || echo "$t.md"; return; fi
+  [ -n "${byname[$t]:-}" ] && { echo "${byname[$t]}"; return; }
+  echo ""
+}
+# [[links]] in markdown files, one "file:[[target]]" per line (code spans ignored).
+wikilinks() {
+  rg -N --no-heading --with-filename --glob '*.md' -e '\[\[' "$@" 2>/dev/null | sed 's|^\./||' \
+    | awk '{ i=index($0,":"); src=substr($0,1,i-1); t=substr($0,i+1); gsub(/`[^`]*`/,"",t)
+             while (match(t,/\[\[[^]]+\]\]/)) { print src ":" substr(t,RSTART,RLENGTH); t=substr(t,RSTART+RLENGTH) } }'
+}
+# Frontmatter fields a wiki or project page must have; prints the missing ones.
+missing_fm() {
+  local p="$1" miss="" k
+  for k in title type lang created updated; do [ -n "$(fm "$p" "$k")" ] || miss+=" $k"; done
+  if [[ "$p" == wiki/sources/* ]] && ! awk 'NR==1&&$0!="---"{exit} NR>1&&$0=="---"{exit} /raw\//{f=1} END{exit !f}' "$p"; then miss+=" sources(raw/…)"; fi
+  printf '%s' "$miss"
+}
+
 cmd_lint_check() {
   cd "$VAULT"
   local issues=0
-  # Every file (relative path) plus lookups without extension and by basename
-  declare -A exists=() byname=()
-  while IFS= read -r f; do
-    exists["$f"]=1; exists["${f%.md}"]=1
-    local b; b="$(basename "$f")"; byname["$b"]="$f"; byname["${b%.md}"]="$f"
-  done < <(find . \( -name .git -o -name .kioku -o -name .obsidian -o -name .trash -o -name .claude \) -prune -o -type f -print | sed 's|^\./||')
-
-  resolve() { # link target → file path (empty if missing)
-    local t="$1"; t="${t%%|*}"; t="${t%%#*}"; t="${t%%^*}"
-    t="$(printf '%s' "$t" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-    [ -n "$t" ] || { echo "."; return; }
-    if [ -n "${exists[$t]:-}" ]; then [ -f "$t" ] && echo "$t" || echo "$t.md"; return; fi
-    [ -n "${byname[$t]:-}" ] && { echo "${byname[$t]}"; return; }
-    echo ""
-  }
+  index_files
 
   declare -A inbound=()
   echo "## Broken links"
@@ -503,9 +524,7 @@ cmd_lint_check() {
     local r; r="$(resolve "$link")"
     if [ -z "$r" ]; then echo "- $src → [[$link]]"; broken=$((broken+1)); continue; fi
     [ "$src" != "$r" ] && [ "$src" != "index.md" ] && inbound["$r"]=1
-  done < <(rg -N --no-heading --with-filename --glob '*.md' --glob '!.kioku/**' --glob '!CLAUDE.md' -e '\[\[' . 2>/dev/null | sed 's|^\./||' \
-           | awk '{ i=index($0,":"); src=substr($0,1,i-1); t=substr($0,i+1); gsub(/`[^`]*`/,"",t)
-                    while (match(t,/\[\[[^]]+\]\]/)) { print src ":" substr(t,RSTART,RLENGTH); t=substr(t,RSTART+RLENGTH) } }')
+  done < <(wikilinks --glob '!.kioku/**' --glob '!CLAUDE.md' .)
   [ "$broken" -eq 0 ] && echo "(none)"; issues=$((issues+broken))
 
   local -a pages=()
@@ -537,9 +556,7 @@ cmd_lint_check() {
   echo "## Missing frontmatter"
   local e=0
   for p in "${pages[@]}"; do
-    local miss=""
-    for k in title type lang created updated; do [ -n "$(fm "$p" "$k")" ] || miss+=" $k"; done
-    if [[ "$p" == wiki/sources/* ]] && ! awk 'NR==1&&$0!="---"{exit} NR>1&&$0=="---"{exit} /raw\//{f=1} END{exit !f}' "$p"; then miss+=" sources(raw/…)"; fi
+    local miss; miss="$(missing_fm "$p")"
     [ -n "$miss" ] && { echo "- $p:$miss"; e=$((e+1)); }
   done
   [ "$e" -eq 0 ] && echo "(none)"; issues=$((issues+e))
@@ -565,6 +582,187 @@ cmd_lint_check() {
   [ "$issues" -eq 0 ]
 }
 
+# Problems in vault files right after they were written (the PostToolUse hook calls this): an
+# unclosed frontmatter, missing frontmatter fields or Topics line on wiki/project pages, broken
+# [[links]], invalid todos/events/contacts. Paths absolute or relative to the vault; others are
+# skipped. Prints "- file: problem" lines; exit 1 if any.
+cmd_check_file() {
+  cd "$VAULT"
+  local -a files=(); local f
+  for f in "$@"; do
+    f="${f#"$VAULT"/}"
+    case "$f" in /*|raw/*|.kioku/*|.obsidian/*|.git/*|.claude/*|CLAUDE.md) continue ;; *.md) ;; *) continue ;; esac
+    [ -f "$f" ] && files+=("$f")
+  done
+  [ ${#files[@]} -gt 0 ] || return 0
+  index_files
+  local out="" line src link miss
+  for f in "${files[@]}"; do
+    if [ "$(head -n 1 "$f")" = "---" ] && ! awk 'NR>1 && $0=="---" {ok=1; exit} END {exit !ok}' "$f"; then
+      out+="- $f: the frontmatter is not closed (no second ---)"$'\n'
+    fi
+    case "$f" in
+      wiki/*|projects/*)
+        miss="$(missing_fm "$f")"; [ -n "$miss" ] && out+="- $f: missing frontmatter:$miss"$'\n'
+        if [[ "$f" == wiki/* && "$f" != wiki/topics/* ]] && ! grep -qE '^Topics:.*\[\[wiki/topics/' "$f"; then
+          out+="- $f: no 'Topics: [[wiki/topics/…]]' line"$'\n'
+        fi ;;
+    esac
+  done
+  while IFS= read -r line; do
+    src="${line%%:\[\[*}"; link="${line#*:\[\[}"; link="${link%\]\]}"
+    [ -n "$(resolve "$link")" ] || out+="- $src: broken link [[$link]]"$'\n'
+  done < <(wikilinks "${files[@]}")
+  if command -v node >/dev/null && printf '%s\n' "${files[@]}" | grep -qE '^(calendar|contacts|journal)/'; then
+    local vo; vo="$(KIOKU_DIR="$VAULT" node "$VAULT/.kioku/bin/kioku-sync.mjs" validate 2>&1 | grep -v 'without an id' || true)"
+    for f in "${files[@]}"; do
+      line="$(printf '%s\n' "$vo" | grep -F -- "- $f" || true)"; [ -n "$line" ] && out+="$line"$'\n'
+    done
+  fi
+  [ -n "$out" ] || return 0
+  printf '%s' "$out"; return 1
+}
+
+# One look at everything Kioku depends on; says what to do about each problem.
+# --offline skips the network checks (git fetch, CalDAV/CardDAV login).
+cmd_doctor() {
+  local offline=; case "${1:-}" in --offline) offline=1 ;; "") ;; *) die "usage: kioku doctor [--offline]" ;; esac
+  local fails=0 warns=0
+  ok()  { printf '  ok    %s\n' "$*"; }
+  bad() { printf '  FAIL  %s\n' "$*"; fails=$((fails+1)); }
+  wrn() { printf '  warn  %s\n' "$*"; warns=$((warns+1)); }
+  local sys; sys="$(cd "$(dirname "$self")/.." && pwd -P)"
+  local ver fp; read -r ver fp < <("$sys/bin/kioku-version" 2>/dev/null || echo "? ?")
+  echo "Kioku $ver ($sys), vault $VAULT"
+
+  echo "Tools"
+  local c; for c in jq rg git; do if command -v "$c" >/dev/null; then ok "$c"; else bad "$c not found (required)"; fi; done
+  if command -v node >/dev/null; then ok "node $(node --version)"; else wrn "node not found: calendar/contacts sync and non-Latin file names need it"; fi
+
+  echo "Vault"
+  if [ -e "$VAULT/.kioku/SCHEMA.md" ]; then ok ".kioku → $(readlink "$VAULT/.kioku" 2>/dev/null || echo "$VAULT/.kioku")"
+  else bad "$VAULT/.kioku is missing or broken; run the installer again"; fi
+  if grep -qF '@.kioku/SCHEMA.md' "$VAULT/CLAUDE.md" 2>/dev/null; then ok "CLAUDE.md imports the schema"; else bad "$VAULT/CLAUDE.md does not import the schema; add the line @.kioku/SCHEMA.md"; fi
+  if [ ! -f "$VAULT/Core.md" ]; then bad "Core.md is missing"
+  elif grep -qE '(kioku|brain):empty' "$VAULT/Core.md"; then wrn "Core.md is still empty; say \"get to know me\" in a session"
+  else ok "Core.md is filled in"; fi
+  local rec="${XDG_CONFIG_HOME:-$HOME/.config}/kioku/installed" flags=""
+  if [ ! -f "$rec" ]; then wrn "no install record ($rec); run: kioku update"
+  else
+    flags="$(sed -n 's/^flags=//p' "$rec")"
+    if [ "$(sed -n 's/^fingerprint=//p' "$rec")" = "$fp" ]; then ok "install step up to date"
+    else wrn "Kioku changed since its install step ran; run: kioku update (Nix module: rebuild)"; fi
+  fi
+
+  echo "Claude Code"
+  local S="$HOME/.claude/settings.json" h ev sc
+  if [ -f "$S" ]; then
+    for h in SessionStart:session-start.sh UserPromptSubmit:prompt-pull.sh PostToolUse:post-write.sh PreCompact:pre-compact.sh Stop:stop-check.sh; do
+      ev="${h%%:*}"; sc="${h#*:}"
+      if jq -e --arg c "$VAULT/.kioku/hooks/$sc" --arg e "$ev" '[.hooks[$e][]?.hooks[]?.command] | index($c) != null' "$S" >/dev/null 2>&1
+      then ok "$ev hook"; else bad "$ev hook is not wired; run: kioku update"; fi
+    done
+  else bad "$S not found; run the installer"; fi
+  local missing=() n d
+  for d in "$sys"/skills/*/; do n="$(basename "$d")"; [ -e "$HOME/.claude/skills/$n/SKILL.md" ] || missing+=("$n"); done
+  if [ ${#missing[@]} -eq 0 ]; then ok "skills linked"; else bad "skills not linked: ${missing[*]}; run: kioku update"; fi
+  if grep -q 'kioku:start' "$HOME/.claude/CLAUDE.md" 2>/dev/null; then ok "~/.claude/CLAUDE.md has the Kioku block"; else bad "~/.claude/CLAUDE.md has no Kioku block; run: kioku update"; fi
+
+  if [ -d "$HOME/.gemini" ]; then
+    echo "Antigravity"
+    if [[ " $flags " == *" --no-antigravity "* ]]; then ok "turned off (--no-antigravity)"
+    else
+      if grep -q 'kioku:start' "$HOME/.gemini/GEMINI.md" 2>/dev/null; then ok "GEMINI.md has the Kioku block"; else bad "~/.gemini/GEMINI.md has no Kioku block; run: kioku update"; fi
+      missing=(); for d in "$sys"/skills/*/; do n="$(basename "$d")"; [ -e "$HOME/.gemini/config/skills/$n/SKILL.md" ] || missing+=("$n"); done
+      if [ ${#missing[@]} -eq 0 ]; then ok "skills linked"; else bad "skills not linked: ${missing[*]}; run: kioku update"; fi
+      if jq -e 'has("kioku-session-start") and has("kioku-pull") and has("kioku-stop")' "$HOME/.gemini/config/hooks.json" >/dev/null 2>&1
+      then ok "hooks in hooks.json"; else bad "Kioku hooks missing from ~/.gemini/config/hooks.json; run: kioku update"; fi
+    fi
+  fi
+
+  echo "Git"
+  local g=(git -C "$VAULT")
+  if [ ! -d "$VAULT/.git" ]; then bad "the vault is not a git repository (git -C $VAULT init)"
+  else
+    if [ -n "$("${g[@]}" config user.email)" ]; then ok "commits as $("${g[@]}" config user.name) <$("${g[@]}" config user.email)>"; else bad "git user.email is not set; commits will fail"; fi
+    for h in pre-commit post-commit; do
+      if grep -qE '^# (kioku|second-brain):' "$VAULT/.git/hooks/$h" 2>/dev/null; then ok "$h hook"; else bad "$h hook missing; run: kioku sync --setup"; fi
+    done
+    if [ -d "$VAULT/.git/rebase-merge" ] || [ -d "$VAULT/.git/rebase-apply" ]; then bad "a rebase is in progress in the vault; finish or abort it"; fi
+    local dirty; dirty="$("${g[@]}" status --porcelain | wc -l | tr -d ' ')"
+    [ "$dirty" -eq 0 ] && ok "working tree clean" || wrn "$dirty uncommitted change(s) (git -C $VAULT status)"
+    if [ "$("${g[@]}" config --bool kioku.autosync 2>/dev/null)" = true ]; then
+      if ! "${g[@]}" rev-parse -q --verify '@{u}' >/dev/null 2>&1; then bad "autosync is on but the branch has no upstream"
+      else
+        [ -n "$offline" ] || tmo 20 "${g[@]}" fetch -q 2>/dev/null || { [ -n "$offline" ] || wrn "git fetch failed (offline? key?)"; }
+        local ab; ab="$("${g[@]}" rev-list --left-right --count 'HEAD...@{u}' 2>/dev/null)"
+        ok "autosync on ($("${g[@]}" rev-parse --abbrev-ref '@{u}'); ${ab%%[[:space:]]*} ahead, ${ab##*[[:space:]]} behind)"
+      fi
+      if [ -f "$REMOTE_STATE/git-sync.conflict" ]; then bad "sync conflict: $(cat "$REMOTE_STATE/git-sync.conflict")"; fi
+    else ok "autosync off (one machine; kioku remote on to keep several in step)"; fi
+  fi
+
+  echo "Calendar and contacts sync"
+  if [ ! -f "$KCONF" ]; then ok "not set up (optional; see the README)"
+  else
+    local ps; if ps="$(cmd_password status 2>&1)"; then ok "${ps%%$'\n'*}"; else bad "${ps%%$'\n'*}"; fi
+    if [ -n "$offline" ]; then :
+    elif command -v node >/dev/null; then
+      local so; if so="$(tmo 30 "$self" sync --check 2>&1)"; then ok "server reachable, login works ($(printf '%s\n' "$so" | sed -n 's/^calendar:[[:space:]]*//p' | sed 's#^https\{0,1\}://\([^/]*\).*#\1#'))"
+      else bad "server check failed: $(printf '%s\n' "$so" | tail -n 1) (kioku sync --check)"; fi
+    fi
+  fi
+
+  echo "Vault health"
+  local lt; lt="$(cmd_lint_check 2>/dev/null | sed -n 's/^Total issues: //p')"
+  if [ "${lt:-0}" -eq 0 ]; then ok "lint-check: no issues"; else wrn "lint-check: $lt issue(s); run: kioku lint-check, or ask Claude to \"check the brain\""; fi
+
+  echo
+  echo "$fails problem(s), $warns warning(s)"
+  [ "$fails" -eq 0 ]
+}
+
+# Quick capture into raw/inbox/ without an agent session: a thought, a link or a file. The next
+# session offers to process it (SCHEMA.md, "Quick captures"). --gui asks in a desktop dialog
+# (kdialog or zenity), for a keyboard shortcut. "-" reads the text from stdin.
+free_name() { # path, or path-2, path-3 … (before the extension) if it exists
+  local p="$1" b e i=2; [ -e "$p" ] || { printf '%s' "$p"; return; }
+  if [[ "${p##*/}" == *.* ]]; then b="${p%.*}"; e=".${p##*.}"; else b="$p"; e=""; fi
+  while [ -e "$b-$i$e" ]; do i=$((i+1)); done; printf '%s' "$b-$i$e"
+}
+cmd_capture() {
+  local gui= file= text=
+  while [ $# -gt 0 ]; do case "$1" in
+    --gui) gui=1; shift ;;
+    --file) file="${2:-}"; [ -n "$file" ] || die "--file needs a path"; shift 2 ;;
+    -) text="$(cat)"; shift; break ;;
+    --) shift; text="$*"; break ;;
+    -*) die "usage: kioku capture \"text or link\" | --file PATH | --gui" ;;
+    *) text="$*"; break ;;
+  esac; done
+  if [ -n "$gui" ]; then
+    if command -v kdialog >/dev/null; then text="$(kdialog --title Kioku --textinputbox "Capture to Kioku (a thought, a todo or a link):" "" 2>/dev/null)" || return 0
+    elif command -v zenity >/dev/null; then text="$(zenity --entry --title Kioku --text "Capture to Kioku (a thought, a todo or a link):" 2>/dev/null)" || return 0
+    else die "--gui needs kdialog or zenity"; fi
+  fi
+  text="$(printf '%s' "$text" | sed -e 's/[[:space:]]*$//')"
+  [ -n "$text$file" ] || { [ -n "$gui" ] && return 0; die "usage: kioku capture \"text or link\" | - (stdin) | --file PATH | --gui"; }
+  local inbox="$VAULT/raw/inbox" stamp out; stamp="$(date +%Y-%m-%d-%H%M%S)"; mkdir -p "$inbox"
+  if [ -n "$file" ]; then
+    [ -f "$file" ] || die "no such file: $file"
+    out="$(free_name "$inbox/$stamp-$(basename "$file")")"; cp -- "$file" "$out"
+  else
+    local kind=note; [[ "$text" =~ ^[[:space:]]*https?://[^[:space:]]+$ ]] && kind=link
+    out="$(free_name "$inbox/$stamp-$kind.md")"
+    printf -- '---\ntype: capture\nkind: %s\ncaptured: %s\n---\n%s\n' "$kind" "$(date '+%F %H:%M')" "$text" > "$out"
+  fi
+  if [ -d "$VAULT/.git" ]; then
+    git -C "$VAULT" add -- "$out" && git -C "$VAULT" commit -q -m "capture: ${out##*/}" -- "$out" >/dev/null 2>&1 || true
+  fi
+  echo "captured: ${out#"$VAULT"/}"
+  if [ -n "$gui" ] && command -v notify-send >/dev/null; then notify-send -a Kioku Kioku "Captured to the inbox" 2>/dev/null || true; fi
+}
+
 # The SessionStart hook's context as plain text, for agents that have no such hook (Antigravity).
 cmd_context() {
   KIOKU_DIR="$VAULT" "$(dirname "$self")/../hooks/session-start.sh" </dev/null | jq -r '.hookSpecificOutput.additionalContext // empty'
@@ -572,6 +770,9 @@ cmd_context() {
 
 case "${1:-}" in
   context) shift; cmd_context "$@" ;;
+  capture) shift; cmd_capture "$@" ;;
+  doctor) shift; cmd_doctor "$@" ;;
+  check-file) shift; cmd_check_file "$@" ;;
   today) shift; cmd_today "$@" ;;
   journal) shift; cmd_journal "$@" ;;
   agenda) shift; cmd_agenda "$@" ;;

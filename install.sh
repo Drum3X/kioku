@@ -80,6 +80,8 @@ migrate_legacy() {
 SS="$VAULT/.kioku/hooks/session-start.sh"
 ST="$VAULT/.kioku/hooks/stop-check.sh"
 UP="$VAULT/.kioku/hooks/prompt-pull.sh"
+PW="$VAULT/.kioku/hooks/post-write.sh"
+PC="$VAULT/.kioku/hooks/pre-compact.sh"
 today="$(date +%F)"
 
 # ---- 1. Vault ----
@@ -262,7 +264,7 @@ done
 jq empty "$SETTINGS" || die "$SETTINGS is not valid JSON; left untouched."
 [ -f "$SETTINGS.kioku.bak" ] || cp "$SETTINGS" "$SETTINGS.kioku.bak"
 tmp="$(mktemp)"
-jq --arg ss "$SS" --arg st "$ST" --arg up "$UP" --arg dir "$VAULT" --arg old "$OLD" --arg mode "$mode" '
+jq --arg ss "$SS" --arg st "$ST" --arg up "$UP" --arg pw "$PW" --arg pc "$PC" --arg dir "$VAULT" --arg old "$OLD" --arg mode "$mode" '
   def drop(cmd): map(select(((.hooks // []) | map(.command) | index(cmd)) | not));
   def droplegacy(d): reduce ("session-start.sh", "stop-check.sh") as $h (.; drop("\(d)/.brain/hooks/\($h)"));
   def without(xs; ys): (xs // []) - ys;
@@ -273,6 +275,8 @@ jq --arg ss "$SS" --arg st "$ST" --arg up "$UP" --arg dir "$VAULT" --arg old "$O
   | .hooks.SessionStart = ((.hooks.SessionStart // []) | drop($ss) | drop("\($old)/.kioku/hooks/session-start.sh") | droplegacy($dir) | droplegacy($old))
   | .hooks.Stop         = ((.hooks.Stop // []) | drop($st) | drop("\($old)/.kioku/hooks/stop-check.sh") | droplegacy($dir) | droplegacy($old))
   | .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) | drop($up) | drop("\($old)/.kioku/hooks/prompt-pull.sh"))
+  | .hooks.PostToolUse = ((.hooks.PostToolUse // []) | drop($pw) | drop("\($old)/.kioku/hooks/post-write.sh"))
+  | .hooks.PreCompact = ((.hooks.PreCompact // []) | drop($pc) | drop("\($old)/.kioku/hooks/pre-compact.sh"))
   | .permissions.additionalDirectories = without(.permissions.additionalDirectories; $dirs)
   | .permissions.allow = without(.permissions.allow; $allrules)
   | .sandbox.filesystem.allowWrite = without(.sandbox.filesystem.allowWrite; $dirs)
@@ -280,6 +284,8 @@ jq --arg ss "$SS" --arg st "$ST" --arg up "$UP" --arg dir "$VAULT" --arg old "$O
       .hooks.SessionStart += [{hooks: [{type: "command", command: $ss, timeout: 10}]}]
     | .hooks.Stop         += [{hooks: [{type: "command", command: $st, timeout: 10}]}]
     | .hooks.UserPromptSubmit += [{hooks: [{type: "command", command: $up, timeout: 30}]}]
+    | .hooks.PostToolUse += [{matcher: "Write|Edit|MultiEdit", hooks: [{type: "command", command: $pw, timeout: 15}]}]
+    | .hooks.PreCompact += [{hooks: [{type: "command", command: $pc, timeout: 10}]}]
     | .permissions.additionalDirectories += [$dir]
     | .permissions.allow += $rules
     | .sandbox.filesystem.allowWrite += [$dir]
@@ -288,6 +294,8 @@ jq --arg ss "$SS" --arg st "$ST" --arg up "$UP" --arg dir "$VAULT" --arg old "$O
   | if (.hooks.SessionStart | length) == 0 then del(.hooks.SessionStart) else . end
   | if (.hooks.Stop | length) == 0 then del(.hooks.Stop) else . end
   | if (.hooks.UserPromptSubmit | length) == 0 then del(.hooks.UserPromptSubmit) else . end
+  | if (.hooks.PostToolUse | length) == 0 then del(.hooks.PostToolUse) else . end
+  | if (.hooks.PreCompact | length) == 0 then del(.hooks.PreCompact) else . end
   | if (.hooks | length) == 0 then del(.hooks) else . end
   | if (.permissions.additionalDirectories | length) == 0 then del(.permissions.additionalDirectories) else . end
   | if (.permissions.allow | length) == 0 then del(.permissions.allow) else . end

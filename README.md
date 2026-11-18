@@ -38,6 +38,9 @@ Claude Code is wired up in four places:
   - a learning went into the work log but not into the wiki.
 
   Short Q&A sessions are left alone.
+- **Write check (PostToolUse):** right after Claude writes a vault file, its frontmatter, `Topics:` line, `[[links]]` and todos/events are checked, and Claude fixes what is wrong in the same turn.
+- **Before compaction (PreCompact):** when a long session is compacted, the summary lists what was not recorded yet, and Claude records it right after.
+- **Before each prompt (UserPromptSubmit):** with autosync on, the vault is pulled first, so notes written on another machine show up.
 - **Skills:**
   - `kioku` records memory and runs the onboarding interview;
   - `kioku-journal` keeps your timeline and todos;
@@ -140,6 +143,7 @@ Talk normally, in any language. A few examples:
 | "add Ahmet to my contacts, his number is …" | A page in `contacts/`, synced to your address book |
 | "what did I do this week?" | `kioku recap` summary |
 | "check the brain" | Lint report first, fixes only after your approval |
+| *(in a terminal or with a shortcut)* `kioku capture "call the bank tomorrow"` | Lands in `raw/inbox/` without a session; the next session offers to file it |
 
 Changes to `Core.md` always need your approval. Everything else is recorded without asking,
 and each write is a git commit in your vault. Claude never pushes, unless you turn on `kioku remote` for several machines.
@@ -147,9 +151,14 @@ and each write is a git commit in your vault. Claude never pushes, unless you tu
 The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
-kioku context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
+kioku doctor | capture "<text>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
 kioku search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
+
+## Quick capture and troubleshooting
+
+- **`kioku capture "text or link"`** drops a thought, a todo or a link into `raw/inbox/` without opening a session (`kioku capture --file F` for a file, `kioku capture -` for stdin). It is committed, so with autosync it reaches your other machines too. The next session says how many wait and offers to file them: notes go to the journal, wiki or calendar as if you had said them, links and files are ingested. For a keyboard shortcut, `kioku capture --gui` asks in a small dialog (kdialog or zenity); with the Nix module, `programs.kioku.capture.gui = true;` brings the tools and a "Kioku capture" desktop entry to bind.
+- **`kioku doctor`** checks everything Kioku depends on (tools, the vault link, hooks, skills, Antigravity, git and autosync, the CalDAV/CardDAV login, vault health) and says how to fix each problem. `--offline` skips the network checks.
 
 ## Calendar, contacts and todos (optional sync)
 
@@ -247,6 +256,7 @@ If Antigravity is installed (`~/.gemini` exists), the installer also sets Kioku 
   - `SessionStart` adds the session context;
   - `PreInvocation` pulls the vault with autosync (at most every 30 s);
   - `Stop` asks once to record, as in Claude Code.
+  - The write check and the compaction note are Claude Code only: Antigravity's `PostToolUse` cannot send anything back to the agent, and it has no compaction hook.
 
 If the hooks don't run, the rules tell the agent to load the context itself with `kioku context`.
 The last input of each hook is kept in `~/.local/state/kioku/antigravity-*.json` for debugging.
@@ -265,7 +275,8 @@ Turkish `İ/ı` and `I/i` as the same letter.
 - **Personal rules:** tell Claude ("from now on, …"); it adds them under *Personal rules* in your vault's `CLAUDE.md`, with your approval.
 - **Private pages:** `private: true` keeps a page out of the session-start context.
 - **Environment variables**, set in `~/.claude/settings.json` under `env`:
-  - `KIOKU_STOP_CHECK=0` turns off the Stop hook.
+  - `KIOKU_STOP_CHECK=0` turns off the Stop hook and the compaction note.
+  - `KIOKU_WRITE_CHECK=0` turns off the write check.
   - `KIOKU_STOP_MIN_TOOLS=10` sets how many tool calls count as "real work".
   - `KIOKU_CONTEXT_MAX=12000` caps the session-start context in bytes.
 

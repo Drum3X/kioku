@@ -12,7 +12,8 @@ _self: {
     if cfg.source == null
     then "${cfg.package}/share/kioku"
     else cfg.source;
-  path = lib.makeBinPath cfg.package.runtimeDeps;
+  path = lib.makeBinPath (cfg.package.runtimeDeps
+    ++ lib.optionals cfg.capture.gui [pkgs.kdePackages.kdialog pkgs.libnotify]);
 
   cli = pkgs.writeShellScriptBin "kioku" ''
     export PATH=${path}:$PATH
@@ -52,6 +53,15 @@ in {
       '';
     };
 
+    capture.gui = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Make `kioku capture --gui` work: puts kdialog and notify-send on the kioku command's PATH
+        and adds a "Kioku capture" desktop entry, which you can bind to a keyboard shortcut.
+      '';
+    };
+
     source = mkOption {
       type = types.nullOr types.str;
       default = null;
@@ -66,6 +76,17 @@ in {
 
   config = mkIf cfg.enable {
     home.packages = [cli installer] ++ cfg.package.runtimeDeps;
+
+    xdg.desktopEntries = mkIf cfg.capture.gui {
+      kioku-capture = {
+        name = "Kioku capture";
+        comment = "Drop a thought, a todo or a link into the Kioku inbox";
+        exec = "${cli}/bin/kioku capture --gui";
+        icon = "document-new";
+        terminal = false;
+        categories = ["Utility"];
+      };
+    };
 
     # The wiring Claude Code needs lives in files it also edits itself (settings.json,
     # CLAUDE.md), so it is merged by install.sh rather than owned by Home Manager.

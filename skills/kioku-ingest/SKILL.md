@@ -15,7 +15,7 @@ then process each in turn. **Write summaries and new pages in the source's langu
 
 ## 0. What to process
 
-- **No argument:** list the files in `raw/inbox/` and ask where to start.
+- **No argument:** list the files in `raw/inbox/` and ask where to start. Text captures (`type: capture`, from `kioku capture`) are routed as in the schema's "Quick captures" section; only links to read and files are ingested here.
 - **URL:** fetch the content with your web-fetch tool (WebFetch in Claude Code). For long pages, read to the end (WebFetch: using offset). Ask for the actual text, not a summary.
 - **File:** copy a PDF or image to `raw/assets/<yyyy>/`. Extract the text; for a PDF, read the pages with your file-reading tool (Read in Claude Code).
 
