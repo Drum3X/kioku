@@ -72,6 +72,7 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku health [--offline]`: checks the whole setup and says how to fix problems; run it when something seems broken (hooks not firing, autosync failing).
 - `kioku check-file <file>`: the write check the PostToolUse hook runs after each vault write; when it reports problems, fix them in the same turn.
 - `kioku lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, learned entries missing from the wiki, missing frontmatter; it also lists the pages due for review (not counted as issues).
+- `kioku extract <file|video url> [-o FILE] [--lang tr,en]`: a video (subtitles via yt-dlp, else the audio transcribed), an audio file (transcribed), a .docx/.odt/.rtf/.epub/.html document (pandoc) or a PDF (pdftotext) as a ready `raw/` page: frontmatter plus the text as-is. It says which tool to install when one is missing. Web pages: use your web-fetch tool.
 - `kioku home [--print]`: writes `Home.md` (it is also refreshed at session start, after each commit and after pulls); `--print` only shows it.
 - `kioku stale [--all]`: wiki and project pages whose facts are due to be checked again (see "Freshness"); `--all` also shows when the others fall due.
 
