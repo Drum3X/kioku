@@ -12,9 +12,12 @@ const HOOK: &str = r#"#!/bin/sh
 B="$(git rev-parse --show-toplevel)/.kioku/bin/kioku"
 [ -x "$B" ] && [ -z "${KIOKU_GIT_SYNCING:-}" ] || exit 0
 # Refresh Home.md (the Obsidian start page; not in git), then push with autosync
-( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; nohup "$B" home --auto >/dev/null 2>&1 & )
+# In a session of its own (setsid), so it survives an agent that kills its command's process
+# group as soon as the commit returns.
+bg() { if command -v setsid >/dev/null 2>&1; then setsid -f "$@" >/dev/null 2>&1 < /dev/null; else nohup "$@" >/dev/null 2>&1 < /dev/null & fi; }
+( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; bg "$B" home --auto )
 [ "$(git config --bool kioku.autosync)" = true ] || exit 0
-( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; nohup "$B" remote now >/dev/null 2>&1 & )
+( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; bg "$B" remote now )
 exit 0
 "#;
 
@@ -144,13 +147,13 @@ fn sync_locked(vault: &Path, mode: &str) -> Result<bool> {
         }
         let _ = fs::remove_file(conflict_file());
         crate::home::refresh(vault);
-        if mode == "pull" {
-            return Ok(true);
-        }
+        // Local commits not pushed yet (a push after a commit that got cut off) go out with
+        // any pull too, so nothing stays behind on one machine.
         let ahead = util::git_out(vault, &["log", "@{u}..HEAD", "--oneline"]).unwrap_or_default();
         if ahead.is_empty() {
             return Ok(true);
         }
+        let _ = mode;
         let o = util::run(&mut g(&["push", "-q"]), 30)?;
         if o.status.success() {
             return Ok(true);
