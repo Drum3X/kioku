@@ -787,8 +787,11 @@ cmd_notify() {
     stdout) printf '# %s\n\n%s\n' "$subject" "$body" ;;
     hermes)
       command -v hermes >/dev/null || die "notify=hermes needs the hermes command"
-      local to; to="$(aconf hermes_deliver)"
-      printf '**%s**\n\n%s\n' "$subject" "$body" | hermes send --to "${to:-discord}" --file - >/dev/null || die "hermes send failed" ;;
+      local to t ok=0 IFS=,; to="$(aconf hermes_deliver)"
+      for t in ${to:-discord}; do   # one or more targets: discord,telegram
+        printf '**%s**\n\n%s\n' "$subject" "$body" | hermes send --to "$t" --file - >/dev/null && ok=1 || echo "kioku: hermes send to $t failed" >&2
+      done
+      [ "$ok" = 1 ] || die "hermes send failed" ;;
     *) die "unknown notify=$via in $AGENT_CONF (mail, command, hermes or stdout)" ;;
   esac
 }
