@@ -15,6 +15,12 @@
       default = kioku;
     });
 
+    devShells = forAllSystems (pkgs: {
+      default = pkgs.mkShell {
+        packages = with pkgs; [cargo rustc clippy rustfmt rust-analyzer];
+      };
+    });
+
     homeManagerModules = rec {
       kioku = import ./nix/hm-module.nix self;
       default = kioku;

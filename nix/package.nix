@@ -1,32 +1,22 @@
 {
   lib,
-  stdenvNoCC,
-  makeWrapper,
-  bash,
-  coreutils,
-  findutils,
-  gawk,
+  rustPlatform,
   git,
-  gnugrep,
-  gnused,
-  jq,
-  nodejs,
-  ripgrep,
 }: let
-  # What the scripts call. Hooks run from Claude Code, so the Home Manager module also
-  # puts these on the user's PATH.
-  runtimeDeps =
-    [bash coreutils findutils gawk git gnugrep gnused jq nodejs ripgrep];
+  # What the binary calls at run time. Hooks run from the agents, so the Home Manager module
+  # also puts these on the user's PATH.
+  runtimeDeps = [git];
 in
-  stdenvNoCC.mkDerivation {
+  rustPlatform.buildRustPackage {
     pname = "kioku";
     version = lib.removeSuffix "\n" (builtins.readFile ../VERSION);
 
     src = lib.fileset.toSource {
       root = ../.;
       fileset = lib.fileset.unions [
-        ../bin
-        ../hooks
+        ../Cargo.toml
+        ../Cargo.lock
+        ../src
         ../skills
         ../skeleton
         ../templates
@@ -38,35 +28,28 @@ in
         ../VERSION
       ];
     };
+    cargoLock.lockFile = ../Cargo.lock;
 
-    nativeBuildInputs = [makeWrapper];
-    buildInputs = [bash];
-    dontConfigure = true;
-    dontBuild = true;
-
-    # share/kioku is what a vault's .kioku link points to. bin/kioku runs the CLI of the
-    # vault in $KIOKU_DIR (default ~/Documents/Kioku); bin/kioku-install is install.sh.
-    installPhase = ''
-      runHook preInstall
-      mkdir -p $out/share/kioku $out/bin
-      cp -r . $out/share/kioku/
-      chmod +x $out/share/kioku/bin/kioku $out/share/kioku/bin/kioku-version $out/share/kioku/hooks/*.sh $out/share/kioku/install.sh
-      patchShebangs $out/share/kioku/bin $out/share/kioku/hooks $out/share/kioku/install.sh
-      makeWrapper $out/share/kioku/install.sh $out/bin/kioku-install \
-        --prefix PATH : ${lib.makeBinPath runtimeDeps}
-      cat > $out/bin/kioku <<SH
-      #!${bash}/bin/bash
+    # share/kioku is what a vault's .kioku link points to: the system files with the binary in
+    # share/kioku/bin/kioku. bin/kioku is the same binary (it finds the vault through the
+    # install record); bin/kioku-install runs `kioku install`.
+    postInstall = ''
+      mkdir -p $out/share/kioku/bin
+      cp -r skills skeleton templates install.sh SCHEMA.md README.md README.tr.md LICENSE VERSION $out/share/kioku/
+      mv $out/bin/kioku $out/share/kioku/bin/kioku
+      ln -s $out/share/kioku/bin/kioku $out/bin/kioku
+      cat > $out/bin/kioku-install <<SH
+      #!/bin/sh
       export PATH=${lib.makeBinPath runtimeDeps}:\$PATH
-      exec "\''${KIOKU_DIR:-\$HOME/Documents/Kioku}/.kioku/bin/kioku" "\$@"
+      exec $out/share/kioku/bin/kioku install "\$@"
       SH
-      chmod +x $out/bin/kioku
-      runHook postInstall
+      chmod +x $out/bin/kioku-install
     '';
 
     passthru = {inherit runtimeDeps;};
 
     meta = {
-      description = "A personal second brain for Claude Code: memory, an LLM wiki and a journal in a Markdown vault";
+      description = "A personal second brain kept by your AI agents: memory, an LLM wiki and a journal in a Markdown vault";
       homepage = "https://github.com/Drum3X/kioku";
       license = lib.licenses.gpl3Only;
       mainProgram = "kioku";

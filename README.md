@@ -13,7 +13,8 @@ files and run commands. You talk, the agent keeps the notes.
 
 Everything is plain Markdown in a folder you own. You can open it as an
 [Obsidian](https://obsidian.md) vault, and it is versioned with git. There is no server,
-database or API key of its own; the hooks are small bash scripts. The same vault works with
+database or API key of its own; the CLI and the hooks are one small compiled program
+(`kioku`, written in Rust). The same vault works with
 every agent, so you can switch tools, or use several, and keep one memory.
 
 ## How it works
@@ -80,11 +81,11 @@ Contradictions are flagged and every claim keeps a link to its source.
 ## Requirements
 
 - An AI agent that can read files and run shell commands (see the table above)
-- bash 4+, `jq`, `ripgrep`, `git` (the Nix package brings its own)
-- `node` (recommended): ranked search, the agenda, and file names from non-Latin titles (`машинное-обучение.md`, `機械学習.md`)
+- `git`
+- The `kioku` binary: the installer downloads it for Linux (x86_64, aarch64) and macOS, or builds it with `cargo` (the Nix package builds it too)
 - Obsidian (optional): only for browsing
 
-Developed and used on Linux (NixOS). macOS should work with a newer bash (`brew install bash jq ripgrep`). On Windows, use WSL. Neither macOS nor Windows has been tested yet.
+Developed and used on Linux (NixOS and Ubuntu). macOS builds are published but not tested yet. On Windows, use WSL.
 
 ## Install
 
@@ -113,8 +114,8 @@ inputs.kioku = {
 ```
 
 The module works like this:
-- **Command:** it puts `kioku` and its tools (`jq`, `ripgrep`, `git`, `node`) on your PATH.
-- **Wiring:** on every switch, it runs the same steps as `install.sh`. The vault's `.kioku` link points at the package in the Nix store, and the version is pinned in your `flake.lock`.
+- **Command:** it puts `kioku` and `git` on your PATH.
+- **Wiring:** on every switch, it runs `kioku install`. The vault's `.kioku` link points at the package in the Nix store, and the version is pinned in your `flake.lock`.
 - **Updating:** run `nix flake update kioku`, then rebuild.
 
 The agents' files (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.codex/config.toml` …)
@@ -137,6 +138,8 @@ git clone https://github.com/Drum3X/kioku ~/Projects/kioku
 ```bash
 ~/Projects/kioku/install.sh
 ```
+
+`install.sh` downloads the `kioku` binary for this version into `bin/` (from the GitHub release, sha256 checked), or builds it with `cargo` when there is no release for your platform (`KIOKU_BUILD=1` always builds), then runs `bin/kioku install`.
 
 Keep the checkout where you cloned it: the vault links to it. The default vault is
 `~/Documents/Kioku`; pass `--vault PATH` to choose another folder, or an existing Obsidian
@@ -165,7 +168,7 @@ When `~/.codex` (or `$CODEX_HOME`) exists or the `codex` command is found:
 
 - **Rules:** a Kioku section in `~/.codex/AGENTS.md`. Inside the vault, Codex also reads the vault's `AGENTS.md` itself.
 - **Skills:** linked into `~/.agents/skills/`, the shared folder that Codex and other agents read.
-- **Hooks:** four entries in `~/.codex/hooks.json` (other hooks there are kept), run through `hooks/codex.sh`:
+- **Hooks:** four entries in `~/.codex/hooks.json` (other hooks there are kept), run as `kioku hook codex …`:
   - `SessionStart` adds the session context;
   - `UserPromptSubmit` pulls the vault with autosync;
   - `PostToolUse` counts the session's tool calls and runs the write check on files changed by `apply_patch`;
@@ -184,7 +187,7 @@ When `~/.gemini` exists or the `antigravity` command is found:
 
 - **Rules:** a Kioku section in `~/.gemini/GEMINI.md` (your own text in that file is kept).
 - **Skills:** in `~/.gemini/config/skills/`; say the same things or call them as `/kioku-journal` and so on.
-- **Hooks:** three entries named `kioku-*` in `~/.gemini/config/hooks.json` (other hooks there are kept), run through `hooks/antigravity.sh`, which translates Antigravity's input and transcript:
+- **Hooks:** three entries named `kioku-*` in `~/.gemini/config/hooks.json` (other hooks there are kept), run as `kioku hook antigravity …`, which translates Antigravity's input and transcript:
   - `SessionStart` adds the session context;
   - `PreInvocation` pulls the vault with autosync (at most every 30 s);
   - `Stop` asks once to record.
@@ -310,6 +313,16 @@ written in the language you speak. Every page records its language in `lang:`. S
   - `KIOKU_WRITE_CHECK=0` turns off the write check.
   - `KIOKU_STOP_MIN_TOOLS=10` sets how many tool calls count as "real work".
   - `KIOKU_CONTEXT_MAX=12000` caps the session-start context in bytes.
+
+## Development
+
+The source is in `src/` (one Rust crate, no network or async dependencies). With Nix, `nix develop`
+gives cargo, clippy and rustfmt. `cargo build --release` builds `target/release/kioku`;
+`install.sh` links `bin/kioku` to it when it builds from source, so a checkout the vault links to
+runs your build. `cargo test` runs the unit tests; `tests/make-fixture.sh DIR` builds a test
+vault with tricky cases (recurring and broken events, invalid dates, broken links, private
+pages) to try commands on. A `v*` tag builds and publishes the release binaries
+(`.github/workflows/release.yml`).
 
 ## Update and uninstall
 

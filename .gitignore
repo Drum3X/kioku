@@ -1,3 +1,7 @@
 # Local Claude Code state and installer backups
 .claude/
 *.kioku.bak
+# Rust build output
+/target/
+# The compiled CLI: a link to target/release/kioku or a downloaded release binary
+/bin/kioku

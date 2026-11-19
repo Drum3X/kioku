@@ -19,10 +19,12 @@ _self: {
     export PATH=${path}:$PATH
     exec ${escapeShellArg cfg.vault}/.kioku/bin/kioku "$@"
   '';
-  # install.sh by hand, e.g. kioku-install --uninstall before turning the module off.
+  bin = "${cfg.package}/share/kioku/bin/kioku";
+  # `kioku install` by hand, e.g. kioku-install --uninstall before turning the module off.
+  # KIOKU_SYS: the vault links to the package, or to the checkout given in `source`.
   installer = pkgs.writeShellScriptBin "kioku-install" ''
-    export PATH=${path}:$PATH
-    exec ${escapeShellArg src}/install.sh "$@"
+    export PATH=${path}:$PATH KIOKU_SYS=${escapeShellArg src}
+    exec ${bin} install "$@"
   '';
 in {
   options.programs.kioku = {
@@ -111,8 +113,16 @@ in {
     # hooks.json, config.toml …), so it is merged by install.sh rather than owned by Home Manager.
     home.activation.kioku = lib.hm.dag.entryAfter ["writeBoundary"] ''
       (
-        export PATH=${path}:$PATH
-        run ${escapeShellArg src}/install.sh --vault ${escapeShellArg cfg.vault} --relink --no-bin-link${lib.optionalString (!cfg.claudeCode) " --no-claude"}${lib.optionalString (!cfg.codex) " --no-codex"}${lib.optionalString (!cfg.antigravity) " --no-antigravity"}
+        export PATH=${path}:$PATH KIOKU_SYS=${escapeShellArg src}
+        ${lib.optionalString (cfg.source != null) ''
+          # A checkout's bin/kioku is a build output: point it at the package binary unless it
+          # is the developer's own build (cargo build --release links it to target/).
+          b=${escapeShellArg cfg.source}/bin/kioku
+          if [ ! -e "$b" ] || { [ -L "$b" ] && [[ "$(readlink "$b")" == /nix/store/* ]]; }; then
+            run ln -sfn ${bin} "$b"
+          fi
+        ''}
+        run ${bin} install --vault ${escapeShellArg cfg.vault} --relink --no-bin-link${lib.optionalString (!cfg.claudeCode) " --no-claude"}${lib.optionalString (!cfg.codex) " --no-codex"}${lib.optionalString (!cfg.antigravity) " --no-antigravity"}
       )
     '';
   };

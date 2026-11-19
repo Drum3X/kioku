@@ -1,0 +1,25 @@
+[package]
+name = "kioku"
+version = "0.2.0"
+edition = "2021"
+description = "Kioku: a personal second brain kept by your AI agents"
+license = "GPL-3.0-only"
+repository = "https://github.com/Drum3X/kioku"
+rust-version = "1.82"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+ignore = "0.4"
+regex = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+unicode-normalization = "0.1"
+walkdir = "2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

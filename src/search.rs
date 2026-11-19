@@ -1,0 +1,337 @@
+//! `kioku search`: ranked multi-term search (BM25 over title ×3, headings and tags ×2, body ×1,
+//! times the share of terms matched, a page-type weight and a small recency bonus). Matching
+//! folds case and Turkish letters and allows suffixes both ways.
+
+use crate::text::{fold, word_re, words};
+use crate::util;
+use chrono::{NaiveDate, Utc};
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+
+const STOP_WORDS: &str = "
+  ve ile bir bu şu o da de mi mı mu mü ne neden niye nasıl hangi hangisi hangisiydi için gibi daha çok en
+  ama veya ya ki her şey neydi nedir var yok ben sen biz siz benim bana beni bizim olan oldu olarak kadar
+  diye mı acaba şimdi zaten artık hiç
+  the a an and or of to in on at for with from by what how why which who did do does we i you my our is are
+  was were be been it this that about can should would
+";
+
+#[derive(Clone)]
+enum Term {
+    Word(String),
+    Phrase(String),
+}
+impl Term {
+    fn key(&self) -> &str {
+        match self {
+            Term::Word(s) | Term::Phrase(s) => s,
+        }
+    }
+}
+
+/// 1 exact, 0.8 with a suffix either way, 0 none.
+fn word_match(w: &str, d: &str) -> f64 {
+    if d == w {
+        return 1.0;
+    }
+    let (wl, dl) = (w.chars().count(), d.chars().count());
+    if wl >= 3 && d.starts_with(w) {
+        return 0.8;
+    }
+    if dl >= 4 && w.starts_with(d) && wl - dl <= 4 {
+        return 0.8;
+    }
+    0.0
+}
+
+struct Doc {
+    rel: String,
+    title: String,
+    private: bool,
+    date: Option<String>,
+    body: Vec<String>,
+    body_start: usize,
+    counts: [HashMap<String, usize>; 3],
+    folded: [String; 3],
+    len: usize,
+}
+
+fn walk(p: &Path, out: &mut Vec<PathBuf>) {
+    let Ok(md) = std::fs::metadata(p) else { return };
+    if md.is_dir() {
+        let Ok(rd) = std::fs::read_dir(p) else { return };
+        for e in rd.flatten() {
+            if !e.file_name().to_string_lossy().starts_with('.') {
+                walk(&e.path(), out);
+            }
+        }
+    } else if p.to_string_lossy().ends_with(".md") {
+        out.push(p.to_path_buf());
+    }
+}
+
+fn strip_quotes(v: &str) -> String {
+    let v = v.strip_prefix(['"', '\'']).unwrap_or(v);
+    v.strip_suffix(['"', '\'']).unwrap_or(v).to_string()
+}
+
+fn parse(vault: &Path, file: &Path) -> Doc {
+    let text = util::read(file);
+    let lines: Vec<&str> = text.split('\n').collect();
+    let mut fm: HashMap<String, String> = HashMap::new();
+    let mut i = 0;
+    if lines.first() == Some(&"---") {
+        i = 1;
+        while i < lines.len() && lines[i] != "---" {
+            let l = lines[i];
+            if let Some(c) = l.find(':') {
+                let k = &l[..c];
+                if !k.is_empty() && k.chars().all(|ch| ch.is_ascii_alphabetic() || ch == '_') {
+                    fm.insert(k.to_string(), strip_quotes(l[c + 1..].trim_start()));
+                }
+            }
+            i += 1;
+        }
+        i += 1;
+    }
+    let body: Vec<String> = lines.iter().skip(i).map(|s| s.to_string()).collect();
+    let title = fm.get("title").cloned().unwrap_or_default();
+    let mut fields: [Vec<String>; 3] = [
+        vec![title.clone()],
+        vec![
+            fm.get("tags").cloned().unwrap_or_default(),
+            fm.get("aliases").cloned().unwrap_or_default(),
+        ],
+        vec![],
+    ];
+    for l in &body {
+        if let Some(t) = l.strip_prefix("# ") {
+            fields[0].push(t.to_string());
+        } else if is_heading2(l) {
+            let h = l.trim_start_matches('#');
+            fields[1].push(h.strip_prefix(' ').unwrap_or(h).to_string());
+        } else {
+            fields[2].push(l.clone());
+        }
+    }
+    let mut counts: [HashMap<String, usize>; 3] = Default::default();
+    let mut len = 0;
+    let mut folded: [String; 3] = Default::default();
+    for k in 0..3 {
+        let joined = fields[k].join("\n");
+        for w in words(&joined) {
+            *counts[k].entry(w).or_insert(0) += 1;
+            len += 1;
+        }
+        folded[k] = fold(&joined);
+    }
+    let base = file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let date = ["updated", "date", "created"]
+        .iter()
+        .find_map(|k| fm.get(*k).filter(|v| !v.is_empty()).cloned())
+        .or_else(|| {
+            (base.len() >= 10
+                && base.as_bytes()[..10]
+                    .iter()
+                    .enumerate()
+                    .all(|(i, b)| if i == 4 || i == 7 { *b == b'-' } else { b.is_ascii_digit() }))
+            .then(|| base[..10].to_string())
+        });
+    Doc {
+        rel: util::rel(vault, file),
+        title,
+        private: fm.get("private").map(String::as_str) == Some("true"),
+        date,
+        body,
+        body_start: i,
+        counts,
+        folded,
+        len,
+    }
+}
+/// `## ` … `###### ` heading.
+fn is_heading2(l: &str) -> bool {
+    let n = l.bytes().take_while(|b| *b == b'#').count();
+    (2..=6).contains(&n) && l.as_bytes().get(n) == Some(&b' ')
+}
+
+const FIELD_W: [f64; 3] = [3.0, 2.0, 1.0];
+
+#[allow(clippy::needless_range_loop)]
+fn term_freq(d: &Doc, t: &Term) -> f64 {
+    let mut tf = 0.0;
+    for k in 0..3 {
+        match t {
+            Term::Phrase(p) => tf += FIELD_W[k] * d.folded[k].matches(p.as_str()).count() as f64,
+            Term::Word(w) => {
+                for (tok, c) in &d.counts[k] {
+                    let m = word_match(w, tok);
+                    if m > 0.0 {
+                        tf += FIELD_W[k] * m * *c as f64;
+                    }
+                }
+            }
+        }
+    }
+    tf
+}
+
+fn type_weight(rel: &str) -> f64 {
+    if rel == "Core.md" || rel.starts_with("projects/") {
+        1.2
+    } else if rel.starts_with("wiki/topics/") {
+        1.0
+    } else if rel.starts_with("wiki/") {
+        1.2
+    } else if rel.starts_with("daily/") || rel.starts_with("journal/") {
+        0.85
+    } else if rel == "index.md" {
+        0.6
+    } else if rel.starts_with("raw/") {
+        0.7
+    } else {
+        1.0
+    }
+}
+fn recency(d: &Doc) -> f64 {
+    let Some(ds) = &d.date else { return 1.0 };
+    let Ok(day) = NaiveDate::parse_from_str(&util::take(ds, 10), "%Y-%m-%d") else {
+        return 1.0;
+    };
+    let t = day.and_hms_opt(0, 0, 0).unwrap().and_utc();
+    let days = (Utc::now() - t).num_milliseconds() as f64 / 86_400_000.0;
+    if days <= 14.0 {
+        1.05
+    } else if days <= 90.0 {
+        1.02
+    } else {
+        1.0
+    }
+}
+
+pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
+    let mut raw = false;
+    let mut limit = 20usize;
+    let mut terms: Vec<String> = Vec::new();
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--raw" => raw = true,
+            "-n" | "--limit" => limit = it.next().and_then(|v| v.parse::<usize>().ok()).filter(|n| *n > 0).unwrap_or(20),
+            _ => terms.push(a.clone()),
+        }
+    }
+    if terms.is_empty() {
+        eprintln!("kioku: usage: kioku search [--raw] [-n N] <term...>");
+        return Ok(2);
+    }
+
+    let stop: HashSet<String> = words(STOP_WORDS).into_iter().collect();
+    let mut query: Vec<Term> = Vec::new();
+    for t in &terms {
+        let f = fold(t).trim().to_string();
+        if f.is_empty() {
+            continue;
+        }
+        let ws: Vec<&str> = word_re().find_iter(&f).map(|m| m.as_str()).collect();
+        if ws.len() == 1 && ws[0] == f {
+            query.push(Term::Word(f));
+        } else if !ws.is_empty() {
+            query.push(Term::Phrase(f));
+        }
+    }
+    let mut q: Vec<Term> = query
+        .iter()
+        .filter(|t| matches!(t, Term::Phrase(_)) || !stop.contains(t.key()))
+        .cloned()
+        .collect();
+    if q.is_empty() {
+        q = query;
+    }
+    let mut seen = HashSet::new();
+    q.retain(|t| seen.insert(t.key().to_string()));
+    if q.is_empty() {
+        return Ok(0);
+    }
+
+    let mut dirs = vec![
+        "Core.md", "projects", "wiki", "daily", "journal", "calendar", "contacts", "reviews", "index.md",
+    ];
+    if raw {
+        dirs.push("raw");
+    }
+    let mut files = Vec::new();
+    for d in dirs {
+        walk(&vault.join(d), &mut files);
+    }
+    let docs: Vec<Doc> = files.iter().map(|f| parse(vault, f)).collect();
+    if docs.is_empty() {
+        return Ok(0);
+    }
+    let n = docs.len() as f64;
+    let avg = docs.iter().map(|d| d.len as f64).sum::<f64>() / n;
+    let (k1, b) = (1.2, 0.75);
+    let tfs: Vec<Vec<f64>> = docs.iter().map(|d| q.iter().map(|t| term_freq(d, t)).collect()).collect();
+    let idf: Vec<f64> = (0..q.len())
+        .map(|j| {
+            let df = tfs.iter().filter(|r| r[j] > 0.0).count() as f64;
+            (1.0 + (n - df + 0.5) / (df + 0.5)).ln()
+        })
+        .collect();
+
+    let mut results: Vec<(usize, f64, usize)> = Vec::new();
+    for (i, d) in docs.iter().enumerate() {
+        let (mut s, mut matched) = (0.0, 0);
+        for j in 0..q.len() {
+            let tf = tfs[i][j];
+            if tf == 0.0 {
+                continue;
+            }
+            matched += 1;
+            s += idf[j] * (tf * (k1 + 1.0)) / (tf + k1 * (1.0 - b + b * d.len as f64 / avg));
+        }
+        if matched == 0 {
+            continue;
+        }
+        s *= (matched as f64 / q.len() as f64) * type_weight(&d.rel) * recency(d);
+        results.push((i, s, matched));
+    }
+    results.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| docs[a.0].rel.cmp(&docs[b.0].rel))
+    });
+
+    let line_hits = |l: &str| {
+        let f = fold(l);
+        q.iter().any(|t| match t {
+            Term::Phrase(p) => f.contains(p.as_str()),
+            Term::Word(w) => word_re().find_iter(&f).any(|m| word_match(w, m.as_str()) > 0.0),
+        })
+    };
+    let mut out = String::new();
+    for (i, s, matched) in results.into_iter().take(limit) {
+        let d = &docs[i];
+        let p = if d.private { " [private]" } else { "" };
+        let m = if q.len() > 1 {
+            format!(" {matched}/{}", q.len())
+        } else {
+            String::new()
+        };
+        let title = if d.title.is_empty() { "?" } else { &d.title };
+        out.push_str(&format!("{} — {}{}  ({:.2}{})\n", d.rel, title, p, s, m));
+        let mut shown = 0;
+        for (n, l) in d.body.iter().enumerate() {
+            if shown >= 2 {
+                break;
+            }
+            if l.trim().is_empty() || l.starts_with("# ") || !line_hits(l) {
+                continue;
+            }
+            out.push_str(&format!("    {}:{}\n", n + 1 + d.body_start, util::take(l.trim(), 200)));
+            shown += 1;
+        }
+    }
+    print!("{out}");
+    Ok(0)
+}

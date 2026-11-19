@@ -1,0 +1,59 @@
+# Builds the kioku binary for each platform when a version tag (v*) is pushed and attaches it,
+# with SHA256SUMS, to the GitHub release. install.sh downloads from there.
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04 }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm }
+          - { target: x86_64-apple-darwin, os: macos-15-intel }
+          - { target: aarch64-apple-darwin, os: macos-15 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag matches VERSION and Cargo.toml
+        shell: bash
+        run: |
+          v="$(tr -d '[:space:]' < VERSION)"
+          [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "tag ${GITHUB_REF_NAME} but VERSION $v"; exit 1; }
+          grep -q "^version = \"$v\"" Cargo.toml || { echo "Cargo.toml version differs from VERSION"; exit 1; }
+      - name: Install musl tools
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Build
+        shell: bash
+        run: |
+          rustup target add ${{ matrix.target }}
+          cargo build --release --locked --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/kioku kioku-${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kioku-${{ matrix.target }}
+          path: kioku-${{ matrix.target }}
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Checksums
+        run: sha256sum kioku-* > SHA256SUMS && cat SHA256SUMS
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" kioku-* SHA256SUMS --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME}" --notes "Binaries for Linux (x86_64, aarch64; static musl) and macOS (x86_64, arm64)."
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --locked

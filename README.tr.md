@@ -13,7 +13,7 @@ AI ajanları için kişisel ikinci beyin: [Claude Code](https://claude.com/claud
 
 Her şey sana ait bir klasörde düz Markdown. Klasörü [Obsidian](https://obsidian.md) vault'u
 olarak açabilirsin ve git ile sürümlenir. Kendine ait bir sunucusu, veritabanı ya da API anahtarı
-yok; hook'lar küçük bash betikleri. Aynı vault her ajanla çalışır: aracı değiştirsen ya da
+yok; CLI ve hook'lar küçük, derlenmiş tek bir program (`kioku`, Rust ile yazıldı). Aynı vault her ajanla çalışır: aracı değiştirsen ya da
 birkaçını birlikte kullansan da tek bir hafızan olur.
 
 ## Nasıl çalışır
@@ -80,11 +80,11 @@ her iddia kaynağına bağlı kalır.
 ## Gereksinimler
 
 - Dosya okuyup kabuk komutu çalıştırabilen bir AI ajanı (yukarıdaki tabloya bak)
-- bash 4+, `jq`, `ripgrep`, `git` (Nix paketi kendininkileri getirir)
-- `node` (önerilir): sıralı arama, ajanda ve Latin dışı başlıklardan dosya adı (`машинное-обучение.md`, `機械学習.md`)
+- `git`
+- `kioku` ikilisi: installer onu Linux (x86_64, aarch64) ve macOS için indirir ya da `cargo` ile derler (Nix paketi de derler)
 - Obsidian (isteğe bağlı): yalnızca gezinmek için
 
-Linux'ta (NixOS) geliştiriliyor ve kullanılıyor. macOS daha yeni bir bash ile çalışmalı (`brew install bash jq ripgrep`). Windows'ta WSL kullan. macOS ve Windows henüz denenmedi.
+Linux'ta (NixOS ve Ubuntu) geliştiriliyor ve kullanılıyor. macOS ikilileri yayınlanıyor ama henüz denenmedi. Windows'ta WSL kullan.
 
 ## Kurulum
 
@@ -113,8 +113,8 @@ inputs.kioku = {
 ```
 
 Modül şöyle çalışır:
-- **Komut:** `kioku`'yu ve araçlarını (`jq`, `ripgrep`, `git`, `node`) PATH'e koyar.
-- **Bağlama:** her switch'te `install.sh` ile aynı adımları çalıştırır. Vault'taki `.kioku` bağlantısı Nix store'daki pakete gider, sürüm `flake.lock` dosyanda sabitlenir.
+- **Komut:** `kioku`'yu ve `git`'i PATH'e koyar.
+- **Bağlama:** her switch'te `kioku install` çalıştırır. Vault'taki `.kioku` bağlantısı Nix store'daki pakete gider, sürüm `flake.lock` dosyanda sabitlenir.
 - **Güncelleme:** `nix flake update kioku`, ardından rebuild.
 
 Ajanların dosyalarını (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.codex/config.toml` …)
@@ -137,6 +137,8 @@ git clone https://github.com/Drum3X/kioku ~/Projects/kioku
 ```bash
 ~/Projects/kioku/install.sh
 ```
+
+`install.sh` bu sürümün `kioku` ikilisini `bin/` içine indirir (GitHub sürümünden, sha256 doğrulanarak); platformun için sürüm yoksa `cargo` ile derler (`KIOKU_BUILD=1` her zaman derler), sonra `bin/kioku install` çalıştırır.
 
 Checkout'u klonladığın yerde bırak: vault ona bağlanır. Varsayılan vault `~/Documents/Kioku`;
 başka bir klasör ya da mevcut bir Obsidian vault'u için `--vault YOL` ver (notlarına
@@ -165,7 +167,7 @@ Tekrar çalıştırmak güvenli. Sonra ajanında yeni bir oturum aç ve **"beni 
 
 - **Kurallar:** `~/.codex/AGENTS.md` içinde bir Kioku bölümü. Codex vault'un içindeyken vault'un `AGENTS.md`'sini de kendisi okur.
 - **Skill'ler:** Codex'in ve başka ajanların okuduğu ortak klasöre, `~/.agents/skills/` içine bağlanır.
-- **Hook'lar:** `~/.codex/hooks.json` dosyasına dört girdi (oradaki diğer hook'lar korunur), `hooks/codex.sh` üzerinden çalışır:
+- **Hook'lar:** `~/.codex/hooks.json` dosyasına dört girdi (oradaki diğer hook'lar korunur), `kioku hook codex …` olarak çalışır:
   - `SessionStart` oturum bağlamını ekler;
   - `UserPromptSubmit` autosync ile vault'u çeker;
   - `PostToolUse` oturumun araç çağrılarını sayar ve `apply_patch` ile değişen dosyalarda yazma kontrolünü yapar;
@@ -184,7 +186,7 @@ araç hook'u ihtiyaç duyduğunu `~/.local/state/kioku/codex/` altında tutar.
 
 - **Kurallar:** `~/.gemini/GEMINI.md` içinde bir Kioku bölümü (o dosyadaki kendi metnin korunur).
 - **Skill'ler:** `~/.gemini/config/skills/` içinde; aynı şeyleri söyle ya da `/kioku-journal` gibi çağır.
-- **Hook'lar:** `~/.gemini/config/hooks.json` dosyasında `kioku-*` adlı üç girdi (oradaki diğer hook'lar korunur); Antigravity'nin girdisini ve konuşma kaydını çeviren `hooks/antigravity.sh` üzerinden çalışır:
+- **Hook'lar:** `~/.gemini/config/hooks.json` dosyasında `kioku-*` adlı üç girdi (oradaki diğer hook'lar korunur); Antigravity'nin girdisini ve konuşma kaydını çeviren `kioku hook antigravity …` olarak çalışır:
   - `SessionStart` oturum bağlamını ekler;
   - `PreInvocation` autosync ile vault'u çeker (en fazla 30 saniyede bir);
   - `Stop` bir kez kayıt ister.
@@ -310,6 +312,16 @@ aynı sayar ve ekleri tolere eder: "açılışta", "açılış"ı bulur.
   - `KIOKU_WRITE_CHECK=0` yazma kontrolünü kapatır.
   - `KIOKU_STOP_MIN_TOOLS=10` kaç araç çağrısının "gerçek iş" sayılacağını belirler.
   - `KIOKU_CONTEXT_MAX=12000` oturum başı bağlamını bayt olarak sınırlar.
+
+## Geliştirme
+
+Kaynak `src/` altında (tek bir Rust crate'i; ağ ya da async bağımlılığı yok). Nix ile `nix develop`
+cargo, clippy ve rustfmt verir. `cargo build --release` `target/release/kioku`'yu derler;
+`install.sh` kaynaktan derlediğinde `bin/kioku`'yu ona bağlar, böylece vault'un bağlı olduğu
+checkout senin derlemeni çalıştırır. `cargo test` birim testlerini çalıştırır;
+`tests/make-fixture.sh KLASÖR` komutları denemek için zor durumlar içeren bir test vault'u kurar
+(tekrarlayan ve bozuk etkinlikler, geçersiz tarihler, kırık bağlantılar, özel sayfalar). Bir `v*`
+etiketi sürüm ikililerini derleyip yayınlar (`.github/workflows/release.yml`).
 
 ## Güncelleme ve kaldırma
 
