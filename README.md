@@ -151,14 +151,14 @@ and each write is a git commit in your vault. Claude never pushes, unless you tu
 The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
-kioku doctor | capture "<text>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
+kioku health | capture "<text>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
 kioku search [--raw] [-n N] <term...> | recap [--days N] | remote on|off|status|now|setup | update [--check] | version | lint-check
 ```
 
 ## Quick capture and troubleshooting
 
 - **`kioku capture "text or link"`** drops a thought, a todo or a link into `raw/inbox/` without opening a session (`kioku capture --file F` for a file, `kioku capture -` for stdin). It is committed, so with autosync it reaches your other machines too. The next session says how many wait and offers to file them: notes go to the journal, wiki or calendar as if you had said them, links and files are ingested. For a keyboard shortcut, `kioku capture --gui` asks in a small dialog (kdialog or zenity); with the Nix module, `programs.kioku.capture.gui = true;` brings the tools and a "Kioku capture" desktop entry to bind.
-- **`kioku doctor`** checks everything Kioku depends on (tools, the vault link, hooks, skills, Antigravity, git and autosync, vault health) and says how to fix each problem. `--offline` skips the network check.
+- **`kioku health`** checks everything Kioku depends on (tools, the vault link, hooks, skills, Antigravity, git and autosync, vault health) and says how to fix each problem. `--offline` skips the network check.
 
 ## Calendar, contacts and todos
 

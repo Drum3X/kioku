@@ -147,14 +147,14 @@ kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla 
 CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosyasına bir bağlantı):
 
 ```
-kioku doctor | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
+kioku health | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
 kioku search [--raw] [-n N] <terim...> | recap [--days N] | remote on|off|status|now|setup | update [--check] | version | lint-check
 ```
 
 ## Hızlı yakalama ve sorun giderme
 
 - **`kioku capture "metin ya da link"`** bir düşünceyi, yapılacağı ya da linki oturum açmadan `raw/inbox/` klasörüne atar (dosya için `kioku capture --file F`, stdin için `kioku capture -`). Commit edildiği için autosync açıksa diğer makinelere de gider. Sonraki oturum kaç tane beklediğini söyler ve işlemeyi önerir: notlar sanki sohbette söylenmiş gibi journal'a, wikiye ya da takvime gider; linkler ve dosyalar ingest edilir. Klavye kısayolu için `kioku capture --gui` küçük bir pencerede sorar (kdialog ya da zenity); Nix modülünde `programs.kioku.capture.gui = true;` bu araçları ve kısayol atanabilecek bir "Kioku capture" masaüstü girdisini getirir.
-- **`kioku doctor`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı, hook'lar, skill'ler, Antigravity, git ve autosync, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrolünü atlar.
+- **`kioku health`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı, hook'lar, skill'ler, Antigravity, git ve autosync, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrolünü atlar.
 
 ## Takvim, rehber ve yapılacaklar
 

@@ -62,7 +62,7 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku remote on|off|status|now|setup`: keep vault copies on several machines in step through the git remote; `setup` installs the post-commit hook that pushes.
 - `kioku update [--check]`: update Kioku itself (pull + install step); only when the user asks, or when the session context says the install step is out of date and the user agrees.
 - `kioku capture "<text>"`: the user's quick capture into `raw/inbox/` (see "Quick captures"); you don't need it in a session, where you file things directly.
-- `kioku doctor [--offline]`: checks the whole setup and says how to fix problems; run it when something seems broken (hooks not firing, autosync failing).
+- `kioku health [--offline]`: checks the whole setup and says how to fix problems; run it when something seems broken (hooks not firing, autosync failing).
 - `kioku check-file <file>`: the write check the PostToolUse hook runs after each vault write; when it reports problems, fix them in the same turn.
 - `kioku lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, learned entries missing from the wiki, missing frontmatter.
 

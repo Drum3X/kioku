@@ -26,7 +26,7 @@ Usage: kioku <command> [args]
   context                       Print the session-start context (Core, recent notes, todos, agenda);
                                 pulls first with autosync. For agents without a SessionStart hook
   capture "TEXT" | - | --file F | --gui  Drop a thought, link or file into raw/inbox/ (no session needed)
-  doctor [--offline]            Check everything Kioku depends on and say how to fix problems
+  health [--offline]            Check everything Kioku depends on and say how to fix problems
   check-file FILE...            Frontmatter, links and todo/event checks for just-written files
   today                         Create today's daily note if missing, print its path
   journal                       Create today's journal note (the user's own notes) if missing, print its path
@@ -485,8 +485,8 @@ cmd_check_file() {
 
 # One look at everything Kioku depends on; says what to do about each problem.
 # --offline skips the network check (git fetch).
-cmd_doctor() {
-  local offline=; case "${1:-}" in --offline) offline=1 ;; "") ;; *) die "usage: kioku doctor [--offline]" ;; esac
+cmd_health() {
+  local offline=; case "${1:-}" in --offline) offline=1 ;; "") ;; *) die "usage: kioku health [--offline]" ;; esac
   local fails=0 warns=0
   ok()  { printf '  ok    %s\n' "$*"; }
   bad() { printf '  FAIL  %s\n' "$*"; fails=$((fails+1)); }
@@ -619,7 +619,7 @@ cmd_context() {
 case "${1:-}" in
   context) shift; cmd_context "$@" ;;
   capture) shift; cmd_capture "$@" ;;
-  doctor) shift; cmd_doctor "$@" ;;
+  health) shift; cmd_health "$@" ;;
   check-file) shift; cmd_check_file "$@" ;;
   today) shift; cmd_today "$@" ;;
   journal) shift; cmd_journal "$@" ;;
