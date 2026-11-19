@@ -23,6 +23,8 @@ use std::path::PathBuf;
 const USAGE: &str = r#"Usage: kioku <command> [args]
   context                       Print the session-start context (Core, recent notes, todos, agenda);
                                 pulls first with autosync. For agents without a SessionStart hook
+  context --agent NAME          The same, signing records as NAME@host (the agent: claude, codex, hermes …)
+  whoami [--agent NAME]         Who writes the records: NAME@host (default $KIOKU_AGENT)
   context --deep <project|topic>  Everything about one project or topic: the note, decisions, open
                                 threads, learnings and recent work from the daily log, linked pages
   capture "TEXT" | - | --file F | --gui  Drop a thought, link or file into raw/inbox/ (no session needed)
@@ -75,6 +77,14 @@ fn real_main() -> Result<i32> {
             println!("{}", version::line(&util::sys_dir()));
             return Ok(0);
         }
+        "whoami" => {
+            let agent = match rest.first().map(String::as_str) {
+                Some("--agent") => rest.get(1).cloned().unwrap_or_default(),
+                _ => String::new(),
+            };
+            println!("{}", util::trace(&agent));
+            return Ok(0);
+        }
         _ => {}
     }
     let vault = util::vault();
@@ -96,7 +106,11 @@ fn real_main() -> Result<i32> {
         }
         "context" => {
             let cwd = std::env::current_dir().unwrap_or_else(|_| vault.clone());
-            println!("{}", context::build(&vault, &cwd, ""));
+            let agent = match rest.first().map(String::as_str) {
+                Some("--agent") => rest.get(1).cloned().unwrap_or_default(),
+                _ => String::new(),
+            };
+            println!("{}", context::build(&vault, &cwd, "", &agent));
             Ok(0)
         }
         "capture" => {

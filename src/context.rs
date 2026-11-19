@@ -54,7 +54,8 @@ fn sorted_glob(dir: &Path, digit_start: bool) -> Vec<PathBuf> {
 }
 
 /// The context text. `cwd`: the session's folder; `source`: "compact" after a compaction.
-pub fn build(vault: &Path, cwd: &Path, source: &str) -> String {
+/// `agent`: who reads it (claude, codex, antigravity, hermes …), for the trace on records.
+pub fn build(vault: &Path, cwd: &Path, source: &str, agent: &str) -> String {
     let max: usize = std::env::var("KIOKU_CONTEXT_MAX")
         .ok()
         .and_then(|v| v.parse().ok())
@@ -72,6 +73,8 @@ pub fn build(vault: &Path, cwd: &Path, source: &str) -> String {
     add("# Kioku — session context");
     add(&format!("The user's second brain: {v} (rules: {v}/.kioku/SCHEMA.md and personal rules in {v}/AGENTS.md — read before writing to the vault)."));
     add("The user does not write notes: you record decisions, finished work and durable learnings (kioku skill). Note content follows the source/conversation language; system text is English.");
+    let t = util::trace(agent);
+    add(&format!("You are `{t}` in the records: write daily lines as `- HH:MM [project · {t}] type: text` and end commit messages with the line `Kioku-Agent: {t}`."));
     if source == "compact" {
         add("The conversation was just compacted. If the summary has a \"Kioku: not yet recorded\" section with items, record them now (kioku skill) and commit, then carry on; say it to the user in one line.");
     }

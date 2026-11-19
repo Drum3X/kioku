@@ -56,6 +56,8 @@ fn find(vault: &Path, q: &str) -> Option<PathBuf> {
 struct Entry {
     date: String,
     time: String,
+    /// Who wrote it (agent@host), when the line says.
+    by: String,
     ty: String,
     text: String,
 }
@@ -71,12 +73,17 @@ fn entries(vault: &Path, tags: &[String], link: &str) -> Vec<Entry> {
         let date = stem(&f);
         for l in text.lines() {
             let Some(c) = r.captures(l) else { continue };
-            let tag = c[2].to_string();
+            // "[project · agent@host]": the tag, then who wrote it
+            let (tag, by) = match c[2].split_once('·') {
+                Some((t, b)) => (t.trim().to_string(), b.trim().to_string()),
+                None => (c[2].trim().to_string(), String::new()),
+            };
             let body = c[4].to_string();
             if tags.contains(&tag) || (!link.is_empty() && body.contains(link)) {
                 out.push(Entry {
                     date: date.clone(),
                     time: c[1].to_string(),
+                    by,
                     ty: c[3].to_string(),
                     text: body,
                 });
@@ -167,7 +174,8 @@ pub fn build(vault: &Path, q: &str) -> String {
         }
         out.push_str(&format!("## {head}\n"));
         for e in v.iter().take(n) {
-            out.push_str(&format!("- {} {} {}\n", e.date, e.time, util::take(&e.text, 400)));
+            let by = if e.by.is_empty() { String::new() } else { format!(" ({})", e.by) };
+            out.push_str(&format!("- {} {}{by} {}\n", e.date, e.time, util::take(&e.text, 400)));
         }
         if v.len() > n {
             out.push_str(&format!("- … {} older (daily/)\n", v.len() - n));

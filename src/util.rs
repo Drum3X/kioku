@@ -106,6 +106,37 @@ pub fn sys_dir() -> PathBuf {
     fs::canonicalize(&l).unwrap_or(l)
 }
 
+/// This machine's short name: $KIOKU_HOST, else the hostname up to the first dot.
+pub fn host() -> String {
+    if let Some(h) = env::var("KIOKU_HOST").ok().filter(|h| !h.trim().is_empty()) {
+        return h.trim().to_string();
+    }
+    let h = fs::read_to_string("/proc/sys/kernel/hostname")
+        .or_else(|_| fs::read_to_string("/etc/hostname"))
+        .ok()
+        .or_else(|| {
+            Command::new("hostname")
+                .output()
+                .ok()
+                .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        })
+        .unwrap_or_default();
+    let h = h.trim().split('.').next().unwrap_or("").to_string();
+    if h.is_empty() {
+        "host".into()
+    } else {
+        h
+    }
+}
+/// Who writes the records: "<agent>@<host>" (agent: the argument, else $KIOKU_AGENT, else "agent").
+pub fn trace(agent: &str) -> String {
+    let a = Some(agent.trim().to_string())
+        .filter(|a| !a.is_empty())
+        .or_else(|| env::var("KIOKU_AGENT").ok().filter(|a| !a.trim().is_empty()))
+        .unwrap_or_else(|| "agent".into());
+    format!("{}@{}", a.trim(), host())
+}
+
 pub fn today() -> NaiveDate {
     Local::now().date_naive()
 }

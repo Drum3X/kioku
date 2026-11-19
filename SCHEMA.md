@@ -61,7 +61,8 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku log <ingest|query|lint|note|setup> "<Title>"`: appends a line to `log.md`.
 - `kioku search [--raw] [-n N] <term...>`: ranked search (default 20 results). Each argument is a term, a quoted phrase is one term; a page does not need to match every term. Ranked by matches in title, headings and body, how rare each term is, the share of terms matched, page type (wiki and projects ahead of daily logs) and recency. Ignores case and Turkish letters (İ/ı, ç/c, ş/s …) and allows suffixes ("açılışta" finds "açılış"). `--raw` also searches `raw/`.
 - `kioku recap [--days N]`: daily notes and log entries from the last N days.
-- `kioku context`: the session-start context as text (Core, recent notes, todos, agenda), pulled first with autosync; for agents without a SessionStart hook (Antigravity).
+- `kioku context [--agent NAME]`: the session-start context as text (Core, recent notes, todos, agenda), pulled first with autosync; for agents without a session-start hook. `--agent` sets the name you sign records with.
+- `kioku whoami [--agent NAME]`: who writes the records here, as `agent@host` (default agent: `$KIOKU_AGENT`).
 - `kioku context --deep <project|topic>`: everything about one project or wiki topic: the note itself, its decisions, open threads, learnings, preferences and recent work from the daily log (lines tagged with the project or linking to the page, newest first), linked pages, pages that link to it, related todos and events. For a name with no page, the best search results.
 - `kioku agenda [--days N] [--past]`: upcoming events, recurrences expanded; events that already ended are left out (`--past` keeps today's). The session-start list is a snapshot from when the session began: run this again instead of relying on it.
 - `kioku remote on|off|status|now|setup`: keep vault copies on several machines in step through the git remote; `setup` installs the post-commit hook that pushes.
@@ -95,8 +96,9 @@ something, it is lost.
 
 **How:**
 1. Open the daily file with `kioku today`. One line per entry:
-   `- HH:MM [project] type: text ([[link]])`, where type is `decision|done|learned|preference|open`.
-   Example: `- 14:20 [config] decision: stay on ripgrep, not qmd yet; fewer than 200 pages ([[wiki/concepts/llm-wiki]])`
+   `- HH:MM [project · agent@host] type: text ([[link]])`, where type is `decision|done|learned|preference|open` and `agent@host` says who wrote it (the session context gives yours, or run `kioku whoami --agent <you>`).
+   Example: `- 14:20 [config · claude@nitro] decision: stay on ripgrep, not qmd yet; fewer than 200 pages ([[wiki/concepts/llm-wiki]])`
+   Older lines without the `· agent@host` part are fine; leave them.
 2. If the work belongs to a project, update `projects/<slug>.md`: `status`, `next`, `updated`, and one line under History. If there is no project note and the work will recur, create one with `kioku new project` and set `path:` to the project folder; the SessionStart hook will surface this note in sessions opened there.
 3. Every **learned** item also goes into the wiki: add it to the relevant `wiki/concepts/` or `wiki/entities/` page with `(source: [[daily/YYYY-MM-DD]])`. If the page doesn't exist, create it, give it a `Topics:` line and list it in its topic hub. Then end the daily line with a link to that page, e.g. `([[wiki/concepts/kwin-shortcuts]])`: the link is how `kioku lint-check` and the Stop hook know it was done. If something is too narrow for a wiki page (it only matters to one project), it is not a `learned` entry: write it as `done` or `decision`, or in the project note.
 4. If you learned something about the user that belongs in `Core.md` (identity, preference, working style), don't write it; ask first: "Shall I add this to Core: …?"
@@ -265,6 +267,7 @@ facts or rules.
   git -C "$VAULT" add -A && git -C "$VAULT" commit -m "<type>: <short title>"
   ```
   `<type>` is one of `memory`, `journal`, `note`, `calendar`, `contact`, `ingest`, `query`, `lint`, `core`, `project`, `system`.
+- **Who wrote it:** end the commit message with a line `Kioku-Agent: agent@host` (the same as in your daily lines), so `git log` shows which agent and machine each change came from. Several agents and machines write to the same vault (Claude Code, Codex, Antigravity, Hermes; a laptop and a server).
 - Do not push yourself. If the vault has autosync on (`kioku remote on`, for copies on several machines), the post-commit hook pulls and pushes after each commit, each session starts with a pull, and each prompt pulls again (at most every 30 s). When a prompt comes with "The vault was just updated from its git remote", re-read the changed files instead of trusting the session-start context. If the session context reports a sync conflict, tell the user and offer to resolve it.
 
 ## Relation to the agent's built-in memory

@@ -43,7 +43,7 @@ fn block(reason: String) -> String {
 
 // ---------- shared pieces ----------
 
-fn session_start(vault: &Path, j: &Value, event: &str) -> Option<String> {
+fn session_start(vault: &Path, j: &Value, event: &str, agent: &str) -> Option<String> {
     if !vault.is_dir() {
         return None;
     }
@@ -51,7 +51,7 @@ fn session_start(vault: &Path, j: &Value, event: &str) -> Option<String> {
         .filter(|c| !c.is_empty())
         .map(PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-    Some(context::hook_json(event, &context::build(vault, &cwd, s(j, "source"))))
+    Some(context::hook_json(event, &context::build(vault, &cwd, s(j, "source"), agent)))
 }
 
 /// With autosync on, pull before a prompt (at most every 30 s) and say which files came in.
@@ -229,7 +229,7 @@ fn stop_check(vault: &Path, sid: &str, calls: &[(String, Value)]) -> Option<Stri
 
 fn claude(vault: &Path, ev: &str, j: &Value) -> Option<String> {
     match ev {
-        "session-start" => session_start(vault, j, "SessionStart"),
+        "session-start" => session_start(vault, j, "SessionStart", "claude"),
         "prompt" => prompt_pull(vault, "UserPromptSubmit"),
         "post-write" => {
             if off("KIOKU_WRITE_CHECK") {
@@ -293,7 +293,7 @@ fn codex(vault: &Path, ev: &str, j: &Value, raw: &str) -> Option<String> {
                 append("total", "");
                 clean_old(&st, 14);
             }
-            session_start(vault, j, "SessionStart")
+            session_start(vault, j, "SessionStart", "codex")
         }
         "prompt" => prompt_pull(vault, "UserPromptSubmit"),
         "tool" => {
@@ -443,7 +443,7 @@ fn antigravity(vault: &Path, ev: &str, j: &Value, raw: &str) -> Option<String> {
                 .and_then(Value::as_str)
                 .map(str::to_string)
                 .unwrap_or_else(|| std::env::current_dir().unwrap_or_default().display().to_string());
-            inject(session_start(vault, &json!({"cwd": cwd}), "SessionStart"))
+            inject(session_start(vault, &json!({"cwd": cwd}), "SessionStart", "antigravity"))
         }
         "pull" => inject(prompt_pull(vault, "UserPromptSubmit")),
         "stop" => {

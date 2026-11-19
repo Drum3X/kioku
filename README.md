@@ -263,13 +263,14 @@ and each write is a git commit in your vault. The agent never pushes, unless you
 The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
-kioku health | capture "<text>" | context [--deep <project|topic>] | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
+kioku health | capture "<text>" | context [--agent NAME | --deep <project|topic>] | whoami | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
 kioku search [--raw] [-n N] <term...> | recap [--days N] | stale [--all] | remote on|off|status|now|setup | update [--check] | version | lint-check
 ```
 
 ## Quick capture and troubleshooting
 
 - **`kioku capture "text or link"`** drops a thought, a todo or a link into `raw/inbox/` without opening a session (`kioku capture --file F` for a file, `kioku capture -` for stdin). It is committed, so with autosync it reaches your other machines too. The next session says how many wait and offers to file them: notes go to the journal, wiki or calendar as if you had said them, links and files are ingested. For a keyboard shortcut, `kioku capture --gui` asks in a small dialog (kdialog or zenity); with the Nix module, `programs.kioku.capture.gui = true;` brings the tools and a "Kioku capture" desktop entry to bind.
+- **Who wrote it:** several agents and machines write to one vault, so every work-log line carries `agent@host` next to its project (`- 21:55 [brain · claude@nitro] done: …`) and every commit ends with `Kioku-Agent: claude@nitro`. The session context tells each agent its name; `kioku whoami` prints it (the host is the machine's short name, `KIOKU_HOST` overrides it).
 - **`kioku context --deep <project or topic>`** gathers everything about one project or topic for picking work up again: the note, its decisions, open threads, learnings and recent work from the daily log (newest first), linked and linking pages, related todos and events. The agent runs it when you return to a project ("let's continue with Config"); the session context points to it when a session starts in a project's folder.
 - **`kioku stale`** lists wiki and project pages whose facts have not been checked for a while: by default active projects after 60 days, tools, sites and services after 90, people and concepts after 180 (anime, games and the like never) (`review_every:` changes it per page, `reviewed:` records the last check). The session context counts them, `kioku lint-check` lists them without counting them as issues, and the agent asks you about a few at a time ("Is this still true?"), then sets `reviewed:` or corrects the page.
 - **`kioku health`** checks everything Kioku depends on (tools, the vault link and rules, each agent's rules, skills and hooks, git and autosync, vault health) and says how to fix each problem. `--offline` skips the network check.

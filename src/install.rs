@@ -483,7 +483,8 @@ fn bin_link(c: &mut Ctx) -> Result<()> {
 // ---------- shared helpers for the agents ----------
 
 /// The rules every agent gets in its global instructions file. `memory`: what its own memory is called.
-fn rules_block(c: &Ctx, memory: &str) -> String {
+/// `agent`: the name the agent signs its records with.
+fn rules_block(c: &Ctx, memory: &str, agent: &str) -> String {
     let v = c.vault.display();
     format!(
         "<!-- kioku:start — managed by kioku/install.sh; manual edits are overwritten on the next install -->
@@ -491,7 +492,7 @@ fn rules_block(c: &Ctx, memory: &str) -> String {
 
 The user's personal second brain is `{v}` (Obsidian vault + git). The user does not write notes by hand; you keep the records.
 
-- **First thing in every conversation:** if the conversation does not already contain \"# Kioku — session context\" (a session-start hook adds it), run `{v}/.kioku/bin/kioku context` and read its output before you answer. It pulls the vault from its git remote and prints Core.md (who the user is, how to address them, their preferences), recent daily notes, active projects, due todos and upcoming events. Follow Core.md.
+- **First thing in every conversation:** if the conversation does not already contain \"# Kioku — session context\" (a session-start hook adds it), run `{v}/.kioku/bin/kioku context --agent {agent}` and read its output before you answer. It pulls the vault from its git remote and prints Core.md (who the user is, how to address them, their preferences), recent daily notes, active projects, due todos and upcoming events. Follow Core.md.
 - That context is a snapshot. Before answering about todos, the agenda or recent notes later in a conversation, run `kioku todo --soon`, `kioku agenda` or read the files again. When a message says \"The vault was just updated from its git remote\", re-read the files it lists.
 - Before writing anything to the vault, read `{v}/.kioku/SCHEMA.md` (the rules) and `{v}/AGENTS.md` (personal rules) and follow them.
 - Decisions, finished work, durable learnings, preferences, open threads → record them with the `kioku` skill (without asking; except Core.md). Before your final answer on a task, check yourself whether something should be recorded (a stop hook reminds you once if nothing was).
@@ -695,7 +696,7 @@ fn cmd_group(cmd: String, timeout: u32, matcher: Option<&str>) -> Value {
 fn claude(c: &mut Ctx) -> Result<bool> {
     let cl = home().join(".claude");
     let on = present(c, &cl, "claude", c.o.claude);
-    let blk = rules_block(c, "Your built-in auto memory");
+    let blk = rules_block(c, "Your built-in auto memory", "claude");
     set_block(c, &cl.join("CLAUDE.md"), on, &blk, &md_start, &md_end)?;
     link_skills(c, &cl.join("skills"), on, "Claude Code", false)?;
     let sf = cl.join("settings.json");
@@ -804,7 +805,7 @@ fn codex(c: &mut Ctx) -> Result<bool> {
         .map(PathBuf::from)
         .unwrap_or_else(|| home().join(".codex"));
     let on = present(c, &cx, "codex", c.o.codex);
-    let blk = rules_block(c, "Your built-in memory (memories)");
+    let blk = rules_block(c, "Your built-in memory (memories)", "codex");
     set_block(c, &cx.join("AGENTS.md"), on, &blk, &md_start, &md_end)?;
     link_skills(c, &home().join(".agents/skills"), on, "Codex", false)?;
     let hf = cx.join("hooks.json");
@@ -877,7 +878,7 @@ fn codex(c: &mut Ctx) -> Result<bool> {
 fn antigravity(c: &mut Ctx) -> Result<bool> {
     let gem = home().join(".gemini");
     let on = present(c, &gem, "antigravity", c.o.antigravity);
-    let blk = rules_block(c, "Your built-in memory (Knowledge items)");
+    let blk = rules_block(c, "Your built-in memory (Knowledge items)", "antigravity");
     set_block(c, &gem.join("GEMINI.md"), on, &blk, &md_start, &md_end)?;
     link_skills(c, &gem.join("config/skills"), on, "Antigravity", true)?;
     let hf = gem.join("config/hooks.json");
@@ -949,7 +950,7 @@ fn hermes(c: &mut Ctx) -> Result<bool> {
 
 This folder is the user's personal second brain, Kioku (Obsidian vault + git). The user does not write notes by hand; you keep the records.
 
-- **Rules:** before writing anything here, read `.kioku/SCHEMA.md` (the rules) and `AGENTS.md` (the user's personal rules) and follow them. For the session context (Core.md: who the user is, how to address them; recent notes, todos, events) run `.kioku/bin/kioku context`.
+- **Rules:** before writing anything here, read `.kioku/SCHEMA.md` (the rules) and `AGENTS.md` (the user's personal rules) and follow them. For the session context (Core.md: who the user is, how to address them; recent notes, todos, events) run `.kioku/bin/kioku context --agent hermes`; it also says how to sign your records (`hermes@<host>`).
 - **Skills:** Kioku's skills are the `kioku*` ones (kioku, kioku-journal, kioku-note, kioku-calendar, kioku-contacts, kioku-ingest, kioku-ask, kioku-lint, kioku-review). Use them for anything in this vault, never other note-taking skills. Never create, edit or patch the `kioku*` skills: they belong to the Kioku system, not to this vault.
 - **Records:** decisions, finished work, durable learnings, preferences, open threads → the `kioku` skill (without asking; except Core.md). The user's own notes and todos → `kioku-journal`; durable things → `kioku-note`; events → `kioku-calendar`; contacts → `kioku-contacts`.
 - **Memory:** your built-in memory (MEMORY.md, USER.md) is only for working preferences about how to help the user; knowledge, decisions, projects and the user's profile go into Kioku. Never write the same thing in both places.
