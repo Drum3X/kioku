@@ -14,7 +14,7 @@
 #   --no-hermes     don't set Kioku up in Hermes Agent (done when the hermes command exists)
 set -euo pipefail
 shopt -s lastpipe   # pipelines ending in a function (hset) still record changes
-export PATH="/etc/profiles/per-user/${USER:-$(id -un)}/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+export PATH="/etc/profiles/per-user/${USER:-$(id -un)}/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 die() { echo "kioku: $*" >&2; exit 1; }
 warn() { echo "WARNING: $*" >&2; }
