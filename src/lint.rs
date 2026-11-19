@@ -1,6 +1,6 @@
 //! Vault checks: lint-check (the whole vault) and check-file (just-written files).
 
-use crate::{calendar, fm, util};
+use crate::{calendar, fm, stale, util};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -268,6 +268,20 @@ pub fn lint_check(vault: &Path) -> (String, usize) {
 
     out.push_str("## inbox\n");
     out.push_str(&format!("{} unprocessed file(s)\n", util::inbox_count(vault)));
+
+    // Not counted as issues: checking whether facts still hold needs the user.
+    out.push_str("## Due for review (facts not checked for a while; not counted as issues)\n");
+    let due = stale::pages(vault, false);
+    for d in due.iter().take(20) {
+        out.push_str(&stale::line(d));
+        out.push('\n');
+    }
+    if due.len() > 20 {
+        out.push_str(&format!("- … {} more (kioku stale)\n", due.len() - 20));
+    }
+    if due.is_empty() {
+        out.push_str("(none)\n");
+    }
     out.push_str(&format!("\nTotal issues: {issues}\n"));
     (out, issues)
 }
@@ -308,6 +322,9 @@ pub fn check_file(vault: &Path, args: &[String]) -> String {
             let miss = missing_fm(vault, f);
             if !miss.is_empty() {
                 out.push_str(&format!("- {f}: missing frontmatter:{miss}\n"));
+            }
+            for p in stale::check(f, &text) {
+                out.push_str(&format!("- {f}: {p}\n"));
             }
             if f.starts_with("wiki/") && !f.starts_with("wiki/topics/") && !has_topics(&text) {
                 out.push_str(&format!("- {f}: no 'Topics: [[wiki/topics/…]]' line\n"));

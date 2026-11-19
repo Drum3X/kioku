@@ -8,6 +8,7 @@ lang:
 tags: []
 created: {{date}}
 updated: {{date}}
+reviewed: {{date}}
 private: false
 ---
 # {{title}}

@@ -251,7 +251,7 @@ Normal konuş, hangi dilde istersen. Birkaç örnek:
 | "cuma 14:00 diş randevusu" / "her pazartesi 10:00 ders" / "yarınki toplantıyı iptal et" | `calendar/` altında bir sayfa, ajandada görünür |
 | "Ahmet'i rehbere ekle, numarası …" | `contacts/` altında bir sayfa |
 | "bu hafta nasıl geçti?" / "bu planı sorgula" | `reviews/` altında bir değerlendirme / plan geçmiş kararlara göre sorgulanır |
-| "beyni kontrol et" | Önce lint raporu, düzeltmeler yalnızca onayından sonra |
+| "beyni kontrol et" | Önce lint raporu, düzeltmeler yalnızca onayından sonra; birkaç eski bilginin hâlâ doğru olup olmadığını sorar |
 | *(terminalde ya da bir kısayolla)* `kioku capture "yarın bankayı ara"` | Oturum açmadan `raw/inbox/` içine düşer; sonraki oturum işlemeyi önerir |
 
 `Core.md` değişiklikleri her zaman onayını ister. Geri kalan her şey sormadan kaydedilir ve her
@@ -262,12 +262,13 @@ CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosya
 
 ```
 kioku health | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-kioku search [--raw] [-n N] <terim...> | recap [--days N] | remote on|off|status|now|setup | update [--check] | version | lint-check
+kioku search [--raw] [-n N] <terim...> | recap [--days N] | stale [--all] | remote on|off|status|now|setup | update [--check] | version | lint-check
 ```
 
 ## Hızlı yakalama ve sorun giderme
 
 - **`kioku capture "metin ya da link"`** bir düşünceyi, yapılacağı ya da linki oturum açmadan `raw/inbox/` klasörüne atar (dosya için `kioku capture --file F`, stdin için `kioku capture -`). Commit edildiği için autosync açıksa diğer makinelere de gider. Sonraki oturum kaç tane beklediğini söyler ve işlemeyi önerir: notlar sanki sohbette söylenmiş gibi journal'a, wikiye ya da takvime gider; linkler ve dosyalar ingest edilir. Klavye kısayolu için `kioku capture --gui` küçük bir pencerede sorar (kdialog ya da zenity); Nix modülünde `programs.kioku.capture.gui = true;` bu araçları ve kısayol atanabilecek bir "Kioku capture" masaüstü girdisini getirir.
+- **`kioku stale`** bilgileri bir süredir kontrol edilmemiş wiki ve proje sayfalarını listeler: varsayılan olarak aktif projeler 60, araçlar, siteler ve servisler 90, kişiler ve kavramlar 180 gün sonra (anime, oyun gibi şeyler hiç) (`review_every:` bunu sayfa başına değiştirir, `reviewed:` son kontrolü tutar). Oturum bağlamı bunları sayar, `kioku lint-check` sorun saymadan listeler; ajan her seferinde birkaçını sana sorar ("Bu hâlâ doğru mu?"), sonra `reviewed:` alanını günceller ya da sayfayı düzeltir.
 - **`kioku health`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı ve kuralları, her ajanın kuralları, skill'leri ve hook'ları, git ve autosync, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrolünü atlar.
 
 ## Takvim, rehber ve yapılacaklar

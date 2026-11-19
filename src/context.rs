@@ -1,7 +1,7 @@
 //! The session context every session starts with (Core, the note for this folder, active
 //! projects, due todos, upcoming events, recent daily notes, wiki summary). Also `kioku context`.
 
-use crate::{calendar, fm, git, notes, util, version};
+use crate::{calendar, fm, git, notes, stale, util, version};
 use regex::Regex;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -228,9 +228,15 @@ pub fn build(vault: &Path, cwd: &Path, source: &str) -> String {
             .filter(|e| e.file_name().to_string_lossy().ends_with(".md") && !e.file_type().is_dir())
             .count()
     };
+    let due = stale::pages(vault, false).len();
+    let due = if due > 0 {
+        format!(" · {due} page(s) due for review (kioku stale; ask the user at a natural moment whether they still hold)")
+    } else {
+        String::new()
+    };
     add("## Wiki");
     add(&format!(
-        "Topics {} · Concepts {} · Entities {} · Ideas {} · Sources {} · Syntheses {} · {caps} unprocessed in inbox. For questions needing past knowledge, read index.md and the topic hubs first or use '{v}/.kioku/bin/kioku search'.",
+        "Topics {} · Concepts {} · Entities {} · Ideas {} · Sources {} · Syntheses {} · {caps} unprocessed in inbox{due}. For questions needing past knowledge, read index.md and the topic hubs first or use '{v}/.kioku/bin/kioku search'.",
         cnt("topics"), cnt("concepts"), cnt("entities"), cnt("ideas"), cnt("sources"), cnt("synthesis")
     ));
     let log = vault.join("log.md");

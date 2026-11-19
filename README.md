@@ -252,7 +252,7 @@ Talk normally, in any language. A few examples:
 | "Friday 14:00 dentist" / "every Monday 10:00 class" / "cancel tomorrow's meeting" | A page in `calendar/`, shown in the agenda |
 | "add Ahmet to my contacts, his number is …" | A page in `contacts/` |
 | "how did this week go?" / "challenge this plan" | A review under `reviews/` / the plan checked against past decisions |
-| "check the brain" | Lint report first, fixes only after your approval |
+| "check the brain" | Lint report first, fixes only after your approval; asks whether a few old facts still hold |
 | *(in a terminal or with a shortcut)* `kioku capture "call the bank tomorrow"` | Lands in `raw/inbox/` without a session; the next session offers to file it |
 
 Changes to `Core.md` always need your approval. Everything else is recorded without asking,
@@ -263,12 +263,13 @@ The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
 kioku health | capture "<text>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
-kioku search [--raw] [-n N] <term...> | recap [--days N] | remote on|off|status|now|setup | update [--check] | version | lint-check
+kioku search [--raw] [-n N] <term...> | recap [--days N] | stale [--all] | remote on|off|status|now|setup | update [--check] | version | lint-check
 ```
 
 ## Quick capture and troubleshooting
 
 - **`kioku capture "text or link"`** drops a thought, a todo or a link into `raw/inbox/` without opening a session (`kioku capture --file F` for a file, `kioku capture -` for stdin). It is committed, so with autosync it reaches your other machines too. The next session says how many wait and offers to file them: notes go to the journal, wiki or calendar as if you had said them, links and files are ingested. For a keyboard shortcut, `kioku capture --gui` asks in a small dialog (kdialog or zenity); with the Nix module, `programs.kioku.capture.gui = true;` brings the tools and a "Kioku capture" desktop entry to bind.
+- **`kioku stale`** lists wiki and project pages whose facts have not been checked for a while: by default active projects after 60 days, tools, sites and services after 90, people and concepts after 180 (anime, games and the like never) (`review_every:` changes it per page, `reviewed:` records the last check). The session context counts them, `kioku lint-check` lists them without counting them as issues, and the agent asks you about a few at a time ("Is this still true?"), then sets `reviewed:` or corrects the page.
 - **`kioku health`** checks everything Kioku depends on (tools, the vault link and rules, each agent's rules, skills and hooks, git and autosync, vault health) and says how to fix each problem. `--offline` skips the network check.
 
 ## Calendar, contacts and todos
