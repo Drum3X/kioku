@@ -1,6 +1,6 @@
 ---
 name: kioku-ingest
-description: Processes an external source (URL, article, paper, PDF, YouTube or other video, audio recording, Word/ODT/EPUB document, thread) into the user's second brain (the Kioku vault) — saves it under raw/, writes a wiki/sources summary, updates related concept and entity pages. Use when the user says "add this to the brain", "ingest this", "process this article" (Turkish: "beyne at", "bunu işle"), or asks to process files waiting in raw/inbox ("process the inbox", "inbox'ı işle").
+description: Processes an external source (URL, article, paper, PDF, video transcript, thread, document) into the user's second brain (the Kioku vault) — saves it under raw/, writes a wiki/sources summary, updates related concept and entity pages. Use when the user says "add this to the brain", "ingest this", "process this article" (Turkish: "beyne at", "bunu işle"), or asks to process files waiting in raw/inbox ("process the inbox", "inbox'ı işle").
 argument-hint: "[URL | file path] (empty: list raw/inbox)"
 ---
 
@@ -16,11 +16,9 @@ then process each in turn. **Write summaries and new pages in the source's langu
 ## 0. What to process
 
 - **No argument, or "process the inbox":** see *The inbox in bulk* below. Text captures (`type: capture`, from `kioku capture`) are routed as in the schema's "Quick captures" section; only links to read and files are ingested here.
-- **Web page:** fetch the content with your web-fetch tool. For long pages, read to the end (for example with an offset). Ask for the actual text, not a summary.
-- **Video link** (YouTube, Vimeo …): `kioku extract <url> -o raw/<yyyy>/<slug>.md` writes the raw page itself: title, channel, date and language in the frontmatter, then the subtitles as text (written ones first, else automatic captions; without either, the audio is transcribed). Step 1 is then done; check its `title` and `lang`.
-- **Document, audio or video file** (.docx .odt .rtf .epub .html, .mp3 .m4a .wav .ogg .mp4 …): copy the original to `raw/assets/<yyyy>/`, then `kioku extract <file> -o raw/<yyyy>/<slug>.md` and add `asset:` to that page's frontmatter. Audio and video files are transcribed.
-- **PDF:** `kioku extract <file> -o …` when `pdftotext` is installed, else read the pages with your file-reading tool. Images: read them yourself.
-- When `kioku extract` says a tool is missing (yt-dlp, pandoc, pdftotext, ffmpeg, whisper), tell the user what to install; never install it yourself.
+- **URL:** fetch the content with your web-fetch tool. For long pages, read to the end (for example with an offset). Ask for the actual text, not a summary.
+- **File:** copy a PDF or image to `raw/assets/<yyyy>/`. Extract the text; for a PDF, read the pages with your file-reading tool.
+- **What you cannot read** (a video, an audio recording, a Word or EPUB file your tools can't open): say so and ask the user for the text, a transcript or a PDF; don't install anything to get around it.
 - **Long sources** (a book, a long transcript): the raw page holds everything; read and summarize it in parts (chapter by chapter), and write one source page with a section per part rather than one page per chapter.
 
 ### The inbox in bulk
@@ -28,7 +26,7 @@ then process each in turn. **Write summaries and new pages in the source's langu
 1. List `raw/inbox/` oldest first (the names start with a date). Captures go their own way (see above); the rest are sources: files, and `kind: link` captures holding a link to read.
 2. Ask once whether to discuss each source (step 2) or process them all without asking.
 3. Process them one at a time, steps 1–5 each, with its own commit. A finished source leaves the inbox (its file is moved to `raw/`, a link capture is deleted after its raw page is saved), so the inbox itself is the to-do list: when the work stops halfway, the next "process the inbox" carries on where it stopped.
-4. At the end, a short list: what was added, what was skipped and why (a dead link, a missing tool).
+4. At the end, a short list: what was added, what was skipped and why (a dead link, a kind you cannot read).
 
 ## 1. Save to raw/
 

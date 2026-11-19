@@ -3,7 +3,6 @@
 mod calendar;
 mod context;
 mod deep;
-mod extract;
 mod fm;
 mod git;
 mod health;
@@ -46,7 +45,6 @@ const USAGE: &str = r#"Usage: kioku <command> [args]
   new <type> "<Title>"          Create a page: source|concept|entity|tool|idea|topic|synthesis|project|contact|review
   new event "<Title>" DATE      Create an event in calendar/YYYY/
   log <op> "<Title>"            Append to log.md: ingest|query|lint|note|setup
-  extract <file|video url> [-o FILE] [--lang tr,en]  A video, audio, docx/odt/epub/html or PDF as a raw/ page
   search [--raw] [-n N] <term...>  Ranked search; each word is a term, a "quoted phrase" one term. Turkish-aware
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
   stale [--all]                 Wiki and project pages whose facts are due to be checked again (reviewed:)
@@ -78,7 +76,6 @@ fn real_main() -> Result<i32> {
             return Ok(0);
         }
         "install" => return install::run(rest),
-        "extract" => return extract::run(rest),
         "hook" => return Ok(hook::run(rest)),
         "version" => {
             println!("{}", version::line(&util::sys_dir()));

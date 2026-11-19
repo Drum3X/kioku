@@ -97,31 +97,6 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
     } else {
         r.bad("git not found (required)");
     }
-    // Optional: what kioku extract uses (not counted as problems or warnings).
-    let tools = [
-        ("yt-dlp", "video links"),
-        ("pandoc", "docx/odt/epub"),
-        ("pdftotext", "PDF"),
-        ("ffmpeg", "audio of videos"),
-    ];
-    let have: Vec<&str> = tools.iter().filter(|(t, _)| util::which(t)).map(|(t, _)| *t).collect();
-    let mut miss: Vec<String> = tools
-        .iter()
-        .filter(|(t, _)| !util::which(t))
-        .map(|(t, w)| format!("{t} ({w})"))
-        .collect();
-    if std::env::var("KIOKU_TRANSCRIBE").is_ok_and(|v| !v.trim().is_empty()) || util::which("whisper") {
-    } else {
-        miss.push("whisper or KIOKU_TRANSCRIBE (audio)".into());
-    }
-    let mut info = String::from("kioku extract:");
-    if !have.is_empty() {
-        info.push_str(&format!(" has {}", have.join(", ")));
-    }
-    if !miss.is_empty() {
-        info.push_str(&format!("{} missing {}", if have.is_empty() { "" } else { ";" }, miss.join(", ")));
-    }
-    r.head(&format!("  info  {info} (optional)"));
 
     r.head("Vault");
     let link = vault.join(".kioku");

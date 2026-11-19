@@ -13,10 +13,7 @@ _self: {
     then "${cfg.package}/share/kioku"
     else cfg.source;
   path = lib.makeBinPath (cfg.package.runtimeDeps
-    ++ lib.optionals cfg.capture.gui [pkgs.kdePackages.kdialog pkgs.libnotify]
-    ++ lib.optionals cfg.ingest.tools ingestTools);
-  # What `kioku extract` uses: video links, documents, PDFs, audio of videos without subtitles.
-  ingestTools = with pkgs; [yt-dlp pandoc poppler-utils ffmpeg-headless];
+    ++ lib.optionals cfg.capture.gui [pkgs.kdePackages.kdialog pkgs.libnotify]);
 
   cli = pkgs.writeShellScriptBin "kioku" ''
     export PATH=${path}:$PATH
@@ -77,16 +74,6 @@ in {
       '';
     };
 
-    ingest.tools = mkOption {
-      type = types.bool;
-      default = false;
-      description = ''
-        Put the tools `kioku extract` uses on the kioku command's PATH and in home.packages:
-        yt-dlp (video links), pandoc (docx, odt, epub …), poppler-utils (PDF) and ffmpeg. Audio
-        transcription is not included; set KIOKU_TRANSCRIBE or install whisper yourself.
-      '';
-    };
-
     capture.gui = mkOption {
       type = types.bool;
       default = false;
@@ -109,7 +96,7 @@ in {
   };
 
   config = mkIf cfg.enable {
-    home.packages = [cli installer] ++ cfg.package.runtimeDeps ++ lib.optionals cfg.ingest.tools ingestTools;
+    home.packages = [cli installer] ++ cfg.package.runtimeDeps;
 
     xdg.desktopEntries = mkIf cfg.capture.gui {
       kioku-capture = {
