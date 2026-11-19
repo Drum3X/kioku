@@ -112,7 +112,7 @@ fi
 
 # 3c. Upcoming events (calendar/), next 3 days
 if command -v node >/dev/null && [ -d "$VAULT/calendar" ]; then
-  agenda="$(KIOKU_DIR="$VAULT" node "$VAULT/.kioku/bin/kioku-sync.mjs" agenda --days 3 2>/dev/null | grep -v '^(no events' | head -n 12 || true)"
+  agenda="$(KIOKU_DIR="$VAULT" node "$VAULT/.kioku/bin/kioku-calendar.mjs" agenda --days 3 2>/dev/null | grep -v '^(no events' | head -n 12 || true)"
   if [ -n "$agenda" ]; then
     add "## Upcoming events (next 3 days, as of $(date +%H:%M); events that already ended are left out)"
     add "$agenda"

@@ -1,6 +1,6 @@
 ---
 name: kioku-review
-description: Reviews a period of the user's life and work from their second brain (the Kioku vault) — what got done, what is stuck, decisions, learnings, what comes next, patterns — and saves it under reviews/; also challenges a plan against past decisions. Use when the user asks "how did this week go", "weekly review", "what did I do this month", "challenge this plan", "is this a good idea given what we decided" (Turkish: "bu hafta nasıl geçti", "haftalık değerlendirme", "bu ay ne yaptım", "bu planı sorgula", "şeytanın avukatlığını yap"), and in the scheduled weekly job (kioku agent weekly). For a plain list of the last days' entries, kioku recap is enough.
+description: Reviews a period of the user's life and work from their second brain (the Kioku vault) — what got done, what is stuck, decisions, learnings, what comes next, patterns — and saves it under reviews/; also challenges a plan against past decisions. Use when the user asks "how did this week go", "weekly review", "what did I do this month", "challenge this plan", "is this a good idea given what we decided" (Turkish: "bu hafta nasıl geçti", "haftalık değerlendirme", "bu ay ne yaptım", "bu planı sorgula", "şeytanın avukatlığını yap"), and in a scheduled weekly run (for example a Hermes cron job). For a plain list of the last days' entries, kioku recap is enough.
 argument-hint: "[week | month | N days | challenge <plan>]"
 ---
 
@@ -32,7 +32,7 @@ language of the user's notes; keep it short (a phone screen or two).
    - **Patterns:** only if the notes really show one (the same problem twice, work piling up on one day, a todo that keeps moving). No psychology, no guessing.
    Link the sources: `[[daily/2026-11-19]]`, `[[projects/x]]`, `[[journal/2026-11-18]]`.
 4. **Record.** List it in `index.md` › Reviews (create the section if missing), `kioku log query "<Title>"`, commit with `review: <title>`.
-5. **Answer** in chat with the review's essence; in the scheduled job, your final message is the review text itself.
+5. **Answer** in chat with the review's essence; in a scheduled run (for example a Hermes cron job), your final message is the review text itself.
 
 Never invent: if the notes are thin, say so ("little was recorded this week") instead of filling
 sections. Private pages (`private: true`) are read but only summarized in one neutral line.

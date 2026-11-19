@@ -21,8 +21,8 @@ database or API key; the hooks are small bash scripts.
   Core.md                     who you are: filled in by a "get to know me" interview
   daily/                      Claude's work log: decisions, results, learnings, open threads
   journal/                    your timeline: what you did, todos (with due dates), what you saved
-  calendar/                   events, one page each (synced to your CalDAV calendar)
-  contacts/                   people and their contact details (synced to your CardDAV address book)
+  calendar/                   events, one page each
+  contacts/                   people and their contact details
   projects/                   one note per project: status, next step, decisions
   raw/                        exact copies of sources you ingested (never edited)
   wiki/                       compiled pages: topics/ (category hubs) concepts/ entities/ ideas/ sources/ synthesis/
@@ -139,8 +139,8 @@ Talk normally, in any language. A few examples:
 | "note: finished the exam today" / "remind me Friday: submit homework" | A line in today's `journal/` (relative dates become real dates) |
 | "what are my todos?" / "I did the homework" | Grouped list / the todo is ticked in place |
 | "save this: Ghostty, a GPU terminal I want to try" / "idea: a small time-loop game" / "TIL: `nix why-depends` shows the dependency chain" | A wiki page each (`entities/`, `ideas/`, `concepts/`), filed under a topic hub such as *Linux › Tools*; a new hub is created and announced when nothing fits |
-| "Friday 14:00 dentist" / "every Monday 10:00 class" / "cancel tomorrow's meeting" | A page in `calendar/`, synced to your calendar |
-| "add Ahmet to my contacts, his number is …" | A page in `contacts/`, synced to your address book |
+| "Friday 14:00 dentist" / "every Monday 10:00 class" / "cancel tomorrow's meeting" | A page in `calendar/`, shown in the agenda |
+| "add Ahmet to my contacts, his number is …" | A page in `contacts/` |
 | "what did I do this week?" | `kioku recap` summary |
 | "check the brain" | Lint report first, fixes only after your approval |
 | *(in a terminal or with a shortcut)* `kioku capture "call the bank tomorrow"` | Lands in `raw/inbox/` without a session; the next session offers to file it |
@@ -151,80 +151,21 @@ and each write is a git commit in your vault. Claude never pushes, unless you tu
 The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
-kioku agent <job>|setup|status | notify "<subject>" | doctor | capture "<text>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
-kioku search [--raw] [-n N] <term...> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
+kioku doctor | capture "<text>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
+kioku search [--raw] [-n N] <term...> | recap [--days N] | remote on|off|status|now|setup | update [--check] | version | lint-check
 ```
 
 ## Quick capture and troubleshooting
 
 - **`kioku capture "text or link"`** drops a thought, a todo or a link into `raw/inbox/` without opening a session (`kioku capture --file F` for a file, `kioku capture -` for stdin). It is committed, so with autosync it reaches your other machines too. The next session says how many wait and offers to file them: notes go to the journal, wiki or calendar as if you had said them, links and files are ingested. For a keyboard shortcut, `kioku capture --gui` asks in a small dialog (kdialog or zenity); with the Nix module, `programs.kioku.capture.gui = true;` brings the tools and a "Kioku capture" desktop entry to bind.
-- **`kioku doctor`** checks everything Kioku depends on (tools, the vault link, hooks, skills, Antigravity, git and autosync, the CalDAV/CardDAV login, vault health) and says how to fix each problem. `--offline` skips the network checks.
+- **`kioku doctor`** checks everything Kioku depends on (tools, the vault link, hooks, skills, Antigravity, git and autosync, vault health) and says how to fix each problem. `--offline` skips the network check.
 
-## Calendar, contacts and todos (optional sync)
+## Calendar, contacts and todos
 
-Events (`calendar/`), contacts (`contacts/`) and journal todos can be pushed to any
-CalDAV/CardDAV server, such as SOGo/mailcow, Nextcloud, Radicale or Fastmail, so you see them
-in Thunderbird, on your phone or in webmail. The sync is **one way**: you tell Claude, the
-vault changes, and a git hook pushes the change after the commit.
-
-- **What it touches:** only resources named `kioku-…` in the chosen calendar and address book. Your other events and contacts are never touched.
-- **Edits elsewhere:** if you edit a Kioku item in another client, the next sync overwrites it with the vault's version.
-
-Setup:
-
-1. Create an app password for your account that allows only CalDAV/CardDAV, if your server supports it.
-2. Create `~/.config/kioku/sync.conf`:
-
-   ```ini
-   # the server's DAV root (/.well-known/caldav redirects there)
-   url=https://mail.example.com/SOGo/dav/
-   user=you@example.com
-   # collection name or display name
-   calendar=personal
-   addressbook=personal
-   ```
-
-3. Store the password. Type it yourself, in a terminal:
-
-   ```bash
-   kioku password set
-   ```
-
-   It asks for the password twice without showing it, checks the login, and saves it only if
-   the login works:
-   - **Desktop:** it goes to the system keyring (Secret Service on Linux, such as KDE Wallet or
-     GNOME Keyring; Keychain on macOS).
-   - **No keyring** (a server, WSL): it goes to `~/.config/kioku/dav.pass` with `chmod 600`.
-     The sync refuses to run if that file is readable by others.
-
-   Other commands:
-   - `--store keyring|file` picks the place yourself.
-   - `kioku password status` shows where the password is, never the password itself.
-   - `kioku password move keyring|file` moves it.
-   - `kioku password remove` deletes it.
-
-   `set`, `move` and `remove` only run in a real terminal, so no script or agent can feed them a
-   password. Other password managers still work: set `password_cmd=` to any command that
-   prints the password, such as `pass show dav` or `op read op://…`.
-
-4. Test the connection; this only reads:
-
-   ```bash
-   ~/Documents/Kioku/.kioku/bin/kioku sync --check
-   ```
-
-5. Subscribe to the same calendar and address book in Thunderbird, and on your phone: DAVx⁵ on Android (with Tasks.org or jtx Board for todos), or a CalDAV/CardDAV account on iOS (todos appear in Reminders).
-
-**Reminders** reach your devices as notifications:
-- **Events:** "remind me 30 minutes before" adds `alarm: 30m` to the event.
-- **Todos with a time:** a todo with a time (`(at: 17:00)`) rings at that time.
-- **Earlier reminders:** `(remind: 1h)` rings earlier; `30m`, `1d` or `0` also work. Without a time, the reminder counts back from 09:00 on the due date.
-
-The installer adds the vault's git hooks: `pre-commit` gives new items stable ids and
-`post-commit` runs the sync in the background. Logs go to
-`~/.local/state/kioku/sync.log`. Run `kioku sync --dry-run` to see what would be sent,
-or `kioku sync --full` to resend everything. Sync needs `node`.
-
+Events (`calendar/`), contacts (`contacts/`) and journal todos are notes in the vault. The
+session context and `kioku agenda` / `kioku todo --soon` show what is coming up. Kioku itself
+sends nothing to other calendars and rings no reminders: if you want that, build it on top,
+for example with a Hermes cron job (see below).
 ## Several machines and your phone (optional)
 
 You can keep a copy of the vault on a second machine, such as an always-on server, and talk
@@ -245,37 +186,7 @@ pushed, and the next session tells you about it. Set `TZ` on a server that runs 
 "today" and event times match yours. `kioku remote status` shows the state; logs go to
 `~/.local/state/kioku/git-sync.log`.
 
-## Scheduled jobs (optional)
-
-On a machine that is always on, such as the server of the previous section, Kioku can work on a
-schedule and send you the result:
-
-| Job | Default time | What it does | Model call |
-| --- | --- | --- | --- |
-| `morning` | every day 08:00 | Today's events and due todos, plus inbox items and sync problems | None |
-| `nightly` | every day 03:00 | `kioku lint-check`; if it finds issues, Claude fixes the mechanical ones and reports the rest | Only when there are issues |
-| `weekly` | Sunday 20:00 | A review of the week (`kioku-review`): done, stuck, decisions, learned, next; saved under `reviews/` | Once a week |
-
-The unattended runs (`claude -p`) may only read, edit files in the vault, run the kioku CLI and
-`git add/commit`; everything else is refused, and they never touch `Core.md`.
-
-1. Settings go in `~/.config/kioku/agents.conf` (no secrets):
-   ```ini
-   notify=mail                # mail | command | stdout
-   mail_to=you@example.com    # default: user= from sync.conf
-   smtp=smtp://127.0.0.1:25   # the default: a mail server on the same machine
-   lang=en                    # en | tr: the morning brief's language
-   # morning_at=*-*-* 08:00   nightly_at=…   weekly_at=Sun *-*-* 20:00   weekly=off
-   ```
-   For Telegram, Discord or ntfy, set `notify=command` and `notify_command=/path/to/script`: the script gets the subject in `$KIOKU_SUBJECT` and the text on stdin.
-2. Try a job: `kioku agent morning --dry-run` prints instead of sending; `kioku agent morning` sends.
-3. `kioku agent setup` installs the schedule:
-   - by default, systemd user timers;
-   - with `scheduler=hermes` in `agents.conf`, jobs in [Hermes Agent](https://github.com/NousResearch/hermes-agent)'s cron instead (see below), and the systemd timers are removed.
-
-   For the systemd timers on a server, enable lingering: `sudo loginctl enable-linger $USER`. `kioku agent status` shows the next runs and the log, `kioku agent remove` takes them away.
-
-### With Hermes Agent
+## Hermes Agent (optional)
 
 If [Hermes Agent](https://github.com/NousResearch/hermes-agent) is installed (the `hermes` command exists), the installer also connects Kioku to it:
 
@@ -283,16 +194,28 @@ If [Hermes Agent](https://github.com/NousResearch/hermes-agent) is installed (th
 - **Skills:** Kioku's skills are listed in Hermes's `skills.external_dirs`.
 - **Bundled skills:** Hermes's own `obsidian` and `weekly-review-planning` skills are turned off, so they don't do Kioku's job by other rules.
 
-`--no-hermes` turns this off and removes it. With `scheduler=hermes`, `kioku agent setup` creates three Hermes cron jobs that work in the vault:
+`--no-hermes` turns this off and removes it.
 
-| Job | How it runs |
-| --- | --- |
-| `kioku-morning` | A script job; no model call. |
-| `kioku-nightly` | A lint pre-check that wakes the agent only when there are issues; the agent then fixes them with `kioku-lint`. |
-| `kioku-weekly` | The Hermes agent with `kioku-review`. |
+Kioku has no scheduler of its own. With Hermes you can add your own jobs that work in the vault
+and send the result to Telegram, Discord and so on. Some examples:
 
-Results go to `hermes_deliver=` (for example `discord`), and `notify=hermes` sends Kioku's own messages there too. Which model Hermes uses is up to you (`hermes model`); that choice, its cost and its terms are your responsibility.
+```bash
+# A morning brief without a model call: a script whose output Hermes delivers as is
+cat > ~/.hermes/scripts/morning.sh <<'EOF'
+#!/usr/bin/env bash
+cd ~/Documents/Kioku && .kioku/bin/kioku remote pull
+echo "Today:"; .kioku/bin/kioku agenda --days 1
+echo; echo "Due soon:"; .kioku/bin/kioku todo --soon
+EOF
+chmod +x ~/.hermes/scripts/morning.sh
+hermes cron create "0 8 * * *" --name morning --no-agent --script morning.sh --deliver telegram
 
+# A weekly review with the kioku-review skill
+hermes cron create "0 20 * * 0" "Weekly review of this vault with the kioku-review skill: write the page, commit it, then run .kioku/bin/kioku remote now. Reply with the review." \
+  --name weekly --skill kioku-review --workdir ~/Documents/Kioku --deliver telegram
+```
+
+Which model Hermes uses is up to you (`hermes model`); that choice, its cost and its terms are your responsibility.
 ## Google Antigravity (optional)
 
 If Antigravity is installed (`~/.gemini` exists), the installer also sets Kioku up there:

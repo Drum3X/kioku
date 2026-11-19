@@ -21,8 +21,8 @@ veritabanı ya da API anahtarı gerekmez; hook'lar küçük bash betikleridir.
   Core.md                     sen kimsin: "beni tanı" röportajıyla dolar
   daily/                      Claude'un iş kaydı: kararlar, sonuçlar, öğrenimler, açık uçlar
   journal/                    zaman çizelgen: yaptıkların, yapılacaklar (tarihli), kaydettiklerin
-  calendar/                   etkinlikler, her biri bir sayfa (CalDAV takvimine eşitlenir)
-  contacts/                   kişiler ve iletişim bilgileri (CardDAV rehberine eşitlenir)
+  calendar/                   etkinlikler, her biri bir sayfa
+  contacts/                   kişiler ve iletişim bilgileri
   projects/                   proje başına bir not: durum, sonraki adım, kararlar
   raw/                        işlenen kaynakların birebir kopyası (asla değiştirilmez)
   wiki/                       derlenen sayfalar: topics/ (kategori hub'ları) concepts/ entities/ ideas/ sources/ synthesis/
@@ -135,8 +135,8 @@ Normal konuş, istediğin dilde. Birkaç örnek:
 | "not al: bugün sınavı bitirdim" / "cuma için hatırlat: ödev teslimi" | Bugünkü `journal/` dosyasına bir satır ("cuma" gibi göreli tarihler gerçek tarihe çevrilir) |
 | "yapılacaklarım ne?" / "ödevi bitirdim" | Gruplanmış liste / ilgili madde yerinde işaretlenir |
 | "kaydet: Ghostty, denemek istediğim GPU hızlandırmalı terminal" / "fikir: zaman döngülü küçük bir oyun" / "şunu öğrendim: `nix why-depends` bağımlılık zincirini gösterir" | Her biri bir wiki sayfası olur (`entities/`, `ideas/`, `concepts/`) ve *Linux › Tools* gibi bir konu hub'ına yerleşir; uyan konu yoksa yeni hub açılır ve haber verilir |
-| "cuma 14:00 diş randevusu" / "her pazartesi 10:00 ders" / "yarınki toplantıyı iptal et" | `calendar/` altında bir sayfa, takvimine eşitlenir |
-| "Ahmet'i rehbere ekle, numarası …" | `contacts/` altında bir sayfa, rehberine eşitlenir |
+| "cuma 14:00 diş randevusu" / "her pazartesi 10:00 ders" / "yarınki toplantıyı iptal et" | `calendar/` altında bir sayfa, ajandada görünür |
+| "Ahmet'i rehbere ekle, numarası …" | `contacts/` altında bir sayfa |
 | "bu hafta ne yaptım?" | `kioku recap` özeti |
 | "beyni kontrol et" | Önce bir lint raporu, düzeltmeler ancak senin onayınla |
 | *(terminalde ya da kısayolla)* `kioku capture "yarın bankayı ara"` | Oturum açmadan `raw/inbox/` klasörüne düşer; sonraki oturum işlemeyi önerir |
@@ -147,76 +147,21 @@ kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla 
 CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosyasına bir bağlantı):
 
 ```
-kioku agent <job>|setup|status | notify "<subject>" | doctor | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-kioku search [--raw] [-n N] <terim...> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
+kioku doctor | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
+kioku search [--raw] [-n N] <terim...> | recap [--days N] | remote on|off|status|now|setup | update [--check] | version | lint-check
 ```
 
 ## Hızlı yakalama ve sorun giderme
 
 - **`kioku capture "metin ya da link"`** bir düşünceyi, yapılacağı ya da linki oturum açmadan `raw/inbox/` klasörüne atar (dosya için `kioku capture --file F`, stdin için `kioku capture -`). Commit edildiği için autosync açıksa diğer makinelere de gider. Sonraki oturum kaç tane beklediğini söyler ve işlemeyi önerir: notlar sanki sohbette söylenmiş gibi journal'a, wikiye ya da takvime gider; linkler ve dosyalar ingest edilir. Klavye kısayolu için `kioku capture --gui` küçük bir pencerede sorar (kdialog ya da zenity); Nix modülünde `programs.kioku.capture.gui = true;` bu araçları ve kısayol atanabilecek bir "Kioku capture" masaüstü girdisini getirir.
-- **`kioku doctor`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı, hook'lar, skill'ler, Antigravity, git ve autosync, CalDAV/CardDAV girişi, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrollerini atlar.
+- **`kioku doctor`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı, hook'lar, skill'ler, Antigravity, git ve autosync, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrolünü atlar.
 
-## Takvim, rehber ve yapılacaklar (isteğe bağlı eşitleme)
+## Takvim, rehber ve yapılacaklar
 
-Etkinlikler (`calendar/`), kişiler (`contacts/`) ve journal'daki yapılacaklar herhangi bir
-CalDAV/CardDAV sunucusuna (SOGo/mailcow, Nextcloud, Radicale, Fastmail…) gönderilebilir. Böylece
-onları Thunderbird'de, telefonunda ya da webmail'de görürsün. Eşitleme **tek yönlü**:
-Claude'a söylersin, vault değişir, commit'ten sonra bir git hook'u değişikliği gönderir.
-
-- **Neye dokunur:** seçilen takvim ve rehberde yalnızca `kioku-…` adlı kayıtlara. Diğer etkinlik ve kişilerine asla dokunulmaz.
-- **Başka yerde yapılan düzenleme:** bir Kioku kaydını başka bir uygulamada düzenlersen, bir sonraki eşitleme onu vault'taki hâliyle ezer.
-
-Kurulum:
-
-1. Sunucun destekliyorsa hesabın için yalnızca CalDAV/CardDAV yetkili bir app password oluştur.
-2. `~/.config/kioku/sync.conf` dosyasını oluştur:
-
-   ```ini
-   # sunucunun DAV kökü (/.well-known/caldav buraya yönlenir)
-   url=https://mail.example.com/SOGo/dav/
-   user=sen@example.com
-   # koleksiyon adı ya da görünen adı
-   calendar=personal
-   addressbook=personal
-   ```
-
-3. Şifreyi kaydet. Bunu terminalde kendin yaz:
-
-   ```bash
-   kioku password set
-   ```
-
-   Komut şifreyi ekranda göstermeden iki kez sorar, girişi dener ve yalnızca giriş başarılıysa kaydeder:
-   - **Masaüstünde:** sistemin anahtar zincirine yazar (Linux'ta KDE Wallet ya da GNOME Keyring gibi Secret Service; macOS'ta Keychain).
-   - **Anahtar zinciri yoksa** (sunucu, WSL): `~/.config/kioku/dav.pass` dosyasına `chmod 600` ile yazar. Bu dosyayı başkaları okuyabiliyorsa eşitleme çalışmayı reddeder.
-
-   Diğer komutlar:
-   - `--store keyring|file` ile yeri kendin seçebilirsin.
-   - `kioku password status` şifrenin nerede olduğunu gösterir; şifrenin kendisini asla göstermez.
-   - `kioku password move keyring|file` şifreyi taşır.
-   - `kioku password remove` şifreyi siler.
-
-   `set`, `move` ve `remove` yalnızca gerçek bir terminalde çalışır; böylece hiçbir betik ya da ajan bu komutlara şifre veremez. Başka şifre yöneticileri de kullanılabilir: `password_cmd=` alanına şifreyi yazdıran bir komut yaz, örneğin `pass show dav` ya da `op read op://…`.
-
-4. Bağlantıyı test et; bu komut yalnızca okur:
-
-   ```bash
-   ~/Documents/Kioku/.kioku/bin/kioku sync --check
-   ```
-
-5. Thunderbird'de ve telefonunda aynı takvime ve adres defterine abone ol. Android'de DAVx⁵ kullan (yapılacaklar için Tasks.org ya da jtx Board). iOS'ta bir CalDAV/CardDAV hesabı ekle; yapılacaklar Anımsatıcılar'da görünür.
-
-**Hatırlatıcılar** cihazlarına bildirim olarak gelir:
-- **Etkinlikler:** "yarım saat önce hatırlat" dersen etkinliğe `alarm: 30m` eklenir.
-- **Saati olan yapılacaklar:** saati belli bir yapılacak iş (`(at: 17:00)`) o saatte bildirim verir.
-- **Daha erken hatırlatma:** `(remind: 1h)` daha önce hatırlatır; `30m`, `1d` ya da `0` da kullanılabilir. Saat verilmemişse hatırlatma son tarihin 09:00'undan geriye doğru sayılır.
-
-Kurulum betiği vault'a iki git hook'u ekler: `pre-commit` yeni kayıtlara kalıcı kimlik verir,
-`post-commit` eşitlemeyi arka planda çalıştırır. Kayıtlar
-`~/.local/state/kioku/sync.log` dosyasına yazılır. Ne gönderileceğini görmek için
-`kioku sync --dry-run`, hepsini yeniden göndermek için `kioku sync --full` kullan. Eşitleme
-`node` gerektirir.
-
+Etkinlikler (`calendar/`), kişiler (`contacts/`) ve journal'daki yapılacaklar vault'ta not
+olarak durur. Oturum bağlamı ve `kioku agenda` / `kioku todo --soon` yaklaşanları gösterir.
+Kioku başka takvimlere bir şey göndermez ve kendisi hatırlatma çalmaz; istersen bunu üstüne
+kurabilirsin, örneğin bir Hermes cron işiyle (aşağıya bak).
 ## Birden fazla makine ve telefon (isteğe bağlı)
 
 Vault'un bir kopyasını ikinci bir makinede tutabilirsin. Bu makine örneğin sürekli açık bir sunucu olabilir. Telefondan oradaki Claude ile [Remote Control](https://code.claude.com/docs/en/remote-control) üzerinden konuşursun.
@@ -234,52 +179,36 @@ Vault'un bir kopyasını ikinci bir makinede tutabilirsin. Bu makine örneğin s
 
 Sunucu UTC'de çalışıyorsa `TZ` ayarla; böylece "bugün" ve etkinlik saatleri seninkiyle aynı olur. Durumu `kioku remote status` gösterir, kayıtlar `~/.local/state/kioku/git-sync.log` dosyasına yazılır.
 
-## Zamanlanmış işler (isteğe bağlı)
+## Hermes Agent (isteğe bağlı)
 
-Sürekli açık bir makinede (örneğin önceki bölümdeki sunucuda) Kioku belirli saatlerde çalışıp sonucu sana gönderebilir:
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) kuruluysa (`hermes` komutu varsa) installer Kioku'yu ona da bağlar:
 
-| İş | Varsayılan saat | Ne yapar | Model çağrısı |
-| --- | --- | --- | --- |
-| `morning` | her gün 08:00 | Bugünün etkinlikleri ve vakti gelen yapılacaklar; inbox'ta bekleyenler ve eşitleme sorunları | Yok |
-| `nightly` | her gün 03:00 | `kioku lint-check`; sorun bulursa Claude mekanik olanları düzeltir, kalanları bildirir | Yalnızca sorun varsa |
-| `weekly` | pazar 20:00 | Haftanın değerlendirmesi (`kioku-review`): bitenler, takılanlar, kararlar, öğrenilenler, sıradakiler; `reviews/` altına kaydedilir | Haftada bir |
-
-Gözetimsiz çalışmalar (`claude -p`) yalnızca okuyabilir, vault içindeki dosyaları düzenleyebilir, kioku CLI'ını ve `git add/commit` komutlarını çalıştırabilir; gerisi reddedilir, `Core.md`'ye de hiç dokunmazlar.
-
-1. Ayarlar `~/.config/kioku/agents.conf` dosyasında (şifre içermez):
-   ```ini
-   notify=mail                # mail | command | stdout
-   mail_to=sen@example.com    # varsayılan: sync.conf'taki user=
-   smtp=smtp://127.0.0.1:25   # varsayılan: aynı makinedeki mail sunucusu
-   lang=tr                    # en | tr: sabah özetinin dili
-   # morning_at=*-*-* 08:00   nightly_at=…   weekly_at=Sun *-*-* 20:00   weekly=off
-   ```
-   Telegram, Discord ya da ntfy için `notify=command` ve `notify_command=/betik/yolu` yaz: betik konuyu `$KIOKU_SUBJECT` içinde, metni stdin'den alır.
-2. Bir işi dene: `kioku agent morning --dry-run` göndermeden yazdırır; `kioku agent morning` gönderir.
-3. `kioku agent setup` zamanlamayı kurar:
-   - varsayılan olarak systemd kullanıcı zamanlayıcıları;
-   - `agents.conf` içinde `scheduler=hermes` varsa bunun yerine [Hermes Agent](https://github.com/NousResearch/hermes-agent)'ın zamanlayıcısındaki işler (aşağıya bak); systemd zamanlayıcıları kaldırılır.
-
-   systemd zamanlayıcıları için sunucuda lingering'i aç: `sudo loginctl enable-linger $USER`. `kioku agent status` sıradaki çalışmaları ve kaydı gösterir, `kioku agent remove` kaldırır.
-
-### Hermes Agent ile
-
-[Hermes Agent](https://github.com/NousResearch/hermes-agent) kuruluysa (`hermes` komutu varsa) kurulum Kioku'yu ona da bağlar:
-
-- **Kurallar:** vault'taki `.hermes.md` dosyasına bir Kioku bölümü yazılır; Hermes vault'ta çalışırken bunu okur.
+- **Kurallar:** vault'taki `.hermes.md` dosyasında bir Kioku bloğu; Hermes vault'ta çalışırken bunu okur.
 - **Skill'ler:** Kioku'nun skill'leri Hermes'in `skills.external_dirs` listesine eklenir.
-- **Hazır skill'ler:** Hermes'in kendi `obsidian` ve `weekly-review-planning` skill'leri kapatılır, Kioku'nun işini başka kurallarla yapmasınlar diye.
+- **Hazır skill'ler:** Hermes'in kendi `obsidian` ve `weekly-review-planning` skill'leri kapatılır; Kioku'nun işini başka kurallarla yapmasınlar diye.
 
-`--no-hermes` bunu kapatır ve kurulanları kaldırır. `scheduler=hermes` ile `kioku agent setup`, vault'ta çalışan üç Hermes işi oluşturur:
+`--no-hermes` bunu kapatır ve kurulanları kaldırır.
 
-| İş | Nasıl çalışır |
-| --- | --- |
-| `kioku-morning` | Betik işi; model çağrısı yok. |
-| `kioku-nightly` | Önce bir lint kontrolü çalışır, ajan yalnızca sorun varsa uyanır ve `kioku-lint` ile düzeltir. |
-| `kioku-weekly` | Hermes ajanı `kioku-review` ile çalışır. |
+Kioku'nun kendi zamanlayıcısı yok. Hermes ile vault'ta çalışan kendi işlerini ekleyip sonucu
+Telegram'a, Discord'a vb. gönderebilirsin. Birkaç örnek:
 
-Sonuçlar `hermes_deliver=` hedefine (örneğin `discord`) gider; `notify=hermes` Kioku'nun kendi mesajlarını da oraya yollar. Hermes'in hangi modeli kullanacağı senin seçimin (`hermes model`); bu seçimin maliyeti ve kullanım koşulları da senin sorumluluğunda.
+```bash
+# Model çağırmayan sabah özeti: çıktısını Hermes olduğu gibi gönderen bir betik
+cat > ~/.hermes/scripts/morning.sh <<'EOF'
+#!/usr/bin/env bash
+cd ~/Documents/Kioku && .kioku/bin/kioku remote pull
+echo "Bugün:"; .kioku/bin/kioku agenda --days 1
+echo; echo "Yaklaşan yapılacaklar:"; .kioku/bin/kioku todo --soon
+EOF
+chmod +x ~/.hermes/scripts/morning.sh
+hermes cron create "0 8 * * *" --name morning --no-agent --script morning.sh --deliver telegram
 
+# kioku-review skill'iyle haftalık değerlendirme
+hermes cron create "0 20 * * 0" "Bu vault'un haftalık değerlendirmesini kioku-review skill'iyle yap: sayfayı yaz, commit et, sonra .kioku/bin/kioku remote now çalıştır. Değerlendirmeyi cevap olarak yaz." \
+  --name weekly --skill kioku-review --workdir ~/Documents/Kioku --deliver telegram
+```
+
+Hermes'in hangi modeli kullanacağı senin seçimin (`hermes model`); bu seçimin maliyeti ve kullanım koşulları senin sorumluluğunda.
 ## Google Antigravity (isteğe bağlı)
 
 Antigravity kuruluysa (`~/.gemini` varsa) kurulum Kioku'yu orada da kurar:

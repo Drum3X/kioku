@@ -8,7 +8,6 @@ location:
 rrule:
 alarm:
 status: confirmed
-uid:
 lang:
 tags: []
 created: {{date}}

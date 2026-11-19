@@ -7,7 +7,6 @@ org:
 birthday:
 address:
 url:
-uid:
 lang:
 tags: []
 created: {{date}}

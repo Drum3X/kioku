@@ -1,6 +1,6 @@
 ---
 name: kioku-contacts
-description: The user's contacts in their second brain (contacts/ in the Kioku vault), synced one-way to their CardDAV address book so they show in Thunderbird. Use when the user wants to add or update a person's contact details or look them up — "rehbere ekle", "Ahmet'in numarası şu", "Ayşe'nin maili değişti", "Ahmet'in maili neydi", "doğum günü" (or "add to my contacts", "what's X's email"). For people who are only a topic (an author, a public figure), use kioku-note instead.
+description: The user's contacts in their second brain (contacts/ in the Kioku vault), one page per person. Use when the user wants to add or update a person's contact details or look them up — "rehbere ekle", "Ahmet'in numarası şu", "Ayşe'nin maili değişti", "Ahmet'in maili neydi", "doğum günü" (or "add to my contacts", "what's X's email"). For people who are only a topic (an author, a public figure), use kioku-note instead.
 argument-hint: "[person and details]"
 ---
 
@@ -10,10 +10,7 @@ Vault: `$VAULT` — the vault path from the Kioku section of your global instruc
 Rules: `$VAULT/.kioku/SCHEMA.md` ("Calendar, todos and contacts"); personal rules in `$VAULT/CLAUDE.md`
 CLI: `$VAULT/.kioku/bin/kioku`
 
-Contacts live in the vault, one page per person: `contacts/<slug>.md`. After each commit a git
-hook pushes them to the user's CardDAV address book, and Thunderbird shows them from there.
-The address book's other contacts are never touched. An edit made in Thunderbird to a Kioku
-contact is overwritten on the next sync, so changes always go through you.
+Contacts live in the vault, one page per person: `contacts/<slug>.md`.
 
 ## Add or update
 
@@ -28,7 +25,6 @@ contact is overwritten on the next sync, so changes always go through you.
    - `url`
    - `lang`: the conversation language
    - `tags`: for example `aile`, `üniversite`, `iş`
-   Leave `uid` empty; the pre-commit hook fills it in.
 4. Body:
    - `## How we know each other`: what the user said.
    - `## Notes`: anything else they want remembered.
@@ -47,5 +43,4 @@ the session-start context.
 
 ## Remove
 
-Delete a contact only if the user explicitly asks. Delete the file and commit; the sync
-removes the contact from the server.
+Delete a contact only if the user explicitly asks. Delete the file and commit.

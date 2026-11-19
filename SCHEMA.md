@@ -31,9 +31,9 @@ briefly.
 | `daily/YYYY-MM-DD.md` | Your work log: decisions, finished work, learnings, open threads | You, without asking |
 | `journal/YYYY-MM-DD.md` | The user's timeline: what they did, todos, pointers to notes saved that day | You, whenever the user tells you something to note (`kioku-journal`) |
 | `projects/<slug>.md` | Active and past work: status, next step, links | You, without asking |
-| `calendar/<yyyy>/<date>-<slug>.md` | Events, one page each; synced to the CalDAV calendar | You, when the user schedules something (`kioku-calendar`) |
-| `reviews/<yyyy>/<slug>.md` | Weekly or monthly reviews: what the period amounted to | You, when the user asks or in the weekly job (`kioku-review`) |
-| `contacts/<slug>.md` | People's contact details; synced to the CardDAV address book | You, when the user gives contact details (`kioku-contacts`) |
+| `calendar/<yyyy>/<date>-<slug>.md` | Events, one page each | You, when the user schedules something (`kioku-calendar`) |
+| `reviews/<yyyy>/<slug>.md` | Weekly or monthly reviews: what the period amounted to | You, when the user asks or in a scheduled run (`kioku-review`) |
+| `contacts/<slug>.md` | People's contact details | You, when the user gives contact details (`kioku-contacts`) |
 | `raw/` | Copies of external sources (articles, PDFs, transcripts) | You save them, **then never modify them** |
 | `wiki/sources/` | One summary per source | You |
 | `wiki/concepts/` | Concepts, methods, commands, how-tos, things learned | You |
@@ -59,13 +59,10 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku recap [--days N]`: daily notes and log entries from the last N days.
 - `kioku context`: the session-start context as text (Core, recent notes, todos, agenda), pulled first with autosync; for agents without a SessionStart hook (Antigravity).
 - `kioku agenda [--days N] [--past]`: upcoming events, recurrences expanded; events that already ended are left out (`--past` keeps today's). The session-start list is a snapshot from when the session began: run this again instead of relying on it.
-- `kioku sync [--check|--dry-run|--full]`: push todos, events and contacts to the server; `--check` only tests the connection.
-- `kioku remote on|off|status|now`: keep vault copies on several machines in step through the git remote.
+- `kioku remote on|off|status|now|setup`: keep vault copies on several machines in step through the git remote; `setup` installs the post-commit hook that pushes.
 - `kioku update [--check]`: update Kioku itself (pull + install step); only when the user asks, or when the session context says the install step is out of date and the user agrees.
-- `kioku agent morning|nightly|weekly [--dry-run]` / `kioku agent setup|status|remove`: the scheduled jobs (see "Scheduled jobs").
-- `kioku notify "<subject>" < body`: send a message the way `agents.conf` says (mail, a command such as a Telegram script, or stdout).
 - `kioku capture "<text>"`: the user's quick capture into `raw/inbox/` (see "Quick captures"); you don't need it in a session, where you file things directly.
-- `kioku doctor [--offline]`: checks the whole setup and says how to fix problems; run it when something seems broken (hooks not firing, sync failing).
+- `kioku doctor [--offline]`: checks the whole setup and says how to fix problems; run it when something seems broken (hooks not firing, autosync failing).
 - `kioku check-file <file>`: the write check the PostToolUse hook runs after each vault write; when it reports problems, fix them in the same turn.
 - `kioku lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, learned entries missing from the wiki, missing frontmatter.
 
@@ -136,25 +133,15 @@ Categories are **topic hubs** in `wiki/topics/`, also called maps of content.
 - **Hubs and tags:** hubs say what a page is about. `tags:` are for finer facets (`open-source`, `free`, `kde`).
 - **Language:** hub names and contents are written in the conversation language; the group headings inside hubs are English.
 
-## Calendar, todos and contacts (sync)
+## Calendar, todos and contacts
 
-Todos (`journal/`), events (`calendar/`) and contacts (`contacts/`) are pushed **one way**,
-from the vault to the user's CalDAV/CardDAV server (`kioku sync`), so they show in
-Thunderbird, phones and webmail. The vault is the source:
+Todos (`journal/`), events (`calendar/`) and contacts (`contacts/`) live only in the vault.
+The session context and `kioku agenda` / `kioku todo` show them. Kioku sends nothing to other
+calendars or devices and rings no reminders itself; a user who wants that can build it on top
+(for example a Hermes cron job that reads `kioku agenda` and `kioku todo --soon`).
 
-- **Who changes what:** you change them; the user only views them elsewhere. An edit made in another client to a Kioku item is overwritten on the next sync.
-- **Ids:** every item has a stable id. Todos carry an Obsidian block id at the end of the line (` ^t-3f9a1c`); events and contacts have `uid:` in their frontmatter. The vault's pre-commit hook adds missing ids. Never change or remove an existing id.
-- **When it runs:** the vault's post-commit hook runs the sync in the background after every commit that touches these folders. Logs go to `~/.local/state/kioku/sync.log`.
-- **What it touches:** only server resources whose name starts with `kioku-`. Everything else in the user's calendar and address book is never touched.
-- **Removing items:**
-  - An event with `status: cancelled` is removed from the server; its page stays in the vault.
-  - A deleted page or todo line is deleted from the server.
-  - Cancelled todos (`[-]`) stay on the server as cancelled.
-- **Reminders:**
-  - An event with `alarm:` (for example `30m`) gets a reminder.
-  - An open todo with `(at: HH:MM)` rings at its due time; `(remind: 1h)` rings that much earlier. Without `at:`, the reminder counts back from 09:00 on the due date.
-  - Phones show these as notifications once they subscribe to the same calendar (DAVx⁵ on Android, a CalDAV account on iOS).
-- **Credentials:** the connection settings are in `~/.config/kioku/sync.conf`; the password is in the system keyring or a chmod 600 file, set by the user with `kioku password set` (or a `password_cmd`). Never ask for, read, print or store a password, and never run `kioku password set|move|remove`: tell the user to run it in their terminal. `kioku password status` is safe to run; it never shows the password.
+- **Fields:** events take `start`, `end` or `duration`, `all_day`, `rrule` (an iCalendar RRULE), `location`, `alarm` (`30m`, `2h`, `1d`) and `status` (`confirmed`, `tentative`, `cancelled`). Todos take `(due: YYYY-MM-DD)`, `(at: HH:MM)` and `(remind: 1h)`. `kioku lint-check` and the write check validate them.
+- **Old ids:** pages from earlier versions may carry a `uid:` line or a ` ^t-…` block id at the end of a todo (from the removed CalDAV/CardDAV sync). They are harmless; leave them.
 
 ## Ingest (external source)
 
@@ -234,17 +221,12 @@ Follow the `kioku-lint` skill:
 - Do not change `Core.md` without the user's approval. Do not delete, move or rename existing notes.
 - Do not touch `.kioku/` unless the user asks.
 
-## Scheduled jobs (kioku agent)
+## Scheduled runs
 
-On a machine that is always on (a server), `kioku agent setup` installs systemd timers for
-three jobs; each sends its result through `kioku notify` (`~/.config/kioku/agents.conf`):
-
-- **morning:** today's events and due todos; no model call.
-- **nightly:** `kioku lint-check`; only when it finds issues, an unattended run fixes the
-  mechanical ones and reports the rest.
-- **weekly:** a review of the last 7 days (`kioku-review`), saved under `reviews/` and sent.
-
-With `scheduler=hermes` in `agents.conf`, the same jobs run in Hermes Agent's cron instead, with the Hermes agent and the `kioku-lint` / `kioku-review` skills, in the vault (rules: `.hermes.md`).
+Kioku has no scheduler of its own. A user may run jobs on the vault with another tool, such as
+Hermes Agent's cron (rules for Hermes: `.hermes.md`), for example a morning brief from
+`kioku agenda` and `kioku todo --soon`, nightly maintenance with `kioku-lint` or a weekly
+review with `kioku-review`.
 
 In an unattended run you may only read, edit files inside the vault, run the kioku CLI and git
 add/commit; nothing else is allowed. Do only what the job asks. Anything that needs the user
