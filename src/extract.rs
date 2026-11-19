@@ -9,6 +9,7 @@
 //!   .md .txt                        as they are
 //!
 //! Web pages are not handled here: the agent's own web-fetch tool reads them better.
+//! $KIOKU_YTDLP_ARGS adds options to every yt-dlp call (cookies for YouTube on a server).
 //! $KIOKU_TRANSCRIBE is a command that gets the audio file as its last argument and prints the
 //! text, e.g. a script around faster-whisper.
 
@@ -127,16 +128,34 @@ fn is_video_url(u: &str) -> bool {
         .any(|h| u.contains(h))
 }
 
+/// yt-dlp with the user's extra options from $KIOKU_YTDLP_ARGS (for example
+/// "--cookies /path/cookies.txt" where YouTube asks a server to sign in).
+fn ytdlp() -> Command {
+    let mut c = Command::new("yt-dlp");
+    if let Ok(a) = std::env::var("KIOKU_YTDLP_ARGS") {
+        c.args(a.split_whitespace());
+    }
+    c
+}
+
 fn video(url: &str, langs: &[String], tmp: &Path) -> Result<Page> {
     need(
         "yt-dlp",
         "a video link",
         "Install yt-dlp (for example: nix profile install nixpkgs#yt-dlp, apt install yt-dlp, or pip install yt-dlp).",
     )?;
-    let meta: Value = serde_json::from_str(&out_of(
-        Command::new("yt-dlp").args(["-J", "--skip-download", "--no-warnings", url]),
-        "yt-dlp",
-    )?)?;
+    let first = ytdlp()
+        .args(["-J", "--skip-download", "--no-warnings", url])
+        .output()
+        .context("running yt-dlp")?;
+    if !first.status.success() {
+        let err = String::from_utf8_lossy(&first.stderr);
+        if err.contains("not a bot") || err.contains("Sign in to confirm") {
+            return die("YouTube asks this machine to sign in (it does that for server and VPN addresses). Add the video from a computer on a home connection, or give yt-dlp your browser's YouTube cookies: KIOKU_YTDLP_ARGS=\"--cookies /path/to/cookies.txt\" (see the yt-dlp FAQ on cookies)");
+        }
+        return die(format!("yt-dlp failed: {}", err.trim().lines().last().unwrap_or("")));
+    }
+    let meta: Value = serde_json::from_slice(&first.stdout)?;
     let s = |k: &str| meta.get(k).and_then(Value::as_str).unwrap_or("").to_string();
     let date = s("upload_date");
     let published = if date.len() == 8 {
@@ -178,7 +197,7 @@ fn video(url: &str, langs: &[String], tmp: &Path) -> Result<Page> {
     if let Some((l, kind)) = pick {
         let sub = if kind == "subtitles" { "--write-subs" } else { "--write-auto-subs" };
         out_of(
-            Command::new("yt-dlp")
+            ytdlp()
                 .args([
                     "--skip-download",
                     sub,
@@ -209,7 +228,7 @@ fn video(url: &str, langs: &[String], tmp: &Path) -> Result<Page> {
     // No subtitles: the audio, transcribed.
     need("ffmpeg", "taking the audio of a video without subtitles", "Install ffmpeg.")?;
     out_of(
-        Command::new("yt-dlp")
+        ytdlp()
             .args(["-x", "--audio-format", "m4a", "--no-warnings", "-o"])
             .arg(tmp.join("audio.%(ext)s"))
             .arg(url),
