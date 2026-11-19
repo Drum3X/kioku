@@ -1,6 +1,6 @@
 [package]
 name = "kioku"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 description = "Kioku: a personal second brain kept by your AI agents"
 license = "GPL-3.0-only"

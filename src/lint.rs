@@ -300,6 +300,7 @@ pub fn check_file(vault: &Path, args: &[String]) -> String {
             .any(|p| f.starts_with(p))
             || f == "CLAUDE.md"
             || f == "AGENTS.md"
+            || f == crate::home::FILE
         {
             continue;
         }

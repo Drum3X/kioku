@@ -6,6 +6,7 @@ mod deep;
 mod fm;
 mod git;
 mod health;
+mod home;
 mod hook;
 mod install;
 mod lint;
@@ -45,6 +46,7 @@ const USAGE: &str = r#"Usage: kioku <command> [args]
   search [--raw] [-n N] <term...>  Ranked search; each word is a term, a "quoted phrase" one term. Turkish-aware
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
   stale [--all]                 Wiki and project pages whose facts are due to be checked again (reviewed:)
+  home [--print]                Write Home.md, the start page for Obsidian (also at session start and after commits)
   lint-check                    Broken links, orphans, uncatalogued or topic-less pages, frontmatter
   install [--vault PATH] …      Set up the vault and wire it into the agents (see install --help)
   hook <agent> <event>          Run a hook (used by the agents' settings; reads JSON on stdin)
@@ -145,6 +147,7 @@ fn real_main() -> Result<i32> {
             Ok(0)
         }
         "stale" => Ok(stale::run(&vault, rest)),
+        "home" => home::run(&vault, rest),
         "lint-check" => {
             let (out, n) = lint::lint_check(&vault);
             print!("{out}");

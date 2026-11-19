@@ -32,6 +32,7 @@ birkaçını birlikte kullansan da tek bir hafızan olur.
   raw/                        işlenen kaynakların birebir kopyası (asla değiştirilmez)
   wiki/                       derlenen sayfalar: topics/ (kategori hub'ları) concepts/ entities/ ideas/ sources/ synthesis/
   index.md  log.md            beynin haritası (önce konular), yalnızca sona eklenen işlem kaydı
+  Home.md                     Obsidian için başlangıç sayfası, her makinede üretilir (git'te değil)
   .kioku → kioku/             bu repoya bağlantı: şema, hook'lar, skill'ler, CLI, şablonlar
 ```
 
@@ -263,12 +264,13 @@ CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosya
 
 ```
 kioku health | capture "<metin>" | context [--agent AD | --deep <proje|konu>] | whoami | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-kioku search [--raw] [-n N] <terim...> | recap [--days N] | stale [--all] | remote on|off|status|now|setup | update [--check] | version | lint-check
+kioku search [--raw] [-n N] <terim...> | recap [--days N] | stale [--all] | home [--print] | remote on|off|status|now|setup | update [--check] | version | lint-check
 ```
 
 ## Hızlı yakalama ve sorun giderme
 
 - **`kioku capture "metin ya da link"`** bir düşünceyi, yapılacağı ya da linki oturum açmadan `raw/inbox/` klasörüne atar (dosya için `kioku capture --file F`, stdin için `kioku capture -`). Commit edildiği için autosync açıksa diğer makinelere de gider. Sonraki oturum kaç tane beklediğini söyler ve işlemeyi önerir: notlar sanki sohbette söylenmiş gibi journal'a, wikiye ya da takvime gider; linkler ve dosyalar ingest edilir. Klavye kısayolu için `kioku capture --gui` küçük bir pencerede sorar (kdialog ya da zenity); Nix modülünde `programs.kioku.capture.gui = true;` bu araçları ve kısayol atanabilecek bir "Kioku capture" masaüstü girdisini getirir.
+- **`Home.md`** vault'u Obsidian'da gezmek için bir başlangıç sayfası: önümüzdeki haftanın etkinlikleri, yaklaşan yapılacaklar, sıradaki adımlarıyla aktif projeler, açık işler, bu hafta değişen sayfalar, gözden geçirilecek sayfalar ve inbox; her biri kendi sayfasına bağlı. Üretilir (oturum başında, her commit'ten ve pull'dan sonra ya da `kioku home` ile) ve git dışında tutulur, yani her makinenin kendi kopyası olur; elle düzenleme.
 - **Kim yazdı:** tek vault'a birden fazla ajan ve makine yazdığı için her iş kaydı satırı projesinin yanında `ajan@makine` taşır (`- 21:55 [brain · claude@nitro] done: …`) ve her commit `Kioku-Agent: claude@nitro` satırıyla biter. Oturum bağlamı her ajana adını söyler; `kioku whoami` onu yazar (makine, kısa makine adıdır; `KIOKU_HOST` onu değiştirir).
 - **`kioku context --deep <proje ya da konu>`** bir projeye ya da konuya geri dönmek için onunla ilgili her şeyi toplar: notun kendisi, iş kaydındaki kararlar, açık işler, öğrenmeler ve son yapılanlar (yeniden eskiye), bağlantılı ve bağlanan sayfalar, ilgili yapılacaklar ve etkinlikler. Ajan bunu bir projeye döndüğünde çalıştırır ("Config'le devam edelim"); oturum bir projenin klasöründe başlarsa bağlam bu komutu hatırlatır.
 - **`kioku stale`** bilgileri bir süredir kontrol edilmemiş wiki ve proje sayfalarını listeler: varsayılan olarak aktif projeler 60, araçlar, siteler ve servisler 90, kişiler ve kavramlar 180 gün sonra (anime, oyun gibi şeyler hiç) (`review_every:` bunu sayfa başına değiştirir, `reviewed:` son kontrolü tutar). Oturum bağlamı bunları sayar, `kioku lint-check` sorun saymadan listeler; ajan her seferinde birkaçını sana sorar ("Bu hâlâ doğru mu?"), sonra `reviewed:` alanını günceller ya da sayfayı düzeltir.

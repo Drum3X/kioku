@@ -70,6 +70,7 @@ pub fn build(vault: &Path, cwd: &Path, source: &str, agent: &str) -> String {
     if util::autosync(vault) {
         let _ = git::sync(vault, "pull");
     }
+    crate::home::refresh(vault);
     add("# Kioku — session context");
     add(&format!("The user's second brain: {v} (rules: {v}/.kioku/SCHEMA.md and personal rules in {v}/AGENTS.md — read before writing to the vault)."));
     add("The user does not write notes: you record decisions, finished work and durable learnings (kioku skill). Note content follows the source/conversation language; system text is English.");

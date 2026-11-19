@@ -47,6 +47,7 @@ briefly.
 | `wiki/synthesis/` | Comparisons, valuable query answers | You, when the user wants |
 | `index.md` | Map of the brain: topics first, then projects and other catalogues | You, on every new topic or project |
 | `log.md` | Append-only operation log | You, on every operation |
+| `Home.md` | Start page for browsing in Obsidian: coming up, todos, active projects, open threads, recent changes, pages due for review, inbox. Generated, not in git | `kioku home` (at session start and after each commit); **never edit it** |
 | `AGENTS.md` | Points to this schema; the user's personal rules (`CLAUDE.md` imports both for Claude Code) | You, only with the user's approval |
 | `.kioku/` | Link to the system checkout: schema, hooks, skills, CLI, templates | Never from the vault; system changes are made in the checkout |
 
@@ -71,6 +72,7 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku health [--offline]`: checks the whole setup and says how to fix problems; run it when something seems broken (hooks not firing, autosync failing).
 - `kioku check-file <file>`: the write check the PostToolUse hook runs after each vault write; when it reports problems, fix them in the same turn.
 - `kioku lint-check`: broken links, orphan pages, pages in neither the index nor a topic hub, wiki pages without a topic, learned entries missing from the wiki, missing frontmatter; it also lists the pages due for review (not counted as issues).
+- `kioku home [--print]`: writes `Home.md` (it is also refreshed at session start, after each commit and after pulls); `--print` only shows it.
 - `kioku stale [--all]`: wiki and project pages whose facts are due to be checked again (see "Freshness"); `--all` also shows when the others fall due.
 
 Always create new pages with `kioku new`, then edit them. Write files with Edit/Write.
@@ -85,7 +87,7 @@ something, it is lost.
 - **done:** finished work and its result (commit, PR, file, link).
 - **learned:** durable knowledge, the root cause of a problem, a method that worked.
 - **preference:** the user adopting or rejecting an approach.
-- **open:** unfinished work to come back to.
+- **open:** unfinished work to come back to. When it is finished or no longer relevant, change that line's `open:` to `closed:` in place (keep the text) and record a `done` line; Home.md and `kioku context --deep` show only lines still `open:`.
 
 **Do not record:**
 - Transient details.

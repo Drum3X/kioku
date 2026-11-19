@@ -8,9 +8,11 @@ use std::path::Path;
 use std::time::{Duration, SystemTime};
 
 const HOOK: &str = r#"#!/bin/sh
-# kioku: after each commit, push the vault to its git remote (kioku remote on)
+# kioku: after each commit, refresh Home.md and push the vault to its git remote (kioku remote on)
 B="$(git rev-parse --show-toplevel)/.kioku/bin/kioku"
 [ -x "$B" ] && [ -z "${KIOKU_GIT_SYNCING:-}" ] || exit 0
+# Refresh Home.md (the Obsidian start page; not in git), then push with autosync
+( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; nohup "$B" home --auto >/dev/null 2>&1 & )
 [ "$(git config --bool kioku.autosync)" = true ] || exit 0
 ( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; nohup "$B" remote now >/dev/null 2>&1 & )
 exit 0
@@ -141,6 +143,7 @@ fn sync_locked(vault: &Path, mode: &str) -> Result<bool> {
             return Ok(false);
         }
         let _ = fs::remove_file(conflict_file());
+        crate::home::refresh(vault);
         if mode == "pull" {
             return Ok(true);
         }

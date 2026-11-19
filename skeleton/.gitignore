@@ -1,5 +1,7 @@
 # The system is a link to the kioku checkout, versioned in its own repo
 .kioku
+# The start page, generated on each machine (kioku home)
+Home.md
 # Obsidian: per-device state
 .obsidian/workspace*.json
 .obsidian/cache

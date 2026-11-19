@@ -25,7 +25,7 @@ most linked pages. Look for:
 - **Stale claims:** the pages under *Due for review* (`kioku stale`): for each, the claims most likely to have changed (versions, services, prices, a person's job, a project's status). Also pages whose newer sources or daily entries say otherwise. In the report, ask the user about at most five pages ("Is this still true: …?"); on their answer set `reviewed:` to today, correct what changed (with a source), or mark it `(unverified)`. A page that will never change can get `review_every: never`.
 - **Missing pages:** a concept or entity mentioned on many pages but without its own page.
 - **Missing cross-links:** clearly related pages that don't link to each other.
-- **Open threads:** `open:` entries in `daily/` that were closed or forgotten; `projects/` notes with `status: active` that haven't been updated in a long time.
+- **Open threads:** `open:` entries in `daily/` that were done or became moot (propose changing them to `closed:`) or were forgotten; `projects/` notes with `status: active` that haven't been updated in a long time.
 - **Uncited claims:** wiki claims without a source.
 - **Language drift:** pages whose content doesn't match their `lang:`, or that are missing `lang:`.
 - **Categories:** wiki pages without a `Topics:` line or not listed in their hub; hubs that are nearly empty (merge them into a broader hub) or too big (split them, or add headings); two hubs covering the same thing; duplicate pages about the same subject (merge them).
