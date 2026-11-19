@@ -133,6 +133,7 @@ pub fn build(vault: &Path, cwd: &Path, source: &str) -> String {
     }
     if let Some(f) = found {
         add(&format!("## Note for this folder: {}", util::rel(vault, &f)));
+        add(&format!("(Picking up work here after a while: run `{v}/.kioku/bin/kioku context --deep {}` for its decisions, open threads and recent work.)", f.file_stem().unwrap().to_string_lossy()));
         add(sub(util::cap(&compact(&body(&util::read(&f))), 3000)));
         add("");
     }

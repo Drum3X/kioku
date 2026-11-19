@@ -2,6 +2,7 @@
 
 mod calendar;
 mod context;
+mod deep;
 mod fm;
 mod git;
 mod health;
@@ -22,6 +23,8 @@ use std::path::PathBuf;
 const USAGE: &str = r#"Usage: kioku <command> [args]
   context                       Print the session-start context (Core, recent notes, todos, agenda);
                                 pulls first with autosync. For agents without a SessionStart hook
+  context --deep <project|topic>  Everything about one project or topic: the note, decisions, open
+                                threads, learnings and recent work from the daily log, linked pages
   capture "TEXT" | - | --file F | --gui  Drop a thought, link or file into raw/inbox/ (no session needed)
   health [--offline]            Check everything Kioku depends on and say how to fix problems
   check-file FILE...            Frontmatter, links and todo/event checks for just-written files
@@ -83,6 +86,14 @@ fn real_main() -> Result<i32> {
         Ok(0)
     };
     match cmd {
+        "context" if rest.first().map(String::as_str) == Some("--deep") => {
+            let q = rest[1..].join(" ");
+            if q.trim().is_empty() {
+                return util::die("usage: kioku context --deep <project or topic>");
+            }
+            println!("{}", deep::build(&vault, &q));
+            Ok(0)
+        }
         "context" => {
             let cwd = std::env::current_dir().unwrap_or_else(|_| vault.clone());
             println!("{}", context::build(&vault, &cwd, ""));

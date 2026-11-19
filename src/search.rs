@@ -209,26 +209,14 @@ fn recency(d: &Doc) -> f64 {
     }
 }
 
-pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
-    let mut raw = false;
-    let mut limit = 20usize;
-    let mut terms: Vec<String> = Vec::new();
-    let mut it = args.iter();
-    while let Some(a) = it.next() {
-        match a.as_str() {
-            "--raw" => raw = true,
-            "-n" | "--limit" => limit = it.next().and_then(|v| v.parse::<usize>().ok()).filter(|n| *n > 0).unwrap_or(20),
-            _ => terms.push(a.clone()),
-        }
-    }
-    if terms.is_empty() {
-        eprintln!("kioku: usage: kioku search [--raw] [-n N] <term...>");
-        return Ok(2);
-    }
-
+/// Ranked pages for the terms: (query terms, parsed pages, (page index, score, terms matched)),
+/// best first. None when the query is empty after stop words or the vault has no pages.
+/// (page index, score, terms matched)
+type Hit = (usize, f64, usize);
+fn rank(vault: &Path, terms: &[String], raw: bool) -> Option<(Vec<Term>, Vec<Doc>, Vec<Hit>)> {
     let stop: HashSet<String> = words(STOP_WORDS).into_iter().collect();
     let mut query: Vec<Term> = Vec::new();
-    for t in &terms {
+    for t in terms {
         let f = fold(t).trim().to_string();
         if f.is_empty() {
             continue;
@@ -251,7 +239,7 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
     let mut seen = HashSet::new();
     q.retain(|t| seen.insert(t.key().to_string()));
     if q.is_empty() {
-        return Ok(0);
+        return None;
     }
 
     let mut dirs = vec![
@@ -266,7 +254,7 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
     }
     let docs: Vec<Doc> = files.iter().map(|f| parse(vault, f)).collect();
     if docs.is_empty() {
-        return Ok(0);
+        return None;
     }
     let n = docs.len() as f64;
     let avg = docs.iter().map(|d| d.len as f64).sum::<f64>() / n;
@@ -301,6 +289,42 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| docs[a.0].rel.cmp(&docs[b.0].rel))
     });
+    Some((q, docs, results))
+}
+
+/// The best pages for the terms: (relative path, title), private pages left out.
+pub fn top(vault: &Path, terms: &[String], n: usize) -> Vec<(String, String)> {
+    let Some((_, docs, results)) = rank(vault, terms, false) else {
+        return vec![];
+    };
+    results
+        .into_iter()
+        .filter(|r| !docs[r.0].private)
+        .take(n)
+        .map(|r| (docs[r.0].rel.clone(), docs[r.0].title.clone()))
+        .collect()
+}
+
+pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
+    let mut raw = false;
+    let mut limit = 20usize;
+    let mut terms: Vec<String> = Vec::new();
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--raw" => raw = true,
+            "-n" | "--limit" => limit = it.next().and_then(|v| v.parse::<usize>().ok()).filter(|n| *n > 0).unwrap_or(20),
+            _ => terms.push(a.clone()),
+        }
+    }
+    if terms.is_empty() {
+        eprintln!("kioku: usage: kioku search [--raw] [-n N] <term...>");
+        return Ok(2);
+    }
+
+    let Some((q, docs, results)) = rank(vault, &terms, raw) else {
+        return Ok(0);
+    };
 
     let line_hits = |l: &str| {
         let f = fold(l);

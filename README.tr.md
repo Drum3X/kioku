@@ -245,6 +245,7 @@ Normal konuş, hangi dilde istersen. Birkaç örnek:
 | *(ajanınla bir işi bitirirsin)* | `daily/` ve proje notuna bir satır, sonra `Kioku'ya kaydedildi: …` |
 | "bunu beyne at: https://…" | `raw/` altına kaydedilir, ana noktalar konuşulur, özet + kavram/varlık sayfaları, index, log |
 | "X hakkında ne biliyoruz?" | Wikiden `[[kaynaklarla]]` cevap; beyinde bir şey yoksa bunu söyler |
+| "Config'le devam edelim" / "sunucuda nerede kalmıştık?" | `kioku context --deep`: önce eski kararlar, açık işler ve son yapılanlar, sonra iş |
 | "not al: bugün sınavı bitirdim" / "cuma hatırlat: ödevi teslim et" | Bugünün `journal/` dosyasına bir satır (göreli tarihler gerçek tarihe çevrilir) |
 | "yapılacaklarım ne?" / "ödevi yaptım" | Gruplanmış liste / yapılacak yerinde işaretlenir |
 | "bunu kaydet: Ghostty, denemek istediğim GPU terminali" / "fikir: küçük bir zaman döngüsü oyunu" / "şunu öğrendim: `nix why-depends` bağımlılık zincirini gösteriyor" | Her biri için bir wiki sayfası (`entities/`, `ideas/`, `concepts/`), *Linux › Araçlar* gibi bir konu hub'ına eklenir; uygun hub yoksa yenisi açılır ve söylenir |
@@ -261,13 +262,14 @@ açarsan hariç.
 CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosyasına bir bağlantı):
 
 ```
-kioku health | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
+kioku health | capture "<metin>" | context [--deep <proje|konu>] | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
 kioku search [--raw] [-n N] <terim...> | recap [--days N] | stale [--all] | remote on|off|status|now|setup | update [--check] | version | lint-check
 ```
 
 ## Hızlı yakalama ve sorun giderme
 
 - **`kioku capture "metin ya da link"`** bir düşünceyi, yapılacağı ya da linki oturum açmadan `raw/inbox/` klasörüne atar (dosya için `kioku capture --file F`, stdin için `kioku capture -`). Commit edildiği için autosync açıksa diğer makinelere de gider. Sonraki oturum kaç tane beklediğini söyler ve işlemeyi önerir: notlar sanki sohbette söylenmiş gibi journal'a, wikiye ya da takvime gider; linkler ve dosyalar ingest edilir. Klavye kısayolu için `kioku capture --gui` küçük bir pencerede sorar (kdialog ya da zenity); Nix modülünde `programs.kioku.capture.gui = true;` bu araçları ve kısayol atanabilecek bir "Kioku capture" masaüstü girdisini getirir.
+- **`kioku context --deep <proje ya da konu>`** bir projeye ya da konuya geri dönmek için onunla ilgili her şeyi toplar: notun kendisi, iş kaydındaki kararlar, açık işler, öğrenmeler ve son yapılanlar (yeniden eskiye), bağlantılı ve bağlanan sayfalar, ilgili yapılacaklar ve etkinlikler. Ajan bunu bir projeye döndüğünde çalıştırır ("Config'le devam edelim"); oturum bir projenin klasöründe başlarsa bağlam bu komutu hatırlatır.
 - **`kioku stale`** bilgileri bir süredir kontrol edilmemiş wiki ve proje sayfalarını listeler: varsayılan olarak aktif projeler 60, araçlar, siteler ve servisler 90, kişiler ve kavramlar 180 gün sonra (anime, oyun gibi şeyler hiç) (`review_every:` bunu sayfa başına değiştirir, `reviewed:` son kontrolü tutar). Oturum bağlamı bunları sayar, `kioku lint-check` sorun saymadan listeler; ajan her seferinde birkaçını sana sorar ("Bu hâlâ doğru mu?"), sonra `reviewed:` alanını günceller ya da sayfayı düzeltir.
 - **`kioku health`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı ve kuralları, her ajanın kuralları, skill'leri ve hook'ları, git ve autosync, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrolünü atlar.
 

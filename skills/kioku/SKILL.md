@@ -28,6 +28,7 @@ language; headings and entry types stay English.
 | A link, PDF or article: "add it to the brain", "read and process this" | `kioku-ingest` skill |
 | "Check the brain", "clean up", "brain lint" | `kioku-lint` skill |
 | "What did we do today / this week?" | `kioku recap --days N`, then a short summary |
+| "Let's continue with X", "where were we with X?", back on a project after a while | `kioku context --deep X` first, then answer or start the work |
 | "Get to know me", or Core is empty | **Onboarding** |
 
 ## Record
