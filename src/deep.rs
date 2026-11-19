@@ -35,7 +35,16 @@ fn find(vault: &Path, q: &str) -> Option<PathBuf> {
     let matches = |f: &Path, text: &str| {
         let p = fm::field(text, "path");
         let last = p.trim_end_matches('/').rsplit('/').next().unwrap_or("");
-        norm(&stem(f)) == nq || norm(&title_of(text, f)) == nq || (!last.is_empty() && norm(last) == nq)
+        norm(&stem(f)) == nq
+            || norm(&title_of(text, f)) == nq
+            || (!last.is_empty() && norm(last) == nq)
+            || fm::parse(text)
+                .0
+                .get("aliases")
+                .map(fm::Val::str)
+                .unwrap_or_default()
+                .split(',')
+                .any(|a| norm(a) == nq)
     };
     for f in util::md_files(&vault.join("projects")) {
         let t = util::read(&f);
@@ -156,14 +165,22 @@ pub fn build(vault: &Path, q: &str) -> String {
         add("");
     }
 
-    // The daily log: lines tagged with the project (its file name, and the first part of a
-    // hyphenated name: [oracle] for oracle-sunucusu) or linking to the page.
+    // The daily log: lines tagged with the project (its file name, the first part of a
+    // hyphenated name: [oracle] for oracle-sunucusu, and its aliases: names it had before) or
+    // linking to the page.
     let mut tags = Vec::new();
     if rel.starts_with("projects/") {
         let s = stem(Path::new(&rel));
         tags.push(s.clone());
         if let Some((first, _)) = s.split_once('-') {
             tags.push(first.to_string());
+        }
+        let (data, _) = fm::parse(&text);
+        for a in data.get("aliases").map(fm::Val::str).unwrap_or_default().split(',') {
+            let a = a.trim().to_lowercase();
+            if !a.is_empty() && !tags.contains(&a) {
+                tags.push(a);
+            }
         }
     }
     let es = entries(vault, &tags, &link);
