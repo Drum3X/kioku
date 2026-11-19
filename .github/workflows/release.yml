@@ -50,7 +50,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" kioku-* SHA256SUMS --repo "${GITHUB_REPOSITORY}" \
+          # A version with a suffix (0.3.0-beta.1) is published as a pre-release.
+          pre=""; case "${GITHUB_REF_NAME}" in *-*) pre="--prerelease" ;; esac
+          gh release create "${GITHUB_REF_NAME}" kioku-* SHA256SUMS --repo "${GITHUB_REPOSITORY}" $pre \
             --title "${GITHUB_REF_NAME}" --notes "Binaries for Linux (x86_64, aarch64; static musl) and macOS (x86_64, arm64)."
   test:
     runs-on: ubuntu-24.04

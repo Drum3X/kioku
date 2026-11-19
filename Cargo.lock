@@ -284,7 +284,7 @@ dependencies = [
 
 [[package]]
 name = "kioku"
-version = "0.2.4"
+version = "0.3.0-beta.1"
 dependencies = [
  "anyhow",
  "chrono",

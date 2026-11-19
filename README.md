@@ -2,6 +2,8 @@
 
 **English** | [Türkçe](README.tr.md)
 
+> **Beta.** Kioku is in beta: releases are published as pre-releases (`v0.3.0-beta.N`) and things may still change between them.
+
 A personal second brain for AI agents: [Claude Code](https://claude.com/claude-code),
 [Codex](https://developers.openai.com/codex), [Google Antigravity](https://antigravity.google),
 [Hermes Agent](https://github.com/NousResearch/hermes-agent), and any other agent that can read

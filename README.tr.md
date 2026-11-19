@@ -2,6 +2,8 @@
 
 [English](README.md) | **Türkçe**
 
+> **Beta.** Kioku beta aşamasında: sürümler ön sürüm (`v0.3.0-beta.N`) olarak yayınlanıyor ve aralarında hâlâ değişiklik olabilir.
+
 AI ajanları için kişisel ikinci beyin: [Claude Code](https://claude.com/claude-code),
 [Codex](https://developers.openai.com/codex), [Google Antigravity](https://antigravity.google),
 [Hermes Agent](https://github.com/NousResearch/hermes-agent) ve dosya okuyup komut
