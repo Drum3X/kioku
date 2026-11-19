@@ -39,6 +39,8 @@ const USAGE: &str = r#"Usage: kioku <command> [args]
   remote on|off|status|pull|now Keep vault copies on several machines in step via git (pull/push)
   remote setup                  Install the vault's post-commit hook (push after each commit)
   update [--check]              Update Kioku (git pull + install step); --check only looks
+  update --to vX | --rollback   Go to a release tag, or back to the version before the last update (pinned
+                                until the next plain update)
   version                       Print the Kioku version and install fingerprint
   new <type> "<Title>"          Create a page: source|concept|entity|tool|idea|topic|synthesis|project|contact|review
   new event "<Title>" DATE      Create an event in calendar/YYYY/

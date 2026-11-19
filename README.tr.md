@@ -266,7 +266,7 @@ CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosya
 
 ```
 kioku health | capture "<metin>" | context [--agent AD | --deep <proje|konu>] | whoami | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-kioku search [--raw] [-n N] <terim...> | recap [--days N] | stale [--all] | home [--print] | remote on|off|status|now|setup | update [--check] | version | lint-check
+kioku search [--raw] [-n N] <terim...> | recap [--days N] | stale [--all] | home [--print] | remote on|off|status|now|setup | update [--check|--to vX|--rollback] | version | lint-check
 ```
 
 ## Hızlı yakalama ve sorun giderme
@@ -340,6 +340,13 @@ kioku update
 Bu komut checkout'u çeker, kurulum adımını kurduğun seçeneklerle yeniden çalıştırır ve neyin
 değiştiğini listeler. `kioku update --check` yalnızca yeni commit var mı diye bakar,
 `kioku version` kurulu sürümü yazar.
+
+Bir güncelleme bir şeyi bozarsa `kioku update --rollback` güncellemeden önceki sürüme,
+`kioku update --to v0.2.1` istediğin bir sürüme döner. O sürümün ikilisi indirilir ve kurulum
+adımı çalışır; hook'lar ve kurallar da ona uyar. Checkout orada sabit kalır (`kioku health`
+hatırlatır), ta ki düz bir `kioku update` seni yine en son sürüme taşıyana kadar. Notlarına
+dokunulmaz. Nix modülünde bunun yerine flake girdisini sabitle:
+`nix flake lock --override-input kioku github:Drum3X/kioku/v0.2.1`, sonra rebuild.
 
 Bunun yerine düz `git pull` ile güncellersen, sonraki oturum kurulum adımının eskidiğini
 (yeni skill'ler, ayarlar ya da taşımalar) fark eder ve ajan `kioku update` çalıştırmayı önerir.

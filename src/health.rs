@@ -133,6 +133,11 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
             r.ok("Core.md is filled in");
         }
     }
+    if let Some(p) = crate::update::state("pinned") {
+        r.wrn(&format!(
+            "Kioku is pinned to {p} (kioku update --to/--rollback); kioku update returns to the latest"
+        ));
+    }
     let rec = util::record_file();
     if !rec.is_file() {
         r.wrn(&format!("no install record ({}); run: kioku update", rec.display()));

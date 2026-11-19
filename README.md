@@ -267,7 +267,7 @@ The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
 kioku health | capture "<text>" | context [--agent NAME | --deep <project|topic>] | whoami | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
-kioku search [--raw] [-n N] <term...> | recap [--days N] | stale [--all] | home [--print] | remote on|off|status|now|setup | update [--check] | version | lint-check
+kioku search [--raw] [-n N] <term...> | recap [--days N] | stale [--all] | home [--print] | remote on|off|status|now|setup | update [--check|--to vX|--rollback] | version | lint-check
 ```
 
 ## Quick capture and troubleshooting
@@ -341,6 +341,13 @@ kioku update
 This pulls the checkout and re-runs the install step with the options you installed with,
 then lists what changed. `kioku update --check` only looks for new commits, and
 `kioku version` prints the installed version.
+
+If an update breaks something, `kioku update --rollback` goes back to the version you had
+before it, and `kioku update --to v0.2.1` to any release tag. That release's binary is
+downloaded and its install step runs, so hooks and rules match it too. The checkout stays
+pinned there (`kioku health` reminds you) until a plain `kioku update` takes you back to the
+latest. Your notes are not touched. With the Nix module, pin the flake input instead:
+`nix flake lock --override-input kioku github:Drum3X/kioku/v0.2.1`, then rebuild.
 
 If you update with a plain `git pull` instead, the next session notices when the install step
 is out of date (new skills, settings or migrations) and the agent offers to run `kioku update`.
