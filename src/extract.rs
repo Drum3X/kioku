@@ -355,6 +355,10 @@ pub fn run(args: &[String]) -> Result<i32> {
                     .collect();
                 i += 1;
             }
+            "-h" | "--help" => {
+                println!("{usage}\n\nA video link, an audio/video file, a .docx/.odt/.rtf/.epub/.html document or a PDF as a raw/ page\n(frontmatter + the text). -o writes it to FILE (never over an existing one). Tools: yt-dlp,\nffmpeg, pandoc, pdftotext; audio needs whisper or KIOKU_TRANSCRIBE (a command printing the text\nof the audio file given as its last argument).");
+                return Ok(0);
+            }
             a if src.is_none() => src = Some(a.to_string()),
             _ => return die(usage),
         }
