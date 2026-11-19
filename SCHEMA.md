@@ -1,13 +1,17 @@
 # Kioku — schema
 
-The vault (`$VAULT`, given in the Kioku section of `~/.claude/CLAUDE.md`) is the user's
+The vault (`$VAULT`, given in the Kioku section of your agent's global instructions) is the user's
 personal second brain: an Obsidian vault and a git repository. This file defines the rules of
 the system. Follow it before writing anything to the vault.
 
 This file is part of the shared system (`$VAULT/.kioku/` is a link to the kioku
-checkout). The vault's own `CLAUDE.md` imports it and holds the user's **personal rules**,
-which take precedence over this file. When the user wants a rule changed for themselves, ask,
-then write it under "Personal rules" in `$VAULT/CLAUDE.md`. Don't edit this file.
+checkout). The vault's own `AGENTS.md` points to it and holds the user's **personal rules**,
+which take precedence over this file (`CLAUDE.md` only imports both, for Claude Code). When the
+user wants a rule changed for themselves, ask, then write it under "Personal rules" in
+`$VAULT/AGENTS.md`. Don't edit this file.
+
+Kioku works with any agent that can read files and run commands (Claude Code, Codex,
+Antigravity, Hermes and others). "You" in this file is that agent.
 
 **Core principle:** The user does not write notes by hand. You keep every record. The user
 talks, shares links and approves; you write information to the right place, with its source,
@@ -43,7 +47,7 @@ briefly.
 | `wiki/synthesis/` | Comparisons, valuable query answers | You, when the user wants |
 | `index.md` | Map of the brain: topics first, then projects and other catalogues | You, on every new topic or project |
 | `log.md` | Append-only operation log | You, on every operation |
-| `CLAUDE.md` | Imports this schema; the user's personal rules | You, only with the user's approval |
+| `AGENTS.md` | Points to this schema; the user's personal rules (`CLAUDE.md` imports both for Claude Code) | You, only with the user's approval |
 | `.kioku/` | Link to the system checkout: schema, hooks, skills, CLI, templates | Never from the vault; system changes are made in the checkout |
 
 ## Tools
@@ -258,7 +262,7 @@ facts or rules.
 
 ## Relation to the agent's built-in memory
 
-The agent's own memory (Claude Code's auto memory, Antigravity's Knowledge items, Hermes's MEMORY.md and USER.md) is only for
+The agent's own memory (Claude Code's auto memory, Codex's memories, Antigravity's Knowledge items, Hermes's MEMORY.md and USER.md) is only for
 working preferences about how to help the user.
 Knowledge, decisions, projects and the user's profile go into Kioku. Never write the same
 thing in both places.

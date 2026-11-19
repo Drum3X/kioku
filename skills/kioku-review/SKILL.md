@@ -6,8 +6,8 @@ argument-hint: "[week | month | N days | challenge <plan>]"
 
 # kioku-review
 
-Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (`~/.claude/CLAUDE.md` in Claude Code, `~/.gemini/GEMINI.md` in Antigravity).
-Rules: `$VAULT/.kioku/SCHEMA.md` ("Reviews" and "Writing rules"); personal rules in `$VAULT/CLAUDE.md`
+Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (for example `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` or `~/.gemini/GEMINI.md`).
+Rules: `$VAULT/.kioku/SCHEMA.md` ("Reviews" and "Writing rules"); personal rules in `$VAULT/AGENTS.md`
 CLI: `$VAULT/.kioku/bin/kioku`
 
 A review **interprets**: it does not repeat the log line by line (that is `kioku recap`), it says

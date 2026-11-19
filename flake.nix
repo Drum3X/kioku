@@ -1,5 +1,5 @@
 {
-  description = "Kioku: a personal second brain for Claude Code";
+  description = "Kioku: a personal second brain kept by your AI agents (Claude Code, Codex, Antigravity, Hermes …)";
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Kioku — UserPromptSubmit hook: with autosync on, pulls the vault before a prompt (at most once
 # every 30 s), so notes written on another machine (e.g. the phone via a server) show up in a
-# session that was already open. If something came in, Claude is told which files changed.
+# session that was already open. If something came in, the agent is told which files changed.
 set -u
 export PATH="/etc/profiles/per-user/${USER:-$(id -un)}/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:$PATH"
 

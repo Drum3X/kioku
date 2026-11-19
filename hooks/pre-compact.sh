@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Kioku — PreCompact hook: its output becomes instructions for the compaction summary. It asks
 # the summary to list what was not recorded to the vault yet; after the compaction the
-# SessionStart hook (source "compact") asks Claude to record those items while the details are
+# SessionStart hook (source "compact") asks the agent to record those items while the details are
 # still known. Disable with KIOKU_STOP_CHECK=0 (same switch as the Stop reminder).
 set -u
 [ "${KIOKU_STOP_CHECK:-1}" = "0" ] && exit 0

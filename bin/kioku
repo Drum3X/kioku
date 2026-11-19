@@ -384,7 +384,7 @@ cmd_lint_check() {
     local r; r="$(resolve "$link")"
     if [ -z "$r" ]; then echo "- $src → [[$link]]"; broken=$((broken+1)); continue; fi
     [ "$src" != "$r" ] && [ "$src" != "index.md" ] && inbound["$r"]=1
-  done < <(wikilinks --glob '!.kioku/**' --glob '!CLAUDE.md' .)
+  done < <(wikilinks --glob '!.kioku/**' --glob '!CLAUDE.md' --glob '!AGENTS.md' .)
   [ "$broken" -eq 0 ] && echo "(none)"; issues=$((issues+broken))
 
   local -a pages=()
@@ -451,7 +451,7 @@ cmd_check_file() {
   local -a files=(); local f
   for f in "$@"; do
     f="${f#"$VAULT"/}"
-    case "$f" in /*|raw/*|.kioku/*|.obsidian/*|.git/*|.claude/*|CLAUDE.md) continue ;; *.md) ;; *) continue ;; esac
+    case "$f" in /*|raw/*|.kioku/*|.obsidian/*|.git/*|.claude/*|.codex/*|CLAUDE.md|AGENTS.md) continue ;; *.md) ;; *) continue ;; esac
     [ -f "$f" ] && files+=("$f")
   done
   [ ${#files[@]} -gt 0 ] || return 0
@@ -502,7 +502,9 @@ cmd_health() {
   echo "Vault"
   if [ -e "$VAULT/.kioku/SCHEMA.md" ]; then ok ".kioku → $(readlink "$VAULT/.kioku" 2>/dev/null || echo "$VAULT/.kioku")"
   else bad "$VAULT/.kioku is missing or broken; run the installer again"; fi
-  if grep -qF '@.kioku/SCHEMA.md' "$VAULT/CLAUDE.md" 2>/dev/null; then ok "CLAUDE.md imports the schema"; else bad "$VAULT/CLAUDE.md does not import the schema; add the line @.kioku/SCHEMA.md"; fi
+  if [ ! -f "$VAULT/AGENTS.md" ]; then bad "$VAULT/AGENTS.md is missing (the rules every agent reads); run: kioku update"
+  elif grep -qF '.kioku/SCHEMA.md' "$VAULT/AGENTS.md"; then ok "AGENTS.md points to the schema"
+  else bad "$VAULT/AGENTS.md does not mention .kioku/SCHEMA.md; add a line telling the agent to read it"; fi
   if [ ! -f "$VAULT/Core.md" ]; then bad "Core.md is missing"
   elif grep -qE '(kioku|brain):empty' "$VAULT/Core.md"; then wrn "Core.md is still empty; say \"get to know me\" in a session"
   else ok "Core.md is filled in"; fi
@@ -514,8 +516,13 @@ cmd_health() {
     else wrn "Kioku changed since its install step ran; run: kioku update (Nix module: rebuild)"; fi
   fi
 
+  # Each agent is checked only where it is set up (the install record's agents= line).
+  local agents; agents=" $(sed -n 's/^agents=//p' "$rec" 2>/dev/null) "
+  local S="$HOME/.claude/settings.json" h ev sc missing=() n d
+  if [[ "$agents" == *" claude "* ]]; then
   echo "Claude Code"
-  local S="$HOME/.claude/settings.json" h ev sc
+  if grep -qxF '@AGENTS.md' "$VAULT/CLAUDE.md" 2>/dev/null && grep -qxF '@.kioku/SCHEMA.md' "$VAULT/CLAUDE.md"; then ok "vault CLAUDE.md imports AGENTS.md and the schema"
+  else bad "$VAULT/CLAUDE.md should hold the two lines @AGENTS.md and @.kioku/SCHEMA.md; run: kioku update"; fi
   if [ -f "$S" ]; then
     for h in SessionStart:session-start.sh UserPromptSubmit:prompt-pull.sh PostToolUse:post-write.sh PreCompact:pre-compact.sh Stop:stop-check.sh; do
       ev="${h%%:*}"; sc="${h#*:}"
@@ -523,22 +530,37 @@ cmd_health() {
       then ok "$ev hook"; else bad "$ev hook is not wired; run: kioku update"; fi
     done
   else bad "$S not found; run the installer"; fi
-  local missing=() n d
   for d in "$sys"/skills/*/; do n="$(basename "$d")"; [ -e "$HOME/.claude/skills/$n/SKILL.md" ] || missing+=("$n"); done
   if [ ${#missing[@]} -eq 0 ]; then ok "skills linked"; else bad "skills not linked: ${missing[*]}; run: kioku update"; fi
   if grep -q 'kioku:start' "$HOME/.claude/CLAUDE.md" 2>/dev/null; then ok "~/.claude/CLAUDE.md has the Kioku block"; else bad "~/.claude/CLAUDE.md has no Kioku block; run: kioku update"; fi
-
-  if [ -d "$HOME/.gemini" ]; then
-    echo "Antigravity"
-    if [[ " $flags " == *" --no-antigravity "* ]]; then ok "turned off (--no-antigravity)"
-    else
-      if grep -q 'kioku:start' "$HOME/.gemini/GEMINI.md" 2>/dev/null; then ok "GEMINI.md has the Kioku block"; else bad "~/.gemini/GEMINI.md has no Kioku block; run: kioku update"; fi
-      missing=(); for d in "$sys"/skills/*/; do n="$(basename "$d")"; [ -e "$HOME/.gemini/config/skills/$n/SKILL.md" ] || missing+=("$n"); done
-      if [ ${#missing[@]} -eq 0 ]; then ok "skills linked"; else bad "skills not linked: ${missing[*]}; run: kioku update"; fi
-      if jq -e 'has("kioku-session-start") and has("kioku-pull") and has("kioku-stop")' "$HOME/.gemini/config/hooks.json" >/dev/null 2>&1
-      then ok "hooks in hooks.json"; else bad "Kioku hooks missing from ~/.gemini/config/hooks.json; run: kioku update"; fi
-    fi
   fi
+
+  local CX="${CODEX_HOME:-$HOME/.codex}"
+  if [[ "$agents" == *" codex "* ]]; then
+    echo "Codex"
+    if grep -q 'kioku:start' "$CX/AGENTS.md" 2>/dev/null; then ok "$CX/AGENTS.md has the Kioku block"; else bad "$CX/AGENTS.md has no Kioku block; run: kioku update"; fi
+    missing=(); for d in "$sys"/skills/*/; do n="$(basename "$d")"; [ -e "$HOME/.agents/skills/$n/SKILL.md" ] || missing+=("$n"); done
+    if [ ${#missing[@]} -eq 0 ]; then ok "skills linked (~/.agents/skills)"; else bad "skills not linked: ${missing[*]}; run: kioku update"; fi
+    if jq -e --arg c "$VAULT/.kioku/hooks/codex.sh" '[.hooks[]?[]?.hooks[]?.command // empty | select(startswith($c))] | length >= 4' "$CX/hooks.json" >/dev/null 2>&1
+    then ok "hooks in hooks.json (trust them once with /hooks in Codex)"; else bad "Kioku hooks missing from $CX/hooks.json; run: kioku update"; fi
+    if grep -qF "\"$VAULT\"" "$CX/config.toml" 2>/dev/null; then ok "the vault is a writable root of Codex's sandbox"
+    else wrn "the vault is not in writable_roots of $CX/config.toml; Codex can only write to it when started inside it"; fi
+  fi
+
+  if [[ "$agents" == *" antigravity "* ]]; then
+    echo "Antigravity"
+    if grep -q 'kioku:start' "$HOME/.gemini/GEMINI.md" 2>/dev/null; then ok "GEMINI.md has the Kioku block"; else bad "~/.gemini/GEMINI.md has no Kioku block; run: kioku update"; fi
+    missing=(); for d in "$sys"/skills/*/; do n="$(basename "$d")"; [ -e "$HOME/.gemini/config/skills/$n/SKILL.md" ] || missing+=("$n"); done
+    if [ ${#missing[@]} -eq 0 ]; then ok "skills linked"; else bad "skills not linked: ${missing[*]}; run: kioku update"; fi
+    if jq -e 'has("kioku-session-start") and has("kioku-pull") and has("kioku-stop")' "$HOME/.gemini/config/hooks.json" >/dev/null 2>&1
+    then ok "hooks in hooks.json"; else bad "Kioku hooks missing from ~/.gemini/config/hooks.json; run: kioku update"; fi
+  fi
+
+  if [[ "$agents" == *" hermes "* ]]; then
+    echo "Hermes"
+    if grep -q 'kioku:start' "$VAULT/.hermes.md" 2>/dev/null; then ok ".hermes.md has the Kioku block"; else bad "$VAULT/.hermes.md has no Kioku block; run: kioku update"; fi
+  fi
+  [ "$agents" = "  " ] && wrn "no agent is set up (install record has no agents= line); run: kioku update"
 
   echo "Git"
   local g=(git -C "$VAULT")
@@ -563,7 +585,7 @@ cmd_health() {
 
   echo "Vault health"
   local lt; lt="$(cmd_lint_check 2>/dev/null | sed -n 's/^Total issues: //p')"
-  if [ "${lt:-0}" -eq 0 ]; then ok "lint-check: no issues"; else wrn "lint-check: $lt issue(s); run: kioku lint-check, or ask Claude to \"check the brain\""; fi
+  if [ "${lt:-0}" -eq 0 ]; then ok "lint-check: no issues"; else wrn "lint-check: $lt issue(s); run: kioku lint-check, or ask your agent to \"check the brain\""; fi
 
   echo
   echo "$fails problem(s), $warns warning(s)"

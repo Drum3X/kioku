@@ -8,7 +8,7 @@ private: false
 ---
 # Core
 
-<!-- kioku:empty — Claude fills this in by getting to know the user, in the user's language. Every change needs the user's approval. Delete this line once filled. -->
+<!-- kioku:empty — the agent fills this in by getting to know the user, in the user's language. Every change needs the user's approval. Delete this line once filled. -->
 
 ## Identity and how to address
 

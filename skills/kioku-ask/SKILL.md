@@ -6,8 +6,8 @@ argument-hint: "<question>"
 
 # kioku-ask
 
-Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (`~/.claude/CLAUDE.md` in Claude Code, `~/.gemini/GEMINI.md` in Antigravity).
-Rules: `$VAULT/.kioku/SCHEMA.md` (Query section); personal rules in `$VAULT/CLAUDE.md`
+Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (for example `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` or `~/.gemini/GEMINI.md`).
+Rules: `$VAULT/.kioku/SCHEMA.md` (Query section); personal rules in `$VAULT/AGENTS.md`
 CLI: `$VAULT/.kioku/bin/kioku`
 
 1. **Search.** Read `$VAULT/index.md` › Topics and the relevant topic hubs (`wiki/topics/`) first. Extract the 2–5 key terms from the question and run one `kioku search <term> <term> …` with all of them; results are ranked, and a page does not need every term. Quote a term that must match as a phrase (`"dark mode"`). Pages may be in different languages, so add the likely terms of the sources' languages to the same command (for example the English term too), or run a second search if the first finds nothing useful. For decisions and past work, look at results in `daily/` and `projects/` as well.

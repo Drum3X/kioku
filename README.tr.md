@@ -2,67 +2,89 @@
 
 [English](README.md) | **Türkçe**
 
-[Claude Code](https://claude.com/claude-code) için kişisel bir ikinci beyin. Sen konuşursun,
-notları Claude tutar.
+AI ajanları için kişisel ikinci beyin: [Claude Code](https://claude.com/claude-code),
+[Codex](https://developers.openai.com/codex), [Google Antigravity](https://antigravity.google),
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) ve dosya okuyup komut
+çalıştırabilen her ajan. Sen konuşursun, notları ajan tutar.
 
-- **Hafıza:** Claude seni, aldığın kararları ve üzerinde çalıştığın işleri oturumlar ve projeler arasında hatırlar.
-- **Wiki:** verdiğin linkler ve PDF'ler birbirine bağlı ve zamanla büyüyen bir wiki'ye işlenir. Bu, Andrej Karpathy'nin [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) örüntüsüne dayanıyor.
-- **Günlük:** kendi notların, yapılacakların ve fikirlerin, söylediğin anda sohbetten kaydedilir.
+- **Hafıza:** ajanın kim olduğunu, ne karar verdiğini ve neyle uğraştığını hatırlar; oturumlar ve projeler arasında.
+- **Wiki:** verdiğin linkler ve PDF'ler, Andrej Karpathy'nin [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) desenine göre, büyümeye devam eden ve birbirine bağlı bir wikiye derlenir.
+- **Journal:** kendi notların, yapılacakların ve fikirlerin; söylediğin anda sohbetten alınır.
 
-Her şey senin klasöründe düz Markdown dosyaları olarak durur. Klasörü
-[Obsidian](https://obsidian.md) vault'u olarak açabilirsin ve git ile sürümlenir. Sunucu,
-veritabanı ya da API anahtarı gerekmez; hook'lar küçük bash betikleridir.
+Her şey sana ait bir klasörde düz Markdown. Klasörü [Obsidian](https://obsidian.md) vault'u
+olarak açabilirsin ve git ile sürümlenir. Kendine ait bir sunucusu, veritabanı ya da API anahtarı
+yok; hook'lar küçük bash betikleri. Aynı vault her ajanla çalışır: aracı değiştirsen ya da
+birkaçını birlikte kullansan da tek bir hafızan olur.
 
 ## Nasıl çalışır
 
 ```
-~/Documents/Kioku/            vault'un (özel, kendi git deposun)
-  CLAUDE.md                   şemayı içe alır + kişisel kuralların
+~/Documents/Kioku/            vault'un (özel, kendi git reponda)
+  AGENTS.md                   her ajanı şemaya yönlendirir + kişisel kuralların
+  CLAUDE.md                   Claude Code için iki satır: AGENTS.md'yi ve şemayı içe alır
   Core.md                     sen kimsin: "beni tanı" röportajıyla dolar
-  daily/                      Claude'un iş kaydı: kararlar, sonuçlar, öğrenimler, açık uçlar
+  daily/                      ajanın iş kaydı: kararlar, sonuçlar, öğrenimler, açık uçlar
   journal/                    zaman çizelgen: yaptıkların, yapılacaklar (tarihli), kaydettiklerin
   calendar/                   etkinlikler, her biri bir sayfa
   contacts/                   kişiler ve iletişim bilgileri
   projects/                   proje başına bir not: durum, sonraki adım, kararlar
+  reviews/                    haftalık ya da aylık değerlendirmeler
   raw/                        işlenen kaynakların birebir kopyası (asla değiştirilmez)
   wiki/                       derlenen sayfalar: topics/ (kategori hub'ları) concepts/ entities/ ideas/ sources/ synthesis/
   index.md  log.md            beynin haritası (önce konular), yalnızca sona eklenen işlem kaydı
-  .kioku → kioku/      bu repoya bağlantı: şema, hook'lar, skill'ler, CLI, şablonlar
+  .kioku → kioku/             bu repoya bağlantı: şema, hook'lar, skill'ler, CLI, şablonlar
 ```
 
-Claude Code'a dört noktadan bağlanır:
+Üç parça her ajanla çalışır:
 
-- **SessionStart hook'u:** hangi projede olursa olsun her oturum yaklaşık 1k token'lık kısa bir bağlamla başlar: `Core.md`, o klasörün notu, aktif projeler, vakti gelen yapılacaklar, iş kaydının son iki günü ve bir wiki özeti. Günlüğün bu bağlama girmez; tek istisna vakti gelen yapılacaklardır.
-- **Stop hook'u:** Claude'dan iki durumda, her biri için bir kez, kayıt yapması istenir:
-  - oturumda gerçek bir iş yapılmış ama hiçbir şey kaydedilmemişse;
-  - bir öğrenme iş günlüğüne yazılmış ama wikiye işlenmemişse.
-
-  Kısa soru-cevap oturumlarına karışmaz.
-- **Yazma kontrolü (PostToolUse):** Claude vault'a bir dosya yazar yazmaz frontmatter'ı, `Topics:` satırı, `[[bağlantılar]]` ve yapılacaklar/etkinlikler kontrol edilir; Claude hatayı aynı turda düzeltir.
-- **Sıkıştırmadan önce (PreCompact):** uzun bir oturum sıkıştırılırken özet henüz kaydedilmemiş şeyleri listeler, Claude da hemen ardından onları kaydeder.
-- **Her mesajdan önce (UserPromptSubmit):** autosync açıksa önce vault pull edilir, böylece başka makinede yazılan notlar görünür.
-- **Skill'ler:**
-  - `kioku` hafızayı kaydeder ve tanışma röportajını yürütür;
+- **Şema ([SCHEMA.md](SCHEMA.md)):** ajanın uyduğu kurallar: ne nereye gider, diller, kaynak gösterme, asla yazılmayacaklar (sırlar), commit biçimi, güvenilmeyen içerik.
+- **Skill'ler** (standart `SKILL.md` klasörleri):
+  - `kioku` hafızayı kaydeder ve tanışma röportajını yapar;
   - `kioku-journal` zaman çizelgeni ve yapılacaklarını tutar;
-  - `kioku-note` araçları, siteleri, fikirleri ve öğrendiklerini konu hub'larında kategorize edilmiş, birbirine bağlı wiki sayfalarına dönüştürür;
-  - `kioku-calendar` ve `kioku-contacts` etkinlikleri ve kişileri tutar;
+  - `kioku-note` araçları, siteleri, fikirleri ve öğrendiklerini konu hub'larında kategorilenmiş, birbirine bağlı wiki sayfalarına çevirir;
+  - `kioku-calendar` ve `kioku-contacts` etkinlikleri ve iletişim bilgilerini tutar;
   - `kioku-ingest` kaynak ekler;
   - `kioku-ask` kaynak göstererek cevap verir;
-  - `kioku-lint` sağlık kontrolü yapar.
-- **Şema ([SCHEMA.md](SCHEMA.md)):** Claude'un uyduğu kurallar: neyin nereye yazılacağı, diller, kaynak gösterme, asla yazılmayacaklar (sırlar), commit biçimi.
+  - `kioku-lint` notların sağlık kontrolünü yapar;
+  - `kioku-review` haftalık değerlendirme yazar ve planları sorgular.
+- **CLI (`kioku`):** bağlam, arama, yapılacaklar, ajanda, yeni sayfa, kontroller, git eşitlemesi.
 
-Şemanın ana fikri LLM Wiki'den geliyor: her soruda ham belgeleri yeniden aramak (RAG)
-yerine, Claude bir kaynağı bir kez okur ve kavram ve varlık sayfalarına işler. Çelişkiler
-işaretlenir ve her iddia kaynağına bağlı kalır.
+Bunların üstüne installer, makinede bulduğu her ajanı bağlar. Her biri şunları alır:
+
+| | Claude Code | Codex | Antigravity | Hermes | Diğer ajanlar |
+| --- | --- | --- | --- | --- | --- |
+| Kurallar | `~/.claude/CLAUDE.md` | `~/.codex/AGENTS.md` | `~/.gemini/GEMINI.md` | vault'taki `.hermes.md` | vault'taki `AGENTS.md` |
+| Skill'ler | `~/.claude/skills/` | `~/.agents/skills/` | `~/.gemini/config/skills/` | `skills.external_dirs` | `.kioku/skills/` klasörünü göster |
+| Oturum başında bağlam | hook | hook | hook | `kioku context` | `kioku context` |
+| Her mesajdan önce çekme (autosync) | hook | hook | hook | — | — |
+| Yazma kontrolü | hook | hook | — | — | — |
+| Sonda kayıt hatırlatması | hook | hook | hook | — | — |
+| Sıkıştırmadan önce not | hook | — | — | — | — |
+
+Hook'lar:
+
+- **Oturum başı:** her oturum, hangi projede olursa olsun, yaklaşık 1k token'lık kısa bir bağlamla başlar: `Core.md`, bulunduğun klasörün notu, aktif projeler, yaklaşan yapılacaklar ve etkinlikler, iş kaydının son iki günü ve bir wiki özeti. Journal'ın, yaklaşan yapılacaklar dışında, bağlama girmez. Hook olmayan yerde kurallar ajana `kioku context`'i kendisinin çalıştırmasını söyler.
+- **Her mesajdan önce:** autosync açıksa vault önce çekilir; başka makinede yazılan notlar görünür.
+- **Yazma kontrolü:** ajan vault'a bir dosya yazar yazmaz frontmatter'ı, `Topics:` satırı, `[[bağlantılar]]` ve yapılacaklar/etkinlikler kontrol edilir; ajan hatayı aynı turda düzeltir.
+- **Kayıt hatırlatması:** ajandan iki durumda, her biri için bir kez, kayıt istenir:
+  - oturumda gerçek iş yapıldı ama hiçbir şey kaydedilmedi;
+  - bir öğrenme iş kaydına yazıldı ama wikiye işlenmedi.
+
+  Kısa soru-cevap oturumlarına karışılmaz.
+- **Sıkıştırmadan önce:** uzun bir oturum sıkıştırılırken özet, henüz kaydedilmemiş olanları listeler; ajan hemen ardından onları kaydeder.
+
+Şemanın ana fikri LLM Wiki'den geliyor: her soruda ham belgelerde arama yapmak (RAG) yerine
+ajan bir kaynağı bir kez okur ve kavram ve varlık sayfalarına işler. Çelişkiler işaretlenir ve
+her iddia kaynağına bağlı kalır.
 
 ## Gereksinimler
 
-- Claude Code
-- bash 4+, `jq`, `ripgrep`, `git` (Nix paketi bunları kendisi getirir)
-- `node` (isteğe bağlı): Latin dışı başlıklardan dosya adı üretmek için (`машинное-обучение.md`, `機械学習.md`)
-- Obsidian (isteğe bağlı): sadece gezinmek için
+- Dosya okuyup kabuk komutu çalıştırabilen bir AI ajanı (yukarıdaki tabloya bak)
+- bash 4+, `jq`, `ripgrep`, `git` (Nix paketi kendininkileri getirir)
+- `node` (önerilir): sıralı arama, ajanda ve Latin dışı başlıklardan dosya adı (`машинное-обучение.md`, `機械学習.md`)
+- Obsidian (isteğe bağlı): yalnızca gezinmek için
 
-Linux'ta (NixOS) geliştirildi ve kullanılıyor. macOS'ta daha yeni bir bash ile çalışması beklenir (`brew install bash jq ripgrep`). Windows'ta WSL kullan. macOS ve Windows henüz test edilmedi.
+Linux'ta (NixOS) geliştiriliyor ve kullanılıyor. macOS daha yeni bir bash ile çalışmalı (`brew install bash jq ripgrep`). Windows'ta WSL kullan. macOS ve Windows henüz denenmedi.
 
 ## Kurulum
 
@@ -85,20 +107,26 @@ inputs.kioku = {
   programs.kioku = {
     enable = true;
     vault = "${config.home.homeDirectory}/Documents/Kioku"; # varsayılan
+    # claudeCode = false; codex = false; antigravity = false;   # bir ajana dokunmamak için
   };
 }
 ```
 
-Modül şunları yapar:
-- **Komut:** `kioku` komutunu ve kullandığı araçları (`jq`, `ripgrep`, `git`, `node`) PATH'e koyar.
-- **Bağlantılar:** her switch'te `install.sh` ile aynı adımları çalıştırır. Vault'taki `.kioku` bağlantısı Nix store'daki pakete gider; sürüm `flake.lock`'ta sabittir.
+Modül şöyle çalışır:
+- **Komut:** `kioku`'yu ve araçlarını (`jq`, `ripgrep`, `git`, `node`) PATH'e koyar.
+- **Bağlama:** her switch'te `install.sh` ile aynı adımları çalıştırır. Vault'taki `.kioku` bağlantısı Nix store'daki pakete gider, sürüm `flake.lock` dosyanda sabitlenir.
 - **Güncelleme:** `nix flake update kioku`, ardından rebuild.
 
-`~/.claude/settings.json` ve `~/.claude/CLAUDE.md` dosyalarını Claude Code da düzenlediği için modül bu dosyaların sahibi olmaz. Kendi satırlarını, `install.sh` gibi, onlara ekler.
+Ajanların dosyalarını (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.codex/config.toml` …)
+ajanların kendileri de düzenler. Modül bu dosyaları sahiplenmez; `install.sh` gibi kendi
+girdilerini içlerine ekler.
 
-**Kioku'nun kendisi üzerinde çalışıyorsan:** `programs.kioku.source = "/checkout/yolu";` ayarla. Vault o zaman bu checkout'a bağlanır ve yaptığın değişiklikler rebuild gerektirmeden geçerli olur. Sabit sürüme dönmek için satırı sil.
+**Kioku üzerinde çalışırken:** `programs.kioku.source = "/checkout/yolu";` ayarla. Vault o
+checkout'a bağlanır, değişikliklerin rebuild gerekmeden etkili olur. Sabitlenmiş sürüme dönmek
+için satırı sil.
 
-**Kaldırma:** modülü kapatmak Claude Code bağlantılarını kaldırmaz. Önce paketteki `kioku-install --uninstall` komutunu çalıştır.
+**Kaldırma:** modülü kapatmak ajanlardaki bağlantıları kaldırmaz. Önce paketteki
+`kioku-install --uninstall` komutunu çalıştır.
 
 ### Diğer sistemler
 
@@ -110,84 +138,68 @@ git clone https://github.com/Drum3X/kioku ~/Projects/kioku
 ~/Projects/kioku/install.sh
 ```
 
-Klonladığın klasörü yerinde bırak, çünkü vault ona bağlanıyor. Varsayılan vault
-`~/Documents/Kioku`. Başka bir klasör ya da mevcut bir Obsidian vault'u için `--vault YOL`
-kullan; mevcut notlarına dokunulmaz. Kurulum betiği şunları yapar:
+Checkout'u klonladığın yerde bırak: vault ona bağlanır. Varsayılan vault `~/Documents/Kioku`;
+başka bir klasör ya da mevcut bir Obsidian vault'u için `--vault YOL` ver (notlarına
+dokunulmaz). Installer:
 
-1. vault klasörlerini ve başlangıç dosyalarını oluşturur. Var olan dosyaları asla ezmez.
-2. `vault/.kioku`'i bu klasöre bağlar; vault henüz bir git deposu değilse `git init` çalıştırır.
-3. skill'leri `~/.claude/skills/` altına, `kioku` komutunu da `~/.local/bin/` altına bağlar (bu klasör `PATH`'te değilse uyarır).
-4. `~/.claude/CLAUDE.md` dosyasına kısa bir Kioku bölümü ekler.
-5. `~/.claude/settings.json` dosyasına hook'ları, vault için okuma/düzenleme izinlerini ve bir sandbox yazma kuralını ekler. Yedeği `settings.json.kioku.bak` olarak saklanır.
+1. vault klasörlerini ve başlangıç dosyalarını oluşturur. Var olan dosyaların üzerine asla yazmaz.
+2. `vault/.kioku`'yu checkout'a bağlar; vault henüz bir repo değilse `git init` çalıştırır.
+3. `kioku` komutunu `~/.local/bin/` içine bağlar (o klasör `PATH`'te değilse uyarır).
+4. bulduğu her ajanı bağlar ([Ajanlar](#ajanlar) bölümüne bak); `--no-claude`, `--no-codex`, `--no-antigravity` ve `--no-hermes` bir ajana dokunmaz ve orada kurulanları kaldırır.
 
-Tekrar çalıştırmak güvenli. Sonra yeni bir Claude Code oturumu aç ve **"beni tanı"** de.
+Tekrar çalıştırmak güvenli. Sonra ajanında yeni bir oturum aç ve **"beni tanı"** de.
 
-## Kullanım
+## Ajanlar
 
-Normal konuş, istediğin dilde. Birkaç örnek:
+### Claude Code
 
-| Sen dersin ki | Ne olur |
-| --- | --- |
-| "beni tanı" | Sen bitir diyene kadar tek tek soru sorulan açık uçlu bir röportaj; sonunda onayına sunulan bir `Core.md` taslağı |
-| *(Claude ile bir işi bitirirsin)* | `daily/` ve proje notuna birer satır, ardından `Beyne kaydettim: …` |
-| "bunu beyne at: https://…" | `raw/`'a kaydedilir, ana fikirler konuşulur, özet ve kavram/varlık sayfaları yazılır, index ve log güncellenir |
-| "X hakkında ne biliyoruz?" | Wiki'den `[[kaynaklı]]` cevap; beyinde yoksa bunu söyler |
-| "not al: bugün sınavı bitirdim" / "cuma için hatırlat: ödev teslimi" | Bugünkü `journal/` dosyasına bir satır ("cuma" gibi göreli tarihler gerçek tarihe çevrilir) |
-| "yapılacaklarım ne?" / "ödevi bitirdim" | Gruplanmış liste / ilgili madde yerinde işaretlenir |
-| "kaydet: Ghostty, denemek istediğim GPU hızlandırmalı terminal" / "fikir: zaman döngülü küçük bir oyun" / "şunu öğrendim: `nix why-depends` bağımlılık zincirini gösterir" | Her biri bir wiki sayfası olur (`entities/`, `ideas/`, `concepts/`) ve *Linux › Tools* gibi bir konu hub'ına yerleşir; uyan konu yoksa yeni hub açılır ve haber verilir |
-| "cuma 14:00 diş randevusu" / "her pazartesi 10:00 ders" / "yarınki toplantıyı iptal et" | `calendar/` altında bir sayfa, ajandada görünür |
-| "Ahmet'i rehbere ekle, numarası …" | `contacts/` altında bir sayfa |
-| "bu hafta ne yaptım?" | `kioku recap` özeti |
-| "beyni kontrol et" | Önce bir lint raporu, düzeltmeler ancak senin onayınla |
-| *(terminalde ya da kısayolla)* `kioku capture "yarın bankayı ara"` | Oturum açmadan `raw/inbox/` klasörüne düşer; sonraki oturum işlemeyi önerir |
+`~/.claude` varsa ya da `claude` komutu bulunursa:
 
-`Core.md` değişiklikleri her zaman senin onayını ister. Geri kalan her şey sormadan
-kaydedilir ve her yazım vault'unda bir git commit'i olur. Claude, birden fazla makine için `kioku remote`'u açmadıysan asla push yapmaz; o sana kalmış.
+- **Kurallar:** `~/.claude/CLAUDE.md` içinde bir Kioku bölümü; vault'un kendi `CLAUDE.md`'si `AGENTS.md`'yi ve şemayı içe alır.
+- **Skill'ler:** `~/.claude/skills/` içine bağlanır.
+- **Hook'lar ve izinler:** beş hook'un hepsi, vault için okuma/düzenleme izinleri ve bir sandbox yazma kuralı `~/.claude/settings.json` dosyasına eklenir. Yedeği `settings.json.kioku.bak` olarak saklanır.
 
-CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosyasına bir bağlantı):
+### Codex
 
-```
-kioku health | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-kioku search [--raw] [-n N] <terim...> | recap [--days N] | remote on|off|status|now|setup | update [--check] | version | lint-check
-```
+`~/.codex` (ya da `$CODEX_HOME`) varsa veya `codex` komutu bulunursa:
 
-## Hızlı yakalama ve sorun giderme
+- **Kurallar:** `~/.codex/AGENTS.md` içinde bir Kioku bölümü. Codex vault'un içindeyken vault'un `AGENTS.md`'sini de kendisi okur.
+- **Skill'ler:** Codex'in ve başka ajanların okuduğu ortak klasöre, `~/.agents/skills/` içine bağlanır.
+- **Hook'lar:** `~/.codex/hooks.json` dosyasına dört girdi (oradaki diğer hook'lar korunur), `hooks/codex.sh` üzerinden çalışır:
+  - `SessionStart` oturum bağlamını ekler;
+  - `UserPromptSubmit` autosync ile vault'u çeker;
+  - `PostToolUse` oturumun araç çağrılarını sayar ve `apply_patch` ile değişen dosyalarda yazma kontrolünü yapar;
+  - `Stop` bir kez kayıt ister, ardından vault'u push eder.
 
-- **`kioku capture "metin ya da link"`** bir düşünceyi, yapılacağı ya da linki oturum açmadan `raw/inbox/` klasörüne atar (dosya için `kioku capture --file F`, stdin için `kioku capture -`). Commit edildiği için autosync açıksa diğer makinelere de gider. Sonraki oturum kaç tane beklediğini söyler ve işlemeyi önerir: notlar sanki sohbette söylenmiş gibi journal'a, wikiye ya da takvime gider; linkler ve dosyalar ingest edilir. Klavye kısayolu için `kioku capture --gui` küçük bir pencerede sorar (kdialog ya da zenity); Nix modülünde `programs.kioku.capture.gui = true;` bu araçları ve kısayol atanabilecek bir "Kioku capture" masaüstü girdisini getirir.
-- **`kioku health`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı, hook'lar, skill'ler, Antigravity, git ve autosync, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrolünü atlar.
+  Codex hook'ları ancak sen onlara güvendikten sonra çalıştırır: yeni bir oturumda bir kez `/hooks` çalıştırıp Kioku'nunkileri onayla.
+- **Sandbox:** vault, `~/.codex/config.toml` içindeki `writable_roots`'a eklenir; böylece Codex her projeden vault'a yazabilir. Dosyada zaten bir `[sandbox_workspace_write]` tablosu varsa installer ona dokunmaz ve vault'u oraya senin eklemeni ister. Codex'in sandbox'ındaki komutların ağ erişimi yoktur; orada yapılan commit'i turun sonunda `Stop` hook'u push eder.
+- **Yok:** sıkıştırmadan önceki not (Codex'in `PreCompact` hook'u özete talimat ekleyemiyor).
 
-## Takvim, rehber ve yapılacaklar
+Codex'in konuşma kaydı biçimi kararlı bir arayüz değil; bu yüzden kayıt hatırlatması onu okumaz:
+araç hook'u ihtiyaç duyduğunu `~/.local/state/kioku/codex/` altında tutar.
 
-Etkinlikler (`calendar/`), kişiler (`contacts/`) ve journal'daki yapılacaklar vault'ta not
-olarak durur. Oturum bağlamı ve `kioku agenda` / `kioku todo --soon` yaklaşanları gösterir.
-Kioku başka takvimlere bir şey göndermez ve kendisi hatırlatma çalmaz; istersen bunu üstüne
-kurabilirsin, örneğin bir Hermes cron işiyle (aşağıya bak).
-## Birden fazla makine ve telefon (isteğe bağlı)
+### Google Antigravity
 
-Vault'un bir kopyasını ikinci bir makinede tutabilirsin. Bu makine örneğin sürekli açık bir sunucu olabilir. Telefondan oradaki Claude ile [Remote Control](https://code.claude.com/docs/en/remote-control) üzerinden konuşursun.
+`~/.gemini` varsa ya da `antigravity` komutu bulunursa:
 
-1. Vault'u bir kez özel bir git reposuna push et: `git -C ~/Documents/Kioku push -u origin HEAD`.
-2. Her makinede `kioku remote on` çalıştır. Bundan sonra:
-   - her oturum bir `git pull` ile başlar, her mesajdan önce de yeniden pull edilir (en fazla 30 saniyede bir), böylece açık bir oturum başka makinede yazılan notları da görür;
-   - her commit arka planda pull edilir, rebase yapılır ve push edilir.
-3. Sunucuda:
-   - bu repoyu ve vault'u klonla, `install.sh` çalıştır, ardından `kioku remote on`;
-   - vault klasöründe `claude remote-control` başlat (tmux içinde ya da servis olarak);
-   - sunucu, Claude uygulamasında Code bölümünde görünür.
+- **Kurallar:** `~/.gemini/GEMINI.md` içinde bir Kioku bölümü (o dosyadaki kendi metnin korunur).
+- **Skill'ler:** `~/.gemini/config/skills/` içinde; aynı şeyleri söyle ya da `/kioku-journal` gibi çağır.
+- **Hook'lar:** `~/.gemini/config/hooks.json` dosyasında `kioku-*` adlı üç girdi (oradaki diğer hook'lar korunur); Antigravity'nin girdisini ve konuşma kaydını çeviren `hooks/antigravity.sh` üzerinden çalışır:
+  - `SessionStart` oturum bağlamını ekler;
+  - `PreInvocation` autosync ile vault'u çeker (en fazla 30 saniyede bir);
+  - `Stop` bir kez kayıt ister.
+- **Yok:** yazma kontrolü ve sıkıştırmadan önceki not: Antigravity'nin `PostToolUse` hook'u ajana bir şey geri gönderemiyor, sıkıştırma hook'u da yok.
 
-İki makine aynı günlük ya da journal dosyasına satır eklerse git iki tarafı da korur (`.gitattributes` içindeki `merge=union`). Gerçek bir çakışmada hiçbir şey zorla birleştirilmez: yerel commit'ler kalır, push yapılmaz ve bir sonraki oturum seni uyarır.
+Hook'lar çalışmazsa kurallar ajana bağlamı `kioku context` ile kendisinin yüklemesini söyler.
+Her hook'un son girdisi hata ayıklamak için `~/.local/state/kioku/antigravity-*.json` dosyasında tutulur.
 
-Sunucu UTC'de çalışıyorsa `TZ` ayarla; böylece "bugün" ve etkinlik saatleri seninkiyle aynı olur. Durumu `kioku remote status` gösterir, kayıtlar `~/.local/state/kioku/git-sync.log` dosyasına yazılır.
+### Hermes Agent
 
-## Hermes Agent (isteğe bağlı)
-
-[Hermes Agent](https://github.com/NousResearch/hermes-agent) kuruluysa (`hermes` komutu varsa) installer Kioku'yu ona da bağlar:
+`hermes` komutu bulunursa:
 
 - **Kurallar:** vault'taki `.hermes.md` dosyasında bir Kioku bloğu; Hermes vault'ta çalışırken bunu okur.
 - **Skill'ler:** Kioku'nun skill'leri Hermes'in `skills.external_dirs` listesine eklenir.
 - **Hazır skill'ler:** Hermes'in kendi `obsidian` ve `weekly-review-planning` skill'leri kapatılır; Kioku'nun işini başka kurallarla yapmasınlar diye.
-
-`--no-hermes` bunu kapatır ve kurulanları kaldırır.
 
 Kioku'nun kendi zamanlayıcısı yok. Hermes ile vault'ta çalışan kendi işlerini ekleyip sonucu
 Telegram'a, Discord'a vb. gönderebilirsin. Birkaç örnek:
@@ -208,43 +220,96 @@ hermes cron create "0 20 * * 0" "Bu vault'un haftalık değerlendirmesini kioku-
   --name weekly --skill kioku-review --workdir ~/Documents/Kioku --deliver telegram
 ```
 
-Hermes'in hangi modeli kullanacağı senin seçimin (`hermes model`); bu seçimin maliyeti ve kullanım koşulları senin sorumluluğunda.
-## Google Antigravity (isteğe bağlı)
+### Diğer ajanlar
 
-Antigravity kuruluysa (`~/.gemini` varsa) kurulum Kioku'yu orada da kurar:
+`AGENTS.md` okuyan her ajan (OpenCode, Cursor, Aider, Gemini CLI …) vault'ta açıldığında
+kuralları bulur. Başka projelerden kullanmak için ajanın genel talimat dosyasına bir satır ekle,
+örneğin: *"İkinci beynim ~/Documents/Kioku. Her konuşmanın başında
+`~/Documents/Kioku/.kioku/bin/kioku context` çalıştır; oraya yazmadan önce AGENTS.md ve
+.kioku/SCHEMA.md dosyalarını oku."* Ajan `SKILL.md` skill'lerini destekliyorsa skill klasörünü
+`~/Documents/Kioku/.kioku/skills/` olarak göster; desteklemiyorsa onları dosya olarak okuyabilir.
+Geri kalan her şey aynı çalışır; yalnızca hook'lar eksik kalır.
 
-- **Kurallar:** `~/.gemini/GEMINI.md` içine `~/.claude/CLAUDE.md`'dekine benzer bir Kioku bölümü eklenir (dosyadaki kendi metnin korunur).
-- **Skill'ler:** aynı skill'ler `~/.gemini/config/skills/` altına gelir; aynı cümleleri kullanabilir ya da `/kioku-journal` gibi çağırabilirsin.
+Bir ajanın hangi modeli kullanacağı senin seçimin; bu seçimin maliyeti ve kullanım koşulları
+senin sorumluluğunda.
 
-- **Hook'lar:** `~/.gemini/config/hooks.json` içine `kioku-*` adlı üç girdi eklenir (oradaki diğer hook'lar korunur). Bunlar Claude Code'daki hook'ların aynısını `hooks/antigravity.sh` üzerinden çalıştırır; bu betik Antigravity'nin girdisini ve sohbet dökümünü çevirir:
-  - `SessionStart` oturum bağlamını ekler;
-  - `PreInvocation` autosync açıksa vault'u pull eder (en fazla 30 saniyede bir);
-  - `Stop` Claude Code'daki gibi bir kez kayıt ister.
-  - Yazma kontrolü ve sıkıştırma notu yalnızca Claude Code'da var: Antigravity'nin `PostToolUse` hook'u ajana bir şey iletemiyor, sıkıştırma hook'u da yok.
+## Kullanım
 
-Hook'lar çalışmazsa kurallar ajana bağlamı `kioku context` ile kendisinin yüklemesini söyler.
-Her hook'un son girdisi hata ayıklama için `~/.local/state/kioku/antigravity-*.json` dosyasında tutulur.
+Normal konuş, hangi dilde istersen. Birkaç örnek:
 
-Kapatmak için `install.sh --no-antigravity` (Nix: `programs.kioku.antigravity = false;`); bu, kurulanları da kaldırır.
+| Sen dersin | Ne olur |
+| --- | --- |
+| "beni tanı" | Sen dur diyene kadar, her seferinde bir soru soran açık uçlu bir röportaj; sonra onayına sunulan bir `Core.md` taslağı |
+| *(ajanınla bir işi bitirirsin)* | `daily/` ve proje notuna bir satır, sonra `Kioku'ya kaydedildi: …` |
+| "bunu beyne at: https://…" | `raw/` altına kaydedilir, ana noktalar konuşulur, özet + kavram/varlık sayfaları, index, log |
+| "X hakkında ne biliyoruz?" | Wikiden `[[kaynaklarla]]` cevap; beyinde bir şey yoksa bunu söyler |
+| "not al: bugün sınavı bitirdim" / "cuma hatırlat: ödevi teslim et" | Bugünün `journal/` dosyasına bir satır (göreli tarihler gerçek tarihe çevrilir) |
+| "yapılacaklarım ne?" / "ödevi yaptım" | Gruplanmış liste / yapılacak yerinde işaretlenir |
+| "bunu kaydet: Ghostty, denemek istediğim GPU terminali" / "fikir: küçük bir zaman döngüsü oyunu" / "şunu öğrendim: `nix why-depends` bağımlılık zincirini gösteriyor" | Her biri için bir wiki sayfası (`entities/`, `ideas/`, `concepts/`), *Linux › Araçlar* gibi bir konu hub'ına eklenir; uygun hub yoksa yenisi açılır ve söylenir |
+| "cuma 14:00 diş randevusu" / "her pazartesi 10:00 ders" / "yarınki toplantıyı iptal et" | `calendar/` altında bir sayfa, ajandada görünür |
+| "Ahmet'i rehbere ekle, numarası …" | `contacts/` altında bir sayfa |
+| "bu hafta nasıl geçti?" / "bu planı sorgula" | `reviews/` altında bir değerlendirme / plan geçmiş kararlara göre sorgulanır |
+| "beyni kontrol et" | Önce lint raporu, düzeltmeler yalnızca onayından sonra |
+| *(terminalde ya da bir kısayolla)* `kioku capture "yarın bankayı ara"` | Oturum açmadan `raw/inbox/` içine düşer; sonraki oturum işlemeyi önerir |
+
+`Core.md` değişiklikleri her zaman onayını ister. Geri kalan her şey sormadan kaydedilir ve her
+yazma vault'unda bir git commit'idir. Ajan push etmez; birden fazla makine için `kioku remote`'u
+açarsan hariç.
+
+CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosyasına bir bağlantı):
+
+```
+kioku health | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
+kioku search [--raw] [-n N] <terim...> | recap [--days N] | remote on|off|status|now|setup | update [--check] | version | lint-check
+```
+
+## Hızlı yakalama ve sorun giderme
+
+- **`kioku capture "metin ya da link"`** bir düşünceyi, yapılacağı ya da linki oturum açmadan `raw/inbox/` klasörüne atar (dosya için `kioku capture --file F`, stdin için `kioku capture -`). Commit edildiği için autosync açıksa diğer makinelere de gider. Sonraki oturum kaç tane beklediğini söyler ve işlemeyi önerir: notlar sanki sohbette söylenmiş gibi journal'a, wikiye ya da takvime gider; linkler ve dosyalar ingest edilir. Klavye kısayolu için `kioku capture --gui` küçük bir pencerede sorar (kdialog ya da zenity); Nix modülünde `programs.kioku.capture.gui = true;` bu araçları ve kısayol atanabilecek bir "Kioku capture" masaüstü girdisini getirir.
+- **`kioku health`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı ve kuralları, her ajanın kuralları, skill'leri ve hook'ları, git ve autosync, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrolünü atlar.
+
+## Takvim, rehber ve yapılacaklar
+
+Etkinlikler (`calendar/`), kişiler (`contacts/`) ve journal'daki yapılacaklar vault'ta not
+olarak durur. Oturum bağlamı ve `kioku agenda` / `kioku todo --soon` yaklaşanları gösterir.
+Kioku başka takvimlere bir şey göndermez ve kendisi hatırlatma çalmaz; istersen bunu üstüne
+kurabilirsin, örneğin bir Hermes cron işiyle ([Hermes Agent](#hermes-agent) bölümüne bak).
+
+## Birden fazla makine ve telefon (isteğe bağlı)
+
+Vault'un bir kopyasını sürekli açık bir sunucu gibi ikinci bir makinede tutup telefonundan
+kullanabilirsin; örneğin Claude Code'un [Remote Control](https://code.claude.com/docs/en/remote-control)
+özelliğiyle ya da Telegram veya Discord'daki Hermes ile.
+
+1. Vault'u bir kez özel bir git remote'a push et: `git -C ~/Documents/Kioku push -u origin HEAD`.
+2. Her makinede `kioku remote on` çalıştır. Bundan sonra:
+   - her oturum bir `git pull` ile başlar ve her mesajda yeniden çeker (en fazla 30 saniyede bir); böylece zaten açık olan bir oturum başka yerde yazılan notları görür;
+   - her commit arka planda çekilir, rebase edilir ve push edilir.
+3. Sunucuda: bu repoyu ve vault'u klonla, `install.sh` ve ardından `kioku remote on` çalıştır; sonra ajanını orada başlat (örneğin vault içinde, tmux'ta ya da bir servis olarak `claude remote-control`).
+
+İki makine aynı daily ya da journal dosyasına satır eklerse git iki tarafı da korur
+(`.gitattributes` içinde `merge=union`). Gerçek bir çakışma asla zorlanmaz: yerel commit'ler
+kalır, hiçbir şey push edilmez ve sonraki oturum sana bunu söyler. Sunucu UTC'de çalışıyorsa
+`TZ` ayarla; böylece "bugün" ve etkinlik saatleri seninkiyle aynı olur. Durumu `kioku remote status`
+gösterir, kayıtlar `~/.local/state/kioku/git-sync.log` dosyasına gider.
 
 ## Diller
 
-Sistemin kendi metinleri İngilizce: şema, skill'ler, başlıklar, kayıt türleri, frontmatter.
-Not içeriği kaynağına göre yazılır: bir makale kendi dilinde özetlenir, sohbet notları ise
-konuştuğun dilde yazılır. Her sayfa dilini `lang:` alanında tutar. Arama sonuçları
-sıralar (başlık, alt başlıklar, nadir kelimeler ve wiki sayfaları daha çok sayılır), Türkçe
-`İ/ı`, `I/i`, `ç/c`, `ş/s` gibi harfleri aynı sayar ve ekleri tolere eder: "açılışta",
-"açılış"ı bulur.
+Sistem metni İngilizce: şema, skill'ler, başlıklar, kayıt türleri, frontmatter. Not içeriği
+kaynağını izler: bir makale kendi dilinde özetlenir, sohbet notları konuştuğun dilde yazılır.
+Her sayfa dilini `lang:` alanında tutar. Arama sonuçları sıralar (başlık, alt başlıklar, nadir
+kelimeler ve wiki sayfaları daha çok sayılır), Türkçe `İ/ı`, `I/i`, `ç/c`, `ş/s` gibi harfleri
+aynı sayar ve ekleri tolere eder: "açılışta", "açılış"ı bulur.
 
 ## Ayarlar
 
-- **Kişisel kurallar:** Claude'a söyle ("bundan sonra …"); onayınla vault'undaki `CLAUDE.md` dosyasının *Personal rules* bölümüne ekler.
-- **Özel sayfalar:** `private: true` olan bir sayfa oturum başı bağlamına girmez.
-- **Ortam değişkenleri**, `~/.claude/settings.json` içinde `env` altına yazılır:
-  - `KIOKU_STOP_CHECK=0` Stop hook'unu ve sıkıştırma notunu kapatır.
+- **Kişisel kurallar:** ajanına söyle ("bundan sonra …"); onayınla vault'undaki `AGENTS.md` dosyasında *Personal rules* altına ekler.
+- **Özel sayfalar:** `private: true` bir sayfayı oturum başı bağlamının dışında tutar.
+- **Ortam değişkenleri** (hook'lar için; Claude Code'da `~/.claude/settings.json` içinde `env` altına, diğer ajanlarda başladıkları ortama):
+  - `KIOKU_STOP_CHECK=0` kayıt hatırlatmasını ve sıkıştırma notunu kapatır.
   - `KIOKU_WRITE_CHECK=0` yazma kontrolünü kapatır.
   - `KIOKU_STOP_MIN_TOOLS=10` kaç araç çağrısının "gerçek iş" sayılacağını belirler.
-  - `KIOKU_CONTEXT_MAX=12000` oturum başı bağlamın üst sınırını bayt olarak belirler.
+  - `KIOKU_CONTEXT_MAX=12000` oturum başı bağlamını bayt olarak sınırlar.
 
 ## Güncelleme ve kaldırma
 
@@ -252,26 +317,33 @@ sıralar (başlık, alt başlıklar, nadir kelimeler ve wiki sayfaları daha ço
 kioku update
 ```
 
-Bu komut checkout'u pull eder, kurulum adımını kurarken kullandığın seçeneklerle yeniden çalıştırır ve nelerin değiştiğini listeler. `kioku update --check` yalnızca yeni commit var mı diye bakar; `kioku version` kurulu sürümü gösterir.
+Bu komut checkout'u çeker, kurulum adımını kurduğun seçeneklerle yeniden çalıştırır ve neyin
+değiştiğini listeler. `kioku update --check` yalnızca yeni commit var mı diye bakar,
+`kioku version` kurulu sürümü yazar.
 
-Güncellemeyi düz bir `git pull` ile yaparsan, kurulum adımı geride kaldığında (yeni skill'ler, ayarlar ya da taşıma adımları) bir sonraki oturum bunu fark eder ve Claude `kioku update` çalıştırmayı önerir. Nix modülünde `nix flake update kioku` çalıştırıp rebuild et; kurulum adımı her switch'te zaten çalışır.
+Bunun yerine düz `git pull` ile güncellersen, sonraki oturum kurulum adımının eskidiğini
+(yeni skill'ler, ayarlar ya da taşımalar) fark eder ve ajan `kioku update` çalıştırmayı önerir.
+Nix modülünde `nix flake update kioku` çalıştırıp rebuild yap; kurulum adımı her switch'te
+çalışır.
 
 ```bash
 ~/Projects/kioku/install.sh --uninstall
 ```
 
-Bu komut skill'leri, `kioku` komut bağlantısını, `~/.claude/CLAUDE.md` bölümünü ve ayar girdilerini kaldırır. Vault'un olduğu gibi kalır.
+Bu komut `kioku` komut bağlantısını ve her ajandaki skill'leri, kural bölümlerini ve hook
+girdilerini kaldırır. Vault'un yerinde kalır.
 
 ## Gizlilik
 
-Her şey bilgisayarında ve kendi git deponda kalır. Şema sırların (şifre, anahtar, token,
-kimlik ya da kart numarası) yazılmasını yasaklar. Vault'unu push edeceksen özel bir repo
-kullan.
+Notların kendi makinende ve kendi git reponda kalır; ajanın onlardan okuduğu kısım, konuşmanın
+geri kalanı gibi, kullandığın ajanın model sağlayıcısına gider. Şema sırların (şifreler,
+anahtarlar, token'lar, kimlik ya da kart numaraları) yazılmasını yasaklar. Vault'unu push
+ediyorsan özel bir repo kullan.
 
 ## Teşekkür
 
-- Andrej Karpathy'nin [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)'si: raw / wiki / şema katmanları ve ingest, query, lint işlemleri.
-- [avenox Beyin](https://github.com/avenoxai/avenoxbeyin): çekirdek bir profil ve günlük kayıtlarla Claude'un tuttuğu kişisel hafıza fikri.
+- Andrej Karpathy'nin [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)'si: raw / wiki / şema katmanları ve ingest, query ve lint işlemleri.
+- [avenox Beyin](https://github.com/avenoxai/avenoxbeyin): çekirdek profil ve günlük kayıtlarla, ajanın tuttuğu kişisel hafıza fikri.
 
 ## Lisans
 

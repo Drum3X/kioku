@@ -26,7 +26,7 @@ _self: {
   '';
 in {
   options.programs.kioku = {
-    enable = mkEnableOption "Kioku, a personal second brain for Claude Code";
+    enable = mkEnableOption "Kioku, a personal second brain kept by your AI agents";
 
     package = mkOption {
       type = types.package;
@@ -42,6 +42,25 @@ in {
       default = "${config.home.homeDirectory}/Documents/Kioku";
       defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/Documents/Kioku"'';
       description = "The vault folder. Created on first activation; existing notes are never overwritten.";
+    };
+
+    claudeCode = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Set Kioku up in Claude Code (rules in ~/.claude/CLAUDE.md, skills, hooks in
+        ~/.claude/settings.json) when ~/.claude exists. Set false to leave Claude Code alone.
+      '';
+    };
+
+    codex = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Set Kioku up in OpenAI Codex (rules in ~/.codex/AGENTS.md, skills in ~/.agents/skills,
+        hooks in ~/.codex/hooks.json, the vault as a writable sandbox root) when ~/.codex exists.
+        Set false to leave Codex alone.
+      '';
     };
 
     antigravity = mkOption {
@@ -88,12 +107,12 @@ in {
       };
     };
 
-    # The wiring Claude Code needs lives in files it also edits itself (settings.json,
-    # CLAUDE.md), so it is merged by install.sh rather than owned by Home Manager.
+    # The agents' wiring lives in files they also edit themselves (settings.json, CLAUDE.md,
+    # hooks.json, config.toml …), so it is merged by install.sh rather than owned by Home Manager.
     home.activation.kioku = lib.hm.dag.entryAfter ["writeBoundary"] ''
       (
         export PATH=${path}:$PATH
-        run ${escapeShellArg src}/install.sh --vault ${escapeShellArg cfg.vault} --relink --no-bin-link${lib.optionalString (!cfg.antigravity) " --no-antigravity"}
+        run ${escapeShellArg src}/install.sh --vault ${escapeShellArg cfg.vault} --relink --no-bin-link${lib.optionalString (!cfg.claudeCode) " --no-claude"}${lib.optionalString (!cfg.codex) " --no-codex"}${lib.optionalString (!cfg.antigravity) " --no-antigravity"}
       )
     '';
   };

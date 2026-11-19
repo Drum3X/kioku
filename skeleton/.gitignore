@@ -8,8 +8,9 @@
 raw/assets/**/*.mp4
 raw/assets/**/*.mov
 raw/assets/**/*.mkv
-# Claude Code sandbox placeholders and local settings (not real files)
+# agents' sandbox placeholders and local settings (not real files)
 .claude
+.codex
 .mcp.json
 .bash_profile
 .bashrc

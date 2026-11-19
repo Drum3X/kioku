@@ -5,10 +5,10 @@ description: The user's second brain (the Kioku vault). Use when a decision, fin
 
 # kioku
 
-Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (`~/.claude/CLAUDE.md` in Claude Code, `~/.gemini/GEMINI.md` in Antigravity).
+Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (for example `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` or `~/.gemini/GEMINI.md`).
 CLI: `$VAULT/.kioku/bin/kioku`
 
-The rules are in `$VAULT/.kioku/SCHEMA.md`, plus personal rules in `$VAULT/CLAUDE.md`. If you haven't read them in this session, read
+The rules are in `$VAULT/.kioku/SCHEMA.md`, plus personal rules in `$VAULT/AGENTS.md`. If you haven't read them in this session, read
 them before writing.
 
 The user does not write notes; recording is your job. Don't interrupt the conversation:

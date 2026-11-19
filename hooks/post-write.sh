@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Kioku — PostToolUse hook (Write|Edit|MultiEdit): checks a vault file right after it was written
-# (frontmatter, Topics line, [[links]], todos/events/contacts) and tells Claude what to fix, so
+# (frontmatter, Topics line, [[links]], todos/events/contacts) and tells the agent what to fix, so
 # mistakes are fixed in the same turn instead of waiting for lint. Files outside the vault are
 # ignored. Disable with KIOKU_WRITE_CHECK=0.
 set -u

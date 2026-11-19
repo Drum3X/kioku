@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Kioku — Stop hook: recording safety net.
-# If real work happened in the session and nothing was written to the vault, asks Claude
+# If real work happened in the session and nothing was written to the vault, asks the agent
 # ONCE per session to check whether something should be recorded.
 # Disable with: KIOKU_STOP_CHECK=0
 set -u

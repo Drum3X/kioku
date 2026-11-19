@@ -6,8 +6,8 @@ argument-hint: "[event description]"
 
 # kioku-calendar
 
-Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (`~/.claude/CLAUDE.md` in Claude Code, `~/.gemini/GEMINI.md` in Antigravity).
-Rules: `$VAULT/.kioku/SCHEMA.md` ("Calendar, todos and contacts"); personal rules in `$VAULT/CLAUDE.md`
+Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (for example `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` or `~/.gemini/GEMINI.md`).
+Rules: `$VAULT/.kioku/SCHEMA.md` ("Calendar, todos and contacts"); personal rules in `$VAULT/AGENTS.md`
 CLI: `$VAULT/.kioku/bin/kioku`
 
 Events live in the vault, one page each: `calendar/<yyyy>/<YYYY-MM-DD>-<slug>.md`. The session

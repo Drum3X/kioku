@@ -6,7 +6,7 @@ argument-hint: "[note text]"
 
 # kioku-journal
 
-Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (`~/.claude/CLAUDE.md` in Claude Code, `~/.gemini/GEMINI.md` in Antigravity).
+Vault: `$VAULT` — the vault path from the Kioku section of your global instructions (for example `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` or `~/.gemini/GEMINI.md`).
 CLI: `$VAULT/.kioku/bin/kioku`
 
 `journal/` is **the user's timeline**: what happened and what they have to do. It is separate

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Kioku — SessionStart hook.
 # Adds Core.md, recent daily notes, active projects, the note for the current folder and a
-# wiki summary to Claude's context at session start. Exits silently on any error so it
+# wiki summary to the agent's context at session start. Exits silently on any error so it
 # never breaks a session.
 set -u
 export PATH="/etc/profiles/per-user/${USER:-$(id -un)}/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:$PATH"
@@ -36,7 +36,7 @@ if [ "$(git -C "$VAULT" config --bool kioku.autosync 2>/dev/null)" = true ]; the
 fi
 
 add "# Kioku — session context"
-add "The user's second brain: $VAULT (rules: $VAULT/.kioku/SCHEMA.md and personal rules in $VAULT/CLAUDE.md — read before writing to the vault)."
+add "The user's second brain: $VAULT (rules: $VAULT/.kioku/SCHEMA.md and personal rules in $VAULT/AGENTS.md — read before writing to the vault)."
 add "The user does not write notes: you record decisions, finished work and durable learnings (kioku skill). Note content follows the source/conversation language; system text is English."
 # After a compaction (source=compact) the summary may list what was not recorded yet (see the
 # PreCompact hook); ask for it to be recorded now, while the details are still there.
