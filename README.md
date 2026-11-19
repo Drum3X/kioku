@@ -152,7 +152,7 @@ The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
 kioku agent <job>|setup|status | notify "<subject>" | doctor | capture "<text>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
-kioku search [--raw] <term> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
+kioku search [--raw] [-n N] <term...> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
 
 ## Quick capture and troubleshooting
@@ -315,8 +315,9 @@ Turn it off with `install.sh --no-antigravity` (Nix: `programs.kioku.antigravity
 
 System text is English: schema, skills, headings, entry types, frontmatter. Note content
 follows its source: an article is summarized in its own language, and conversation notes are
-written in the language you speak. Every page records its language in `lang:`. Search treats
-Turkish `İ/ı` and `I/i` as the same letter.
+written in the language you speak. Every page records its language in `lang:`. Search is ranked
+(title, headings, rare terms and wiki pages count more), treats Turkish `İ/ı`, `I/i`, `ç/c`,
+`ş/s` and the like as the same letter, and allows suffixes: "açılışta" finds "açılış".
 
 ## Configure
 

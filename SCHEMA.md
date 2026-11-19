@@ -55,7 +55,7 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku todo [--soon]`: open todos in `journal/` sorted by due date, with `file:line`; `--soon` shows only overdue ones and those due in the next 3 days.
 - `kioku new <source|concept|entity|tool|idea|topic|synthesis|project|contact> "<Title>"`: creates a page from its template, prints its path (`tool` is an entity page for tools and sites). Events: `kioku new event "<Title>" YYYY-MM-DD`.
 - `kioku log <ingest|query|lint|note|setup> "<Title>"`: appends a line to `log.md`.
-- `kioku search [--raw] <term...>`: title matches first; `--raw` also searches `raw/`. Case-insensitive, Turkish İ/ı aware.
+- `kioku search [--raw] [-n N] <term...>`: ranked search (default 20 results). Each argument is a term, a quoted phrase is one term; a page does not need to match every term. Ranked by matches in title, headings and body, how rare each term is, the share of terms matched, page type (wiki and projects ahead of daily logs) and recency. Ignores case and Turkish letters (İ/ı, ç/c, ş/s …) and allows suffixes ("açılışta" finds "açılış"). `--raw` also searches `raw/`.
 - `kioku recap [--days N]`: daily notes and log entries from the last N days.
 - `kioku context`: the session-start context as text (Core, recent notes, todos, agenda), pulled first with autosync; for agents without a SessionStart hook (Antigravity).
 - `kioku agenda [--days N] [--past]`: upcoming events, recurrences expanded; events that already ended are left out (`--past` keeps today's). The session-start list is a snapshot from when the session began: run this again instead of relying on it.

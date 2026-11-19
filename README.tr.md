@@ -148,7 +148,7 @@ CLI'ı elle de `kioku` komutuyla kullanabilirsin (`vault/.kioku/bin/kioku` dosya
 
 ```
 kioku agent <job>|setup|status | notify "<subject>" | doctor | capture "<metin>" | context | today | journal | todo [--soon] | agenda [--days N] [--past] | new <tür> "<Başlık>" | log <işlem> "<Başlık>"
-kioku search [--raw] <terim> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
+kioku search [--raw] [-n N] <terim...> | recap [--days N] | sync [--check|--dry-run|--full] | remote on|off|status|now | password status|set|move|remove | update [--check] | version | lint-check
 ```
 
 ## Hızlı yakalama ve sorun giderme
@@ -302,8 +302,10 @@ Kapatmak için `install.sh --no-antigravity` (Nix: `programs.kioku.antigravity =
 
 Sistemin kendi metinleri İngilizce: şema, skill'ler, başlıklar, kayıt türleri, frontmatter.
 Not içeriği kaynağına göre yazılır: bir makale kendi dilinde özetlenir, sohbet notları ise
-konuştuğun dilde yazılır. Her sayfa dilini `lang:` alanında tutar. Arama Türkçe `İ/ı` ile
-`I/i` harflerini aynı sayar.
+konuştuğun dilde yazılır. Her sayfa dilini `lang:` alanında tutar. Arama sonuçları
+sıralar (başlık, alt başlıklar, nadir kelimeler ve wiki sayfaları daha çok sayılır), Türkçe
+`İ/ı`, `I/i`, `ç/c`, `ş/s` gibi harfleri aynı sayar ve ekleri tolere eder: "açılışta",
+"açılış"ı bulur.
 
 ## Ayarlar
 

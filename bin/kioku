@@ -46,7 +46,7 @@ Usage: kioku <command> [args]
   new <type> "<Title>"          Create a page: source|concept|entity|tool|idea|topic|synthesis|project|contact|review
   new event "<Title>" DATE      Create an event in calendar/YYYY/
   log <op> "<Title>"            Append to log.md: ingest|query|lint|note|setup
-  search [--raw] <term...>      Search; title matches first. Case-insensitive, Turkish İ/ı aware
+  search [--raw] [-n N] <term...>  Ranked search; each word is a term, a "quoted phrase" one term. Turkish-aware
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
   lint-check                    Broken links, orphans, uncatalogued or topic-less pages, frontmatter
 EOF
@@ -436,6 +436,11 @@ cmd_log() {
 }
 
 cmd_search() {
+  # Ranked search (bin/kioku-search.mjs); the plain rg search below only when node is missing.
+  if command -v node >/dev/null; then
+    [ $# -ge 1 ] || die "usage: kioku search [--raw] [-n N] <term...>"
+    KIOKU_DIR="$VAULT" node "$VAULT/.kioku/bin/kioku-search.mjs" "$@"; return
+  fi
   local dirs=(Core.md projects wiki daily journal calendar contacts index.md)
   if [ "${1:-}" = "--raw" ]; then dirs+=(raw); shift; fi
   [ $# -ge 1 ] || die "usage: kioku search [--raw] <term...>"
@@ -641,7 +646,7 @@ cmd_doctor() {
 
   echo "Tools"
   local c; for c in jq rg git; do if command -v "$c" >/dev/null; then ok "$c"; else bad "$c not found (required)"; fi; done
-  if command -v node >/dev/null; then ok "node $(node --version)"; else wrn "node not found: calendar/contacts sync and non-Latin file names need it"; fi
+  if command -v node >/dev/null; then ok "node $(node --version)"; else wrn "node not found: ranked search, calendar/contacts sync and non-Latin file names need it (search falls back to plain rg)"; fi
 
   echo "Vault"
   if [ -e "$VAULT/.kioku/SCHEMA.md" ]; then ok ".kioku → $(readlink "$VAULT/.kioku" 2>/dev/null || echo "$VAULT/.kioku")"
