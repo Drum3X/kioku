@@ -1,7 +1,7 @@
 //! The session context every session starts with (Core, the note for this folder, active
 //! projects, due todos, upcoming events, recent daily notes, wiki summary). Also `kioku context`.
 
-use crate::{calendar, fm, git, notes, stale, util, version};
+use crate::{calendar, fm, git, handoff, notes, stale, util, version};
 use regex::Regex;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -139,6 +139,17 @@ pub fn build(vault: &Path, cwd: &Path, source: &str, agent: &str) -> String {
         add(&format!("## Note for this folder: {}", util::rel(vault, &f)));
         add(&format!("(Picking up work here after a while: run `{v}/.kioku/bin/kioku context --deep {}` for its decisions, open threads and recent work.)", f.file_stem().unwrap().to_string_lossy()));
         add(sub(util::cap(&compact(&body(&util::read(&f))), 3000)));
+        add("");
+    }
+
+    // 2b. Handoffs: where earlier sessions stopped, to be picked up
+    let hs = handoff::open(vault);
+    if !hs.is_empty() {
+        add(&format!("## Handoffs (where a session stopped; last {} days)", handoff::DAYS));
+        add(&format!("If the user carries on with one of these (\"kaldığımız yerden devam\", \"continue\"), run `{v}/.kioku/bin/kioku context --deep <project>`, then change that line's `handoff:` to `resumed:` in daily/<date>.md."));
+        for h in hs.iter().take(5) {
+            add(&format!("- {}", h.line(600)));
+        }
         add("");
     }
 

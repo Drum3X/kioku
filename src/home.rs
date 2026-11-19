@@ -3,7 +3,7 @@
 //! pages due for review and the inbox. It is generated (session start, after each commit,
 //! or this command), kept out of git (.gitignore) and never edited by hand.
 
-use crate::{calendar, fm, notes, stale, util};
+use crate::{calendar, fm, handoff, notes, stale, util};
 use anyhow::Result;
 use regex::Regex;
 use std::path::Path;
@@ -58,6 +58,15 @@ pub fn render(vault: &Path) -> String {
         add(&if l.starts_with("- ") { relink(l) } else { format!("- {l}") });
     }
     add("");
+
+    let hs = handoff::open(vault);
+    if !hs.is_empty() {
+        add("## Handoffs (where a session stopped)");
+        for h in hs.iter().take(8) {
+            add(&format!("- {} ({})", h.line(300), link(&format!("daily/{}", h.date), "↗")));
+        }
+        add("");
+    }
 
     add("## Todos");
     let td = notes::todo(vault, true);

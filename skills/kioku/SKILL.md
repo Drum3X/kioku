@@ -28,13 +28,14 @@ language; headings and entry types stay English.
 | A link, PDF or article: "add it to the brain", "read and process this" | `kioku-ingest` skill |
 | "Check the brain", "clean up", "brain lint" | `kioku-lint` skill |
 | "What did we do today / this week?" | `kioku recap --days N`, then a short summary |
-| "Let's continue with X", "where were we with X?", back on a project after a while | `kioku context --deep X` first, then answer or start the work |
+| "Let's continue with X", "where were we with X?", back on a project after a while | `kioku context --deep X` first, then answer or start the work; if it shows a handoff you are now picking up, change that line's `handoff:` to `resumed:` |
+| The user stops for now to go on elsewhere: "devret", "burada bırakıyorum", "yarın devam ederiz", "telefondan devam edeceğim", "hand off" | **Handoff** below |
 | "Get to know me", or Core is empty | **Onboarding** |
 
 ## Record
 
 1. Open today's daily file with `kioku today`. One line per entry:
-   `- HH:MM [project · agent@host] decision|done|learned|preference|open: text ([[link]])`
+   `- HH:MM [project · agent@host] decision|done|learned|preference|open|handoff: text ([[link]])`
    Infer the project from the session's folder or the topic. When your work finishes an earlier `open:` thread (or makes it moot), change that line's `open:` to `closed:` in its daily file, keeping the text. `agent@host` is who you are in the records: the session context says it ("You are `…` in the records"), or run `kioku whoami --agent <your name>`.
 2. If the work belongs to a project, update `projects/<slug>.md` (`status`, `next`, `updated`, History; `reviewed` too when you have just confirmed its Status section is current). If there is no note and the topic will recur, create one with `kioku new project "<Name>"`, set `path:` to the folder's absolute path, and add it to `index.md` › Projects.
 3. Every `learned` entry also goes into the wiki: add it to the relevant `wiki/concepts/` or `wiki/entities/` page with `(source: [[daily/YYYY-MM-DD]])`; a new page gets a `Topics:` line and a line in its topic hub (see `kioku-note`). Then end the daily line with a link to the page, e.g. `([[wiki/concepts/x]])`. Without that link, `kioku lint-check` and the Stop hook report it as not done. Too narrow for the wiki? Then it is not `learned`: use `done`/`decision` or the project note.
@@ -45,6 +46,18 @@ language; headings and entry types stay English.
 5. Tell the user in one line: `Saved to Kioku: …`
 
 If you learned something that belongs in `Core.md`, don't write it. Ask first: "Shall I add this to Core: …?"
+
+## Handoff
+
+When the user stops to carry on in another session or on another machine:
+
+1. Record what is not recorded yet (**Record** above).
+2. Make the work's state plain. Uncommitted changes, an unpushed branch or a step waiting on the user go into the note by name. Commit or push only if the user asks or the project already does so.
+3. Write one line in today's daily file:
+   `- HH:MM [project · agent@host] handoff: <done>; <half done: files, branch, uncommitted changes>; next: <the next step> ([[projects/<slug>]])`
+   One handoff per project: if an older `handoff:` line for the same project is still open, change it to `resumed:`.
+4. Update the project note's `next:` to the same next step, then commit (autosync carries it to the other machines).
+5. Give the user one line to paste into the new session, in their language, for example: `Kaldığımız yerden devam et: <project>`. The new session sees the handoff in its context; with that line it runs `kioku context --deep <project>` and carries on.
 
 ## Onboarding
 

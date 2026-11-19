@@ -5,6 +5,7 @@ mod context;
 mod deep;
 mod fm;
 mod git;
+mod handoff;
 mod health;
 mod home;
 mod hook;

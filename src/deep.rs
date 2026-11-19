@@ -199,6 +199,12 @@ pub fn build(vault: &Path, q: &str) -> String {
         }
         out.push('\n');
     };
+    section(
+        &mut out,
+        "Handoff (where a session stopped; change it to resumed: when you pick it up)",
+        &["handoff"],
+        1,
+    );
     section(&mut out, "Decisions", &["decision"], 25);
     section(
         &mut out,

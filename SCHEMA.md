@@ -64,7 +64,7 @@ CLI: `$VAULT/.kioku/bin/kioku`
 - `kioku recap [--days N]`: daily notes and log entries from the last N days.
 - `kioku context [--agent NAME]`: the session-start context as text (Core, recent notes, todos, agenda), pulled first with autosync; for agents without a session-start hook. `--agent` sets the name you sign records with.
 - `kioku whoami [--agent NAME]`: who writes the records here, as `agent@host` (default agent: `$KIOKU_AGENT`).
-- `kioku context --deep <project|topic>`: everything about one project or wiki topic: the note itself, its decisions, open threads, learnings, preferences and recent work from the daily log (lines tagged with the project, or one of its `aliases:` such as an earlier name, or linking to the page; newest first), linked pages, pages that link to it, related todos and events. For a name with no page, the best search results.
+- `kioku context --deep <project|topic>`: everything about one project or wiki topic: the note itself, its decisions, open threads, learnings, preferences and recent work from the daily log (lines tagged with the project, or one of its `aliases:` such as an earlier name, or linking to the page; newest first), the latest handoff, linked pages, pages that link to it, related todos and events. For a name with no page, the best search results.
 - `kioku agenda [--days N] [--past]`: upcoming events, recurrences expanded; events that already ended are left out (`--past` keeps today's). The session-start list is a snapshot from when the session began: run this again instead of relying on it.
 - `kioku remote on|off|status|now|setup`: keep vault copies on several machines in step through the git remote; `setup` installs the post-commit hook that pushes.
 - `kioku update [--check | --to vX | --rollback]`: update Kioku itself (pull + install step); only when the user asks, or when the session context says the install step is out of date and the user agrees. `--to vX` goes to a release tag and `--rollback` back to the version before the last update (when an update broke something); both stay pinned until the next plain `kioku update`.
@@ -88,6 +88,7 @@ something, it is lost.
 - **learned:** durable knowledge, the root cause of a problem, a method that worked.
 - **preference:** the user adopting or rejecting an approach.
 - **open:** unfinished work to come back to. When it is finished or no longer relevant, change that line's `open:` to `closed:` in place (keep the text) and record a `done` line; Home.md and `kioku context --deep` show only lines still `open:`.
+- **handoff:** where a session stopped, when the user pauses to carry on in another session or on another machine ("devret", "burada bırakıyorum", "telefondan devam edeceğim", "hand off"): what is done, what is half done (files, branch, uncommitted changes, anything waiting on the user) and the next step, in one line. The next sessions see it in their session context, Home.md and `kioku context --deep`. Whoever picks it up changes that line's `handoff:` to `resumed:` in place. A handoff stops being shown after 14 days.
 
 **Do not record:**
 - Transient details.
@@ -98,7 +99,7 @@ something, it is lost.
 
 **How:**
 1. Open the daily file with `kioku today`. One line per entry:
-   `- HH:MM [project · agent@host] type: text ([[link]])`, where type is `decision|done|learned|preference|open` and `agent@host` says who wrote it (the session context gives yours, or run `kioku whoami --agent <you>`).
+   `- HH:MM [project · agent@host] type: text ([[link]])`, where type is `decision|done|learned|preference|open|handoff` and `agent@host` says who wrote it (the session context gives yours, or run `kioku whoami --agent <you>`).
    Example: `- 14:20 [config · claude@nitro] decision: stay on ripgrep, not qmd yet; fewer than 200 pages ([[wiki/concepts/llm-wiki]])`
    Older lines without the `· agent@host` part are fine; leave them.
 2. If the work belongs to a project, update `projects/<slug>.md`: `status`, `next`, `updated`, and one line under History. If there is no project note and the work will recur, create one with `kioku new project` and set `path:` to the project folder; the SessionStart hook will surface this note in sessions opened there.
