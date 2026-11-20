@@ -16,7 +16,7 @@ CLI: `$VAULT/.kioku/bin/kioku`
    - Say plainly what the brain doesn't have: "The brain has nothing on this."
    - If you add general knowledge, keep it separate and marked.
    - If records conflict, show both.
-4. **Write back (optional).** If the answer has lasting value (a comparison, a synthesis, a long analysis), ask "Shall I save this to the wiki as a synthesis?". If yes:
+4. **Write back.** Research the user asked for ("araştır", "araştırma yap", "research X") is saved without asking, before your final answer (SCHEMA.md, Query). For other answers with lasting value (a comparison, a synthesis, a long analysis), ask "Shall I save this to the wiki as a synthesis?". To save:
    - create it with `kioku new synthesis "<Title>"`, in the user's language;
    - add a line to `index.md` › Syntheses;
    - run `kioku log query "<question>"`;

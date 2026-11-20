@@ -26,6 +26,7 @@ language; headings and entry types stay English.
 | A person's contact details | `kioku-contacts` skill (contacts/) |
 | "What do we know about X?", anything needing past knowledge | `kioku-ask` skill |
 | A link, PDF or article: "add it to the brain", "read and process this" | `kioku-ingest` skill |
+| "Research X", "araştır", "kapsamlı bir araştırma yap" | Do the research, then save the full report to `wiki/synthesis/` without asking, before your final answer (`kioku-ask`, Write back) |
 | "Check the brain", "clean up", "brain lint" | `kioku-lint` skill |
 | "What did we do today / this week?" | `kioku recap --days N`, then a short summary |
 | "Let's continue with X", "where were we with X?", back on a project after a while | `kioku context --deep X` first, then answer or start the work; if it shows a handoff you are now picking up, change that line's `handoff:` to `resumed:` |

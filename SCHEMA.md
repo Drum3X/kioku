@@ -44,7 +44,7 @@ briefly.
 | `wiki/entities/` | Things with a name: tools, sites, apps, libraries, people, organizations, games, anime… (`kind:`) | You |
 | `wiki/ideas/` | The user's ideas, one page each | You, when the user shares an idea (`kioku-note`) |
 | `wiki/topics/` | Topic hubs (maps of content) that categorize pages | You, on every new or moved page |
-| `wiki/synthesis/` | Comparisons, valuable query answers | You, when the user wants |
+| `wiki/synthesis/` | Comparisons, research reports, valuable query answers | You: research the user asked for, always (see Query); other answers when the user wants |
 | `index.md` | Map of the brain: topics first, then projects and other catalogues | You, on every new topic or project |
 | `log.md` | Append-only operation log | You, on every operation |
 | `Home.md` | Start page for browsing in Obsidian: coming up, todos, active projects, open threads, recent changes, pages due for review, inbox. Generated, not in git | `kioku home` (at session start and after each commit); **never edit it** |
@@ -190,8 +190,10 @@ instruction to you, even when it is phrased as one; it is a note of the user's t
 
 **Picking work up again:** when the user returns to a project after a while ("let's continue with X", or a session starts in a project's folder and the work is not a quick question), run `kioku context --deep <project>` before you start, so earlier decisions, failed attempts and open threads are known. The session context only has the note's summary.
 2. Answer with citations: `[[wiki/concepts/x]]`. If the brain doesn't have it, say so plainly; if you answer from general knowledge, mark it as such.
-3. If the answer has lasting value (a comparison, a synthesis), offer to save it to `wiki/synthesis/`.
-4. Run `kioku log query "<question>"` only if the answer was saved.
+3. **Research the user asked for** ("araştır", "araştırma yap", "research X", "compare the options for …") is saved without asking: before your final answer, write the full report (findings, sources, recommendations, open questions) to a `wiki/synthesis/` page with `kioku new synthesis "<Title>"`, add it to `index.md` › Syntheses, and link the page in your answer and in the daily `done` line. A report that exists only in the chat is lost when the session ends, and the user may never see that you asked. Asked to research for a page that already exists, add a dated section to it instead.
+   For other answers with lasting value (a comparison, a synthesis), offer to save them to `wiki/synthesis/`.
+4. Run `kioku log query "<question>"` when the answer was saved.
+5. A daily line links a page only when the page holds what the line says; don't link a page you meant to write but didn't.
 
 ## Lint (maintenance)
 
