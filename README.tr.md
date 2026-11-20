@@ -154,6 +154,24 @@ dokunulmaz). Installer:
 
 Tekrar çalıştırmak güvenli. Sonra ajanında yeni bir oturum aç ve **"beni tanı"** de.
 
+### Windows
+
+Kioku Windows 10 ve 11'de (x86_64) doğrudan çalışır. [Git for Windows](https://git-scm.com/download/win) gerekir; Claude Code ve Hermes'in de zaten ihtiyacı var, çünkü kabuk komutları ve vault'un git hook'u onun Git Bash'inde çalışır. PowerShell'de:
+
+```powershell
+git clone https://github.com/Drum3X/kioku $HOME\Projects\kioku
+git clone <vault'unun reposu> $HOME\Documents\Kioku    # başka bir makinede tuttuğun vault
+powershell -ExecutionPolicy Bypass -File $HOME\Projects\kioku\install.ps1 --vault $HOME\Documents\Kioku
+```
+
+- `install.ps1`, `install.sh`'nin yaptığını yapar: `bin\kioku.exe`'yi sürümden indirir (sha256 kontrolüyle) ya da cargo ile derler, sonra `kioku.exe install` çalıştırır. `kioku update` onu yeniden çalıştırır.
+- **Bağlantılar:** Geliştirici Modu açıksa (Ayarlar › Sistem › Geliştiriciler için) Windows sembolik bağlantıları; değilse ek izin gerektirmeyen klasör bağlantıları (junction).
+- **kioku komutu:** `%LOCALAPPDATA%\kioku\bin` içinde bir `kioku.cmd`; kurulum o klasörü PATH'e nasıl ekleyeceğini yazar.
+- **Ayarlar ve durum:** `%APPDATA%\kioku` ve `%LOCALAPPDATA%\kioku` altında.
+- **Hermes:** evi `%LOCALAPPDATA%\hermes` (ya da `HERMES_HOME`).
+- **Dört ajan da** Linux'taki gibi kurulur: Claude Code, Codex, Antigravity ve Hermes.
+- **Windows'ta henüz yok:** `kioku capture --gui` ve isteğe bağlı hibrit arama. Nix modülü yalnızca NixOS ve Home Manager için.
+
 ## Ajanlar
 
 ### Claude Code

@@ -13,20 +13,28 @@ log = logging.getLogger(__name__)
 _compacted = set()
 
 
+def _config_dir():
+    if os.environ.get("XDG_CONFIG_HOME"):
+        return Path(os.environ["XDG_CONFIG_HOME"])
+    if os.name == "nt" and os.environ.get("APPDATA"):
+        return Path(os.environ["APPDATA"])
+    return Path.home() / ".config"
+
+
 def _kioku_bin():
     if os.environ.get("KIOKU_BIN"):
         return os.environ["KIOKU_BIN"]
-    cfg = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-    for line in (cfg / "kioku" / "installed").read_text().splitlines():
+    exe = "kioku.exe" if os.name == "nt" else "kioku"
+    for line in (_config_dir() / "kioku" / "installed").read_text(encoding="utf-8").splitlines():
         if line.startswith("vault="):
-            return str(Path(line[6:]) / ".kioku" / "bin" / "kioku")
+            return str(Path(line[6:]) / ".kioku" / "bin" / exe)
     raise FileNotFoundError("no vault= line in the Kioku install record")
 
 
 def _hook(event, payload, timeout=25):
     try:
         r = subprocess.run([_kioku_bin(), "hook", "hermes", event], input=json.dumps(payload),
-                           capture_output=True, text=True, timeout=timeout)
+                           capture_output=True, text=True, encoding="utf-8", timeout=timeout)
         out = r.stdout.strip()
         return json.loads(out) if out else {}
     except Exception as e:  # a hook must never break the turn

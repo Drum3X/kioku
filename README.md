@@ -155,6 +155,24 @@ vault (your notes are not touched). The installer:
 
 Re-running it is safe. Then open a new session in your agent and say **"get to know me"**.
 
+### Windows
+
+Kioku runs natively on Windows 10 and 11 (x86_64). It needs [Git for Windows](https://git-scm.com/download/win), which Claude Code and Hermes need anyway: their shell commands and the vault's git hook run in its Git Bash. In PowerShell:
+
+```powershell
+git clone https://github.com/Drum3X/kioku $HOME\Projects\kioku
+git clone <your vault's repository> $HOME\Documents\Kioku    # a vault you already keep on another machine
+powershell -ExecutionPolicy Bypass -File $HOME\Projects\kioku\install.ps1 --vault $HOME\Documents\Kioku
+```
+
+- `install.ps1` does what `install.sh` does: `bin\kioku.exe` from the release (sha256 checked) or built with cargo, then `kioku.exe install`. `kioku update` runs it again.
+- **Links:** with Developer Mode on (Settings › System › For developers), Windows symlinks; otherwise directory junctions, which need no extra rights.
+- **The kioku command:** a `kioku.cmd` in `%LOCALAPPDATA%\kioku\bin`; the installer prints how to add that folder to your PATH.
+- **Settings and state:** in `%APPDATA%\kioku` and `%LOCALAPPDATA%\kioku`.
+- **Hermes:** its home is `%LOCALAPPDATA%\hermes` (or `HERMES_HOME`).
+- **All four agents** are wired the same way as on Linux: Claude Code, Codex, Antigravity and Hermes.
+- **Not on Windows yet:** `kioku capture --gui` and the optional hybrid search. The Nix module is for NixOS and Home Manager only.
+
 ## Agents
 
 ### Claude Code

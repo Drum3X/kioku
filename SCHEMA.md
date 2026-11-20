@@ -54,7 +54,7 @@ briefly.
 
 ## Tools
 
-CLI: `$VAULT/.kioku/bin/kioku`
+CLI: `$VAULT/.kioku/bin/kioku` (on Windows `kioku.exe`; in Git Bash the name without `.exe` works too)
 
 - `kioku today`: creates today's daily file if missing, prints its path.
 - `kioku journal`: creates today's journal file if missing, prints its path.

@@ -101,9 +101,7 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
     r.head("Vault");
     let link = vault.join(".kioku");
     if link.join("SCHEMA.md").is_file() {
-        let t = std::fs::read_link(&link)
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|_| link.display().to_string());
+        let t = util::slash(&util::canon(&link));
         r.ok(&format!(".kioku → {t}"));
     } else {
         r.bad(&format!("{} is missing or broken; run the installer again", link.display()));
@@ -149,7 +147,7 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
 
     // Each agent is checked only where it is set up (the install record's agents= line).
     let agents = format!(" {} ", util::record_get("agents").unwrap_or_default());
-    let k = format!("{}/.kioku/bin/kioku", vault.display());
+    let k = crate::install::cli_cmd(vault);
     if agents.contains(" claude ") {
         r.head("Claude Code");
         let cm = util::read(&vault.join("CLAUDE.md"));

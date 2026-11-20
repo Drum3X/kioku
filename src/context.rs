@@ -81,7 +81,7 @@ pub fn build(vault: &Path, cwd: &Path, source: &str, agent: &str) -> String {
     }
     let sys = vault.join(".kioku");
     if sys.join("SCHEMA.md").is_file() {
-        let now = version::fingerprint(&std::fs::canonicalize(&sys).unwrap_or(sys.clone()));
+        let now = version::fingerprint(&util::canon(&sys));
         if util::record_get("fingerprint").as_deref() != Some(now.as_str()) {
             add(&format!("Kioku was updated but its install step has not run since, so skills or settings may be out of date. Tell the user once and offer to run `{}/bin/kioku update` (with the Nix module: rebuild).", sys.display()));
         }

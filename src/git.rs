@@ -10,16 +10,42 @@ use std::time::{Duration, SystemTime};
 const HOOK: &str = r#"#!/bin/sh
 # kioku: after each commit, refresh Home.md and push the vault to its git remote (kioku remote on)
 B="$(git rev-parse --show-toplevel)/.kioku/bin/kioku"
-[ -x "$B" ] && [ -z "${KIOKU_GIT_SYNCING:-}" ] || exit 0
-# Refresh Home.md (the Obsidian start page; not in git), then push with autosync
-# In a session of its own (setsid), so it survives an agent that kills its command's process
-# group as soon as the commit returns.
-bg() { if command -v setsid >/dev/null 2>&1; then setsid -f "$@" >/dev/null 2>&1 < /dev/null; else nohup "$@" >/dev/null 2>&1 < /dev/null & fi; }
-( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; bg "$B" home --auto )
+[ -f "$B.exe" ] && B="$B.exe"
+[ -f "$B" ] && [ -z "${KIOKU_GIT_SYNCING:-}" ] || exit 0
+# Refresh Home.md (the Obsidian start page; not in git), then push with autosync. kioku bg runs
+# them detached (its own process group / a detached process on Windows), so they survive an
+# agent that kills its command's process group as soon as the commit returns.
+( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; "$B" bg home --auto )
 [ "$(git config --bool kioku.autosync)" = true ] || exit 0
-( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; bg "$B" remote now )
+( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE; "$B" bg remote now )
 exit 0
 "#;
+
+/// `kioku bg <args…>`: run this program with the args detached, and return at once.
+pub fn bg(vault: &Path, args: &[String]) -> Result<i32> {
+    use std::process::{Command, Stdio};
+    let exe = std::env::current_exe()?;
+    let mut cmd = Command::new(exe);
+    cmd.args(args)
+        .env("KIOKU_DIR", vault)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+    }
+    cmd.spawn()?;
+    Ok(0)
+}
 
 fn ours(text: &str) -> bool {
     text.lines().any(|l| l.starts_with("# kioku:") || l.starts_with("# second-brain:"))

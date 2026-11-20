@@ -150,6 +150,7 @@ fn real_main() -> Result<i32> {
             Ok(0)
         }
         "search" => search::run(&vault, rest),
+        "bg" => git::bg(&vault, rest),
         "eval" => eval::run(&vault, rest),
         "semantic" => semantic::run(&vault, rest),
         "recap" => {

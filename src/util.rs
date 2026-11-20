@@ -9,28 +9,74 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::time::Instant;
 
+/// The program as a vault reaches it, `<vault>/.kioku/bin/kioku` (with `/`, without `.exe`).
 pub const SELF_SUFFIX: &str = "/.kioku/bin/kioku";
+/// The binary's file name: kioku, or kioku.exe on Windows.
+pub const EXE: &str = if cfg!(windows) { "kioku.exe" } else { "kioku" };
 
-pub fn home() -> PathBuf {
-    env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
+fn env_path(var: &str) -> Option<PathBuf> {
+    env::var_os(var).filter(|v| !v.is_empty()).map(PathBuf::from)
 }
-fn xdg(var: &str, default: &str) -> PathBuf {
-    match env::var_os(var) {
-        Some(v) if !v.is_empty() => PathBuf::from(v),
-        _ => home().join(default),
+/// $HOME, else %USERPROFILE% (Windows outside Git Bash).
+pub fn home() -> PathBuf {
+    env_path("HOME").or_else(|| env_path("USERPROFILE")).unwrap_or_else(|| PathBuf::from("/"))
+}
+/// An XDG directory: the variable when set; else on Windows the given known folder
+/// (%APPDATA% or %LOCALAPPDATA%) with `win_sub`; else ~/`default`.
+fn xdg(var: &str, default: &str, win: &str, win_sub: &str) -> PathBuf {
+    if let Some(v) = env_path(var) {
+        return v.join("kioku");
+    }
+    if cfg!(windows) {
+        if let Some(w) = env_path(win) {
+            return w.join("kioku").join(win_sub);
+        }
+    }
+    home().join(default).join("kioku")
+}
+/// ~/.config/kioku (Windows: %APPDATA%\kioku)
+pub fn config_dir() -> PathBuf {
+    xdg("XDG_CONFIG_HOME", ".config", "APPDATA", "")
+}
+/// ~/.cache/kioku (Windows: %LOCALAPPDATA%\kioku\cache)
+pub fn cache_dir() -> PathBuf {
+    xdg("XDG_CACHE_HOME", ".cache", "LOCALAPPDATA", "cache")
+}
+/// ~/.local/state/kioku (Windows: %LOCALAPPDATA%\kioku\state)
+pub fn state_dir() -> PathBuf {
+    xdg("XDG_STATE_HOME", ".local/state", "LOCALAPPDATA", "state")
+}
+/// For short-lived markers: $XDG_RUNTIME_DIR, else the system temp folder.
+pub fn temp_dir() -> PathBuf {
+    env_path("XDG_RUNTIME_DIR").unwrap_or_else(env::temp_dir)
+}
+/// A path as a string with `/` separators (Windows paths too), for comparing and for links.
+pub fn slash(p: &Path) -> String {
+    let s = p.to_string_lossy();
+    if cfg!(windows) {
+        s.replace('\\', "/")
+    } else {
+        s.into_owned()
     }
 }
-/// ~/.config/kioku
-pub fn config_dir() -> PathBuf {
-    xdg("XDG_CONFIG_HOME", ".config").join("kioku")
+/// fs::canonicalize without Windows' `\\?\` prefix (falls back to the path as given).
+pub fn canon(p: &Path) -> PathBuf {
+    match fs::canonicalize(p) {
+        Ok(c) => {
+            let s = c.to_string_lossy();
+            match s.strip_prefix(r"\\?\") {
+                Some(r) if !r.starts_with("UNC") => PathBuf::from(r),
+                _ => c,
+            }
+        }
+        Err(_) => p.to_path_buf(),
+    }
 }
-/// ~/.cache/kioku
-pub fn cache_dir() -> PathBuf {
-    xdg("XDG_CACHE_HOME", ".cache").join("kioku")
-}
-/// ~/.local/state/kioku
-pub fn state_dir() -> PathBuf {
-    xdg("XDG_STATE_HOME", ".local/state").join("kioku")
+/// Whether the path, written with `/` and without `.exe`, is `<vault>/.kioku/bin/kioku`; the vault.
+pub fn vault_of_self(p: &Path) -> Option<PathBuf> {
+    let s = slash(p);
+    let s = s.strip_suffix(".exe").unwrap_or(&s);
+    s.strip_suffix(SELF_SUFFIX).map(PathBuf::from)
 }
 pub fn record_file() -> PathBuf {
     config_dir().join("installed")
@@ -56,7 +102,7 @@ pub fn logical_self() -> Option<PathBuf> {
         env::split_paths(&env::var_os("PATH")?).map(|d| d.join(&a0)).find(|c| c.is_file())?
     };
     for _ in 0..20 {
-        if p.to_string_lossy().ends_with(SELF_SUFFIX) {
+        if vault_of_self(&p).is_some() {
             return Some(p);
         }
         match fs::read_link(&p) {
@@ -73,11 +119,8 @@ pub fn vault() -> PathBuf {
     if let Some(v) = env::var_os("KIOKU_DIR").filter(|v| !v.is_empty()) {
         return PathBuf::from(v);
     }
-    if let Some(p) = logical_self() {
-        let s = p.to_string_lossy();
-        if let Some(v) = s.strip_suffix(SELF_SUFFIX) {
-            return PathBuf::from(v);
-        }
+    if let Some(v) = logical_self().as_deref().and_then(vault_of_self) {
+        return v;
     }
     if let Some(v) = record_get("vault").filter(|v| !v.is_empty()) {
         return PathBuf::from(v);
@@ -103,11 +146,10 @@ pub fn sys_dir() -> PathBuf {
     }
     for c in cands {
         if c.join("SCHEMA.md").is_file() {
-            return fs::canonicalize(&c).unwrap_or(c);
+            return canon(&c);
         }
     }
-    let l = vault().join(".kioku");
-    fs::canonicalize(&l).unwrap_or(l)
+    canon(&vault().join(".kioku"))
 }
 
 /// This machine's short name: $KIOKU_HOST, else the hostname up to the first dot.
@@ -151,8 +193,14 @@ pub fn ymd(d: NaiveDate) -> String {
     d.format("%Y-%m-%d").to_string()
 }
 
+/// A file as text ("" if unreadable); CRLF line ends (Windows editors) read as LF.
 pub fn read(p: &Path) -> String {
-    fs::read(p).map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default()
+    let s = fs::read(p).map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
+    if s.contains('\r') {
+        s.replace("\r\n", "\n")
+    } else {
+        s
+    }
 }
 pub fn read_stdin() -> String {
     let mut s = String::new();
@@ -167,7 +215,7 @@ pub fn write(p: &Path, s: &str) -> Result<()> {
 }
 /// Path relative to `base` as a string with forward slashes ("" if not inside).
 pub fn rel(base: &Path, p: &Path) -> String {
-    p.strip_prefix(base).map(|r| r.to_string_lossy().into_owned()).unwrap_or_default()
+    p.strip_prefix(base).map(slash).unwrap_or_default()
 }
 /// Character-safe prefix (the bash `${s:0:n}` / JS `slice(0, n)`).
 pub fn take(s: &str, n: usize) -> String {
@@ -184,9 +232,16 @@ pub fn cap(s: &str, n: usize) -> &str {
     }
     &s[..i]
 }
+/// Whether a command is on PATH (on Windows also as cmd.exe, cmd.cmd … per PATHEXT).
 pub fn which(cmd: &str) -> bool {
+    let exts: Vec<String> = if cfg!(windows) {
+        let pe = env::var("PATHEXT").unwrap_or_else(|_| ".EXE;.CMD;.BAT;.COM".into());
+        std::iter::once(String::new()).chain(pe.split(';').map(|e| e.to_lowercase())).collect()
+    } else {
+        vec![String::new()]
+    };
     env::var_os("PATH")
-        .map(|p| env::split_paths(&p).any(|d| d.join(cmd).is_file()))
+        .map(|p| env::split_paths(&p).any(|d| exts.iter().any(|e| d.join(format!("{cmd}{e}")).is_file())))
         .unwrap_or(false)
 }
 
@@ -259,4 +314,22 @@ pub fn inbox_count(vault: &Path) -> usize {
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file() && e.file_name() != ".gitkeep")
         .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn self_suffix() {
+        assert_eq!(vault_of_self(Path::new("/home/u/Brain/.kioku/bin/kioku")), Some(PathBuf::from("/home/u/Brain")));
+        assert_eq!(vault_of_self(Path::new("/home/u/Brain/.kioku/bin/kioku.exe")), Some(PathBuf::from("/home/u/Brain")));
+        assert_eq!(vault_of_self(Path::new("/usr/bin/kioku")), None);
+    }
+    #[test]
+    fn crlf() {
+        let f = env::temp_dir().join(format!("kioku-crlf-{}.md", std::process::id()));
+        fs::write(&f, "---\r\ntitle: X\r\n---\r\n# X\r\n").unwrap();
+        assert_eq!(read(&f), "---\ntitle: X\n---\n# X\n");
+        fs::remove_file(&f).unwrap();
+    }
 }

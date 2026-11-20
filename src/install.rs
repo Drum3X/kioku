@@ -49,8 +49,19 @@ impl Ctx {
     fn ch(&mut self, s: impl Into<String>) {
         self.changes.push(s.into());
     }
+    /// The vault's CLI as hook commands call it: `/` separators (Git Bash and cmd both run it),
+    /// `kioku.exe` on Windows, in quotes when the path has a space.
     fn k(&self) -> String {
-        format!("{}/.kioku/bin/kioku", self.vault.display())
+        cli_cmd(&self.vault)
+    }
+}
+/// The vault's CLI as hook commands call it (see Ctx::k).
+pub fn cli_cmd(vault: &Path) -> String {
+    let p = format!("{}/.kioku/bin/{}", util::slash(vault), util::EXE);
+    if p.contains(' ') {
+        format!("\"{p}\"")
+    } else {
+        p
     }
 }
 fn warn(s: &str) {
@@ -230,9 +241,12 @@ fn installed_vault() -> String {
                 "/.kioku/hooks/session-start.sh",
                 "/.brain/hooks/session-start.sh",
                 "/.kioku/bin/kioku hook claude session-start",
+                "/.kioku/bin/kioku.exe hook claude session-start",
+                "/.kioku/bin/kioku.exe\" hook claude session-start",
+                "/.kioku/bin/kioku\" hook claude session-start",
             ] {
                 if let Some(v) = c.strip_suffix(suf) {
-                    return v.to_string();
+                    return v.trim_start_matches('"').to_string();
                 }
             }
         }
@@ -251,7 +265,7 @@ fn setup_vault(c: &mut Ctx) -> Result<()> {
     migrate_legacy(c)?;
     let link = v.join(".kioku");
     if fs::symlink_metadata(&link).is_ok_and(|m| m.file_type().is_symlink()) {
-        let cur = fs::canonicalize(&link).unwrap_or_default();
+        let cur = util::canon(&link);
         if cur != c.sys {
             if !c.o.relink {
                 return die(format!(
@@ -358,9 +372,42 @@ fn setup_vault(c: &mut Ctx) -> Result<()> {
 fn symlink(target: &Path, link: &Path) -> Result<()> {
     std::os::unix::fs::symlink(target, link).with_context(|| format!("linking {}", link.display()))
 }
-#[cfg(not(unix))]
+/// Windows: a directory symlink when allowed (Developer Mode), else a junction (no rights
+/// needed); a file symlink, else a copy.
+#[cfg(windows)]
+fn symlink(target: &Path, link: &Path) -> Result<()> {
+    if target.is_dir() {
+        if std::os::windows::fs::symlink_dir(target, link).is_ok() {
+            return Ok(());
+        }
+        let ok = Command::new("cmd")
+            .arg("/C")
+            .arg("mklink")
+            .arg("/J")
+            .arg(link)
+            .arg(target)
+            .output()
+            .is_ok_and(|o| o.status.success());
+        if !ok {
+            return die(format!("could not link {} to {} (junction)", link.display(), target.display()));
+        }
+        return Ok(());
+    }
+    if std::os::windows::fs::symlink_file(target, link).is_ok() {
+        return Ok(());
+    }
+    fs::copy(target, link).with_context(|| format!("copying {} to {}", target.display(), link.display()))?;
+    Ok(())
+}
+#[cfg(not(any(unix, windows)))]
 fn symlink(_: &Path, _: &Path) -> Result<()> {
     die("symlinks are needed")
+}
+/// Where a link points, with `/` separators and without Windows' `\\?\` prefix.
+fn link_target(p: &Path) -> Option<String> {
+    let t = fs::read_link(p).ok()?;
+    let s = util::slash(&t);
+    Some(s.strip_prefix("//?/").map(str::to_string).unwrap_or(s))
 }
 
 /// Earlier versions were called second-brain (vault link .brain, CLI brain, skills brain-*).
@@ -449,7 +496,46 @@ fn migrate_rules(c: &mut Ctx) -> Result<()> {
     Ok(())
 }
 
+/// Windows: %LOCALAPPDATA%\\kioku\\bin\\kioku.cmd, a shim that runs the vault's kioku.exe (the full
+/// path it passes keeps the vault known). The folder is not added to PATH; the user is told how.
+#[cfg(windows)]
+fn bin_link(c: &mut Ctx) -> Result<()> {
+    let Some(la) = std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()) else {
+        return Ok(());
+    };
+    let bin = PathBuf::from(la).join("kioku").join("bin");
+    let shim = bin.join("kioku.cmd");
+    let exe = c.vault.join(".kioku").join("bin").join(util::EXE);
+    let want = format!("@echo off\r\nrem kioku: managed by kioku install\r\n\"{}\" %*\r\n", exe.display());
+    let cur = fs::read_to_string(&shim).unwrap_or_default();
+    let ours = cur.is_empty() || cur.contains("rem kioku:");
+    if c.o.uninstall || !c.o.bin_link {
+        if !cur.is_empty() && ours {
+            fs::remove_file(&shim)?;
+            c.ch(format!("removed {}", shim.display()));
+        }
+        return Ok(());
+    }
+    if !ours {
+        warn(&format!("{} already exists and is not ours; left untouched", shim.display()));
+    } else if cur != want {
+        fs::create_dir_all(&bin)?;
+        fs::write(&shim, &want)?;
+        c.ch(format!("command shim: {}", shim.display()));
+    }
+    let on_path = std::env::var_os("PATH").is_some_and(|p| std::env::split_paths(&p).any(|d| d == bin));
+    if !on_path {
+        warn(&format!(
+            "{} is not on your PATH; add it to use the kioku command (PowerShell: [Environment]::SetEnvironmentVariable('Path', $env:Path + ';{}', 'User'), then open a new terminal)",
+            bin.display(),
+            bin.display()
+        ));
+    }
+    Ok(())
+}
+
 /// ~/.local/bin/kioku → the vault's CLI.
+#[cfg(not(windows))]
 fn bin_link(c: &mut Ctx) -> Result<()> {
     let bin = home().join(".local/bin");
     let cli = bin.join("kioku");
@@ -491,7 +577,7 @@ fn bin_link(c: &mut Ctx) -> Result<()> {
 /// The rules every agent gets in its global instructions file. `memory`: what its own memory is called.
 /// `agent`: the name the agent signs its records with.
 fn rules_block(c: &Ctx, memory: &str, agent: &str) -> String {
-    let v = c.vault.display();
+    let v = util::slash(&c.vault);
     format!(
         "<!-- kioku:start — managed by kioku/install.sh; manual edits are overwritten on the next install -->
 ## Kioku (second brain)
@@ -571,6 +657,8 @@ fn set_block(c: &mut Ctx, f: &Path, on: bool, blk: &str, start: &dyn Fn(&str) ->
 /// SKILL.md link, for agents that don't follow folder links); with `on` false, our links are
 /// removed. Links of a previously wired vault are moved to this one.
 fn link_skills(c: &mut Ctx, dir: &Path, on: bool, label: &str, file: bool) -> Result<()> {
+    // Windows: always the folder; a junction looks like a real folder to the agents.
+    let file = file && !cfg!(windows);
     if !on && !dir.is_dir() {
         return Ok(());
     }
@@ -587,7 +675,7 @@ fn link_skills(c: &mut Ctx, dir: &Path, on: bool, label: &str, file: bool) -> Re
         } else {
             (None, dir.join(&name), base)
         };
-        let cur = fs::read_link(&tgt).ok().map(|p| p.display().to_string()).unwrap_or_default();
+        let cur = link_target(&tgt).unwrap_or_default();
         let ours = cur.ends_with(&format!("/.kioku/skills/{name}")) || cur.ends_with(&format!("/.kioku/skills/{name}/SKILL.md"));
         if ours {
             if !on {
@@ -596,7 +684,7 @@ fn link_skills(c: &mut Ctx, dir: &Path, on: bool, label: &str, file: bool) -> Re
                     let _ = fs::remove_dir(d);
                 }
                 c.ch(format!("{label} skill removed: {name}"));
-            } else if cur != src.display().to_string() {
+            } else if cur != util::slash(&src) {
                 fs::remove_file(&tgt)?;
                 symlink(&src, &tgt)?;
                 c.ch(format!("{label} skill moved to this vault: {name}"));
@@ -718,7 +806,7 @@ fn claude(c: &mut Ctx) -> Result<bool> {
         fs::copy(&sf, &bak)?;
     }
     let re = regex::Regex::new(r"/\.(kioku|brain)/hooks/[a-z-]+\.sh$").unwrap();
-    let pred = move |cmd: &str| re.is_match(cmd) || cmd.contains("/.kioku/bin/kioku hook ");
+    let pred = move |cmd: &str| re.is_match(cmd) || ours_hook(cmd, "claude");
     let k = c.k();
     let add = if on {
         vec![
@@ -820,7 +908,7 @@ fn codex(c: &mut Ctx) -> Result<bool> {
             None => warn(&format!("{} is not valid JSON; Codex hooks not set up", hf.display())),
             Some(mut h) => {
                 let before = canon(&h);
-                let pred = |cmd: &str| cmd.contains("/.kioku/hooks/codex.sh ") || cmd.contains("/.kioku/bin/kioku hook codex ");
+                let pred = |cmd: &str| cmd.contains("/.kioku/hooks/codex.sh ") || ours_hook(cmd, "codex");
                 let k = c.k();
                 let add = if on {
                     vec![
@@ -948,6 +1036,24 @@ fn hset(c: &mut Ctx, key: &str, want: Vec<String>) {
     }
 }
 
+/// Hermes's home: $HERMES_HOME, else %LOCALAPPDATA%\\hermes on Windows, else ~/.hermes.
+fn hermes_home() -> PathBuf {
+    if let Some(h) = std::env::var_os("HERMES_HOME").filter(|v| !v.is_empty()) {
+        return PathBuf::from(h);
+    }
+    if cfg!(windows) {
+        if let Some(l) = std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()) {
+            return PathBuf::from(l).join("hermes");
+        }
+    }
+    home().join(".hermes")
+}
+/// A hook command of ours for `agent`: `…/.kioku/bin/kioku[.exe]["] hook <agent> …`.
+fn ours_hook(cmd: &str, agent: &str) -> bool {
+    let c = cmd.replace('\\', "/");
+    ["", ".exe", "\"", ".exe\""].iter().any(|e| c.contains(&format!("/.kioku/bin/kioku{e} hook {agent} ")))
+}
+
 fn hermes(c: &mut Ctx) -> Result<bool> {
     let on = !c.o.uninstall && c.o.hermes && which("hermes");
     let hmd = c.vault.join(".hermes.md");
@@ -970,8 +1076,8 @@ This folder is the user's personal second brain, Kioku (Obsidian vault + git). T
     if on || (hmd.exists() && (!c.o.hermes || c.o.uninstall)) {
         set_block(c, &hmd, on, &blk, &md_start, &md_end)?;
     }
-    if which("hermes") && home().join(".hermes").is_dir() {
-        let hsk = c.vault.join(".kioku/skills").display().to_string();
+    if which("hermes") && hermes_home().is_dir() {
+        let hsk = format!("{}/.kioku/skills", util::slash(&c.vault));
         let dis = ["obsidian", "weekly-review-planning"];
         let mut ext: Vec<String> = hlist("skills.external_dirs")
             .into_iter()
@@ -992,7 +1098,7 @@ This folder is the user's personal second brain, Kioku (Obsidian vault + git). T
         hset(c, "skills.disabled", disabled);
         // The Kioku plugin (session context, write check, stop reminder), linked through the
         // vault's .kioku so it follows updates, and enabled in plugins.enabled.
-        let pdir = home().join(".hermes/plugins");
+        let pdir = hermes_home().join("plugins");
         let link = pdir.join("kioku");
         let target = c.vault.join(".kioku/hermes-plugin/kioku");
         let cur = fs::read_link(&link).ok();

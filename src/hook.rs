@@ -100,16 +100,32 @@ fn prompt_pull(vault: &Path, event: &str) -> Option<String> {
 }
 
 /// The path as `<vault>/…` when it is inside the vault (given as written or with symlinks resolved).
-fn in_vault(vault: &Path, f: &str) -> Option<String> {
-    let v = vault.display().to_string();
-    let real = fs::canonicalize(vault)
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|_| v.clone());
-    if let Some(r) = f.strip_prefix(&format!("{v}/")) {
-        return Some(format!("{v}/{r}"));
+/// Whether a shell command names the vault: its path as written, with `/`, as Git Bash's
+/// `/c/Users/…`, or with `~`.
+fn mentions_vault(vault: &Path, cmd: &str) -> bool {
+    let v = util::slash(vault);
+    let mut forms = vec![vault.display().to_string(), v.clone()];
+    if let Some(r) = v.strip_prefix(&util::slash(&util::home())) {
+        forms.push(format!("~{r}"));
     }
-    if let Some(r) = f.strip_prefix(&format!("{real}/")) {
-        return Some(format!("{v}/{r}"));
+    if let Some((drive, rest)) = v.split_once(":/") {
+        forms.push(format!("/{}/{rest}", drive.to_lowercase()));
+    }
+    let c = if cfg!(windows) { cmd.to_lowercase() } else { cmd.to_string() };
+    forms.iter().any(|f| c.contains(&if cfg!(windows) { f.to_lowercase() } else { f.clone() }))
+}
+
+/// Paths are compared with `/` separators, and without case on Windows.
+fn in_vault(vault: &Path, f: &str) -> Option<String> {
+    let v = util::slash(vault);
+    let real = util::slash(&util::canon(vault));
+    let f = if cfg!(windows) { f.replace('\\', "/") } else { f.to_string() };
+    let key = |s: &str| if cfg!(windows) { s.to_lowercase() } else { s.to_string() };
+    for base in [&v, &real] {
+        let pre = format!("{base}/");
+        if key(&f).starts_with(&key(&pre)) {
+            return Some(format!("{v}/{}", &f[pre.len()..]));
+        }
     }
     None
 }
@@ -172,7 +188,7 @@ fn stop_check(vault: &Path, sid: &str, calls: &[(String, Value)]) -> Option<Stri
     if off("KIOKU_STOP_CHECK") || !vault.is_dir() {
         return None;
     }
-    let mdir = PathBuf::from(std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into())).join("kioku-stop");
+    let mdir = util::temp_dir().join("kioku-stop");
     fs::create_dir_all(&mdir).ok()?;
     let marker = mdir.join(sid);
     let learned_marker = mdir.join(format!("{sid}.learned"));
@@ -190,11 +206,6 @@ fn stop_check(vault: &Path, sid: &str, calls: &[(String, Value)]) -> Option<Stri
     if marker.exists() {
         return None;
     }
-    let v = vault.display().to_string();
-    let tilde = match v.strip_prefix(&util::home().display().to_string()) {
-        Some(r) => format!("~{r}"),
-        None => v.clone(),
-    };
     static WRITES: OnceLock<Regex> = OnceLock::new();
     let writes = WRITES.get_or_init(|| Regex::new(r"(kioku (today|journal|new|log)|commit|>>|tee )").unwrap());
     let (mut total, mut edits, mut wrote) = (0, 0, 0);
@@ -207,13 +218,13 @@ fn stop_check(vault: &Path, sid: &str, calls: &[(String, Value)]) -> Option<Stri
             .unwrap_or("");
         let cmd = i.get("command").and_then(Value::as_str).unwrap_or("");
         if matches!(name.as_str(), "Edit" | "Write" | "MultiEdit" | "NotebookEdit") {
-            if file.starts_with(&v) {
+            if in_vault(vault, file).is_some() {
                 wrote += 1;
             } else {
                 edits += 1;
             }
         }
-        if name == "Bash" && (cmd.contains(&v) || cmd.contains(&tilde)) && writes.is_match(cmd) {
+        if name == "Bash" && mentions_vault(vault, cmd) && writes.is_match(cmd) {
             wrote += 1;
         }
     }
@@ -319,13 +330,8 @@ fn codex(vault: &Path, ev: &str, j: &Value, raw: &str) -> Option<String> {
             if tn == "Bash" {
                 static W: OnceLock<Regex> = OnceLock::new();
                 let w = W.get_or_init(|| Regex::new(r"commit|kioku (today|journal|new|log|capture)|>>|tee ").unwrap());
-                let v = vault.display().to_string();
-                let tilde = v
-                    .strip_prefix(&util::home().display().to_string())
-                    .map(|r| format!("~{r}"))
-                    .unwrap_or(v.clone());
-                let here = in_vault(vault, &format!("{cwd}/")).is_some() || cwd == v;
-                if (here || cmd.contains(&v) || cmd.contains(&tilde)) && w.is_match(&cmd) {
+                let here = in_vault(vault, &format!("{cwd}/")).is_some() || Path::new(&cwd) == vault;
+                if (here || mentions_vault(vault, &cmd)) && w.is_match(&cmd) {
                     append("vault", "");
                 }
                 return None;
@@ -474,9 +480,8 @@ fn hermes(vault: &Path, ev: &str, j: &Value) -> Option<String> {
                     let cmd = args.get("command").and_then(Value::as_str).unwrap_or("");
                     static W: OnceLock<Regex> = OnceLock::new();
                     let w = W.get_or_init(|| Regex::new(r"commit|kioku (today|journal|new|log|capture)|>>|tee ").unwrap());
-                    let v = vault.display().to_string();
-                    let tilde = v.strip_prefix(&util::home().display().to_string()).map(|r| format!("~{r}")).unwrap_or(v.clone());
-                    if (cmd.contains(&v) || cmd.contains(&tilde) || s(j, "cwd").starts_with(&v)) && w.is_match(cmd) {
+                    let here = in_vault(vault, &format!("{}/", s(j, "cwd"))).is_some();
+                    if (here || mentions_vault(vault, cmd)) && w.is_match(cmd) {
                         append("vault", "");
                     }
                     None

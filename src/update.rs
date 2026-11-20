@@ -56,9 +56,17 @@ fn default_branch(sys: &Path) -> String {
         .unwrap_or_else(|| "main".into())
 }
 
+/// That version's bootstrap: install.sh, or install.ps1 through PowerShell on Windows.
 fn install(sys: &Path, vault: &Path) -> Result<i32> {
     let flags = util::record_get("flags").unwrap_or_default();
-    let st = Command::new(sys.join("install.sh"))
+    let mut cmd = if cfg!(windows) {
+        let mut c = Command::new("powershell");
+        c.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(sys.join("install.ps1"));
+        c
+    } else {
+        Command::new(sys.join("install.sh"))
+    };
+    let st = cmd
         .arg("--vault")
         .arg(vault)
         .args(flags.split_whitespace())
