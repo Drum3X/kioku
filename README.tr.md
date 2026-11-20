@@ -205,6 +205,7 @@ Her hook'un son girdisi hata ayıklamak için `~/.local/state/kioku/antigravity-
 - **Kurallar:** vault'taki `.hermes.md` dosyasında bir Kioku bloğu; Hermes vault'ta çalışırken bunu okur.
 - **Skill'ler:** Kioku'nun skill'leri Hermes'in `skills.external_dirs` listesine eklenir.
 - **Hazır skill'ler:** Hermes'in kendi `obsidian` ve `weekly-review-planning` skill'leri kapatılır; Kioku'nun işini başka kurallarla yapmasınlar diye.
+- **Eklenti:** `~/.hermes/plugins/kioku` (checkout'taki `hermes-plugin/kioku` klasörüne bir bağlantı) `plugins.enabled` listesine eklenir. Diğer ajanlarda hook'ların yaptığını Telegram ve Discord dahil her Hermes oturumunda yapar: ilk turda ve sıkıştırmadan sonra oturum bağlamı, Hermes'in vault'a yazdığı her dosyanın kontrolü (sorunlar aracın sonucuna eklenir, Hermes aynı turda düzeltir) ve biten işi kaydetme hatırlatması. Kurulumdan sonra gateway'i yeniden başlat (`systemctl --user restart hermes-gateway`).
 
 Kioku'nun kendi zamanlayıcısı yok. Hermes ile vault'ta çalışan kendi işlerini ekleyip sonucu
 Telegram'a, Discord'a vb. gönderebilirsin. Birkaç örnek:

@@ -1,0 +1,9 @@
+name: kioku
+version: 1.0.0
+description: Kioku, the user's second brain kept by agents. Session context on the first turn and after a compaction, a check of every vault file Hermes writes, and a reminder to record finished work. All logic is in `kioku hook hermes`.
+author: Drum3X
+provides_hooks:
+  - pre_llm_call
+  - transform_tool_result
+  - pre_verify
+  - post_compaction

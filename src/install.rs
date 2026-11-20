@@ -990,6 +990,34 @@ This folder is the user's personal second brain, Kioku (Obsidian vault + git). T
         }
         hset(c, "skills.external_dirs", ext);
         hset(c, "skills.disabled", disabled);
+        // The Kioku plugin (session context, write check, stop reminder), linked through the
+        // vault's .kioku so it follows updates, and enabled in plugins.enabled.
+        let pdir = home().join(".hermes/plugins");
+        let link = pdir.join("kioku");
+        let target = c.vault.join(".kioku/hermes-plugin/kioku");
+        let cur = fs::read_link(&link).ok();
+        let ours = cur.as_ref().is_some_and(|p| p.ends_with(".kioku/hermes-plugin/kioku"));
+        let mut enabled = hlist("plugins.enabled");
+        enabled.retain(|x| x != "kioku");
+        if on {
+            if cur.is_none() && link.exists() {
+                c.ch(format!("Hermes: {} exists and is not Kioku's link; plugin not installed", link.display()));
+            } else {
+                if !ours {
+                    fs::create_dir_all(&pdir)?;
+                    if cur.is_some() {
+                        fs::remove_file(&link)?;
+                    }
+                    symlink(&target, &link)?;
+                    c.ch("Hermes: Kioku plugin linked (~/.hermes/plugins/kioku)".to_string());
+                }
+                enabled.push("kioku".into());
+            }
+        } else if ours {
+            fs::remove_file(&link)?;
+            c.ch("Hermes: Kioku plugin removed".to_string());
+        }
+        hset(c, "plugins.enabled", enabled);
     }
     Ok(on)
 }

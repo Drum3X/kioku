@@ -18,6 +18,7 @@ in
         ../Cargo.lock
         ../src
         ../skills
+        ../hermes-plugin
         ../skeleton
         ../templates
         ../install.sh
@@ -35,7 +36,7 @@ in
     # install record); bin/kioku-install runs `kioku install`.
     postInstall = ''
       mkdir -p $out/share/kioku/bin
-      cp -r skills skeleton templates install.sh SCHEMA.md README.md README.tr.md LICENSE VERSION $out/share/kioku/
+      cp -r skills skeleton templates hermes-plugin install.sh SCHEMA.md README.md README.tr.md LICENSE VERSION $out/share/kioku/
       mv $out/bin/kioku $out/share/kioku/bin/kioku
       ln -s $out/share/kioku/bin/kioku $out/bin/kioku
       cat > $out/bin/kioku-install <<SH

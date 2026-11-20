@@ -206,6 +206,7 @@ When the `hermes` command is found:
 - **Rules:** a Kioku block in the vault's `.hermes.md`, which Hermes reads when it works in the vault.
 - **Skills:** Kioku's skills are listed in Hermes's `skills.external_dirs`.
 - **Bundled skills:** Hermes's own `obsidian` and `weekly-review-planning` skills are turned off, so they don't do Kioku's job by other rules.
+- **Plugin:** `~/.hermes/plugins/kioku` (a link to the checkout's `hermes-plugin/kioku`) is added to `plugins.enabled`. It does what the hooks do for the other agents, in every Hermes session, Telegram and Discord included: the session context on the first turn and after a compaction, a check of every vault file Hermes writes (problems are added to the tool's result, so Hermes fixes them in the same turn), and the reminder to record finished work. Restart the gateway after installing (`systemctl --user restart hermes-gateway`).
 
 Kioku has no scheduler of its own. With Hermes you can add your own jobs that work in the vault
 and send the result to Telegram, Discord and so on. Some examples:

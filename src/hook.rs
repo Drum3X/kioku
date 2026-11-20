@@ -5,6 +5,8 @@
 //!   claude       session-start | prompt | post-write | pre-compact | stop
 //!   codex        session-start | prompt | tool | stop
 //!   antigravity  session-start | pull | stop
+//!   hermes       session-start | prompt | tool | stop  (called by the Kioku plugin for Hermes,
+//!                hermes-plugin/kioku; it answers {"context"}, {"append"} or {"message"})
 
 use crate::{context, git, lint, util};
 use regex::Regex;
@@ -23,6 +25,7 @@ pub fn run(args: &[String]) -> i32 {
         "claude" => claude(&vault, ev, &j),
         "codex" => codex(&vault, ev, &j, &input),
         "antigravity" => antigravity(&vault, ev, &j, &input),
+        "hermes" => hermes(&vault, ev, &j),
         _ => None,
     };
     if let Some(o) = out {
@@ -409,6 +412,142 @@ fn clean_old(dir: &Path, days: u64) {
         if old && e.path().is_file() {
             let _ = fs::remove_file(e.path());
         }
+    }
+}
+
+// ---------- Hermes ----------
+// The Kioku plugin for Hermes (hermes-plugin/kioku/__init__.py) passes Hermes's hook payloads
+// here: pre_llm_call → session-start (first turn, or after a compaction) or prompt; every
+// transform_tool_result → tool; pre_verify → stop. Answers are plain JSON the plugin unwraps.
+
+/// The `additionalContext` of a hook_json answer.
+fn ctx_of(hook_json: Option<String>) -> Option<String> {
+    let v: Value = serde_json::from_str(&hook_json?).ok()?;
+    v.pointer("/hookSpecificOutput/additionalContext").and_then(Value::as_str).map(str::to_string)
+}
+/// The `reason` of a block answer.
+fn reason_of(block_json: Option<String>) -> Option<String> {
+    let v: Value = serde_json::from_str(&block_json?).ok()?;
+    v.get("reason").and_then(Value::as_str).map(str::to_string)
+}
+
+fn hermes(vault: &Path, ev: &str, j: &Value) -> Option<String> {
+    let st = util::state_dir().join("hermes");
+    fs::create_dir_all(&st).ok()?;
+    let sid: String = s(j, "session_id")
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || "._-".contains(c) { c } else { '_' })
+        .collect();
+    let f = |ext: &str| st.join(format!("{sid}.{ext}"));
+    let append = |ext: &str, text: &str| {
+        use std::io::Write;
+        if let Ok(mut h) = fs::OpenOptions::new().create(true).append(true).open(f(ext)) {
+            let _ = h.write_all(text.as_bytes());
+        }
+    };
+    match ev {
+        "session-start" => {
+            if !vault.is_dir() {
+                return None;
+            }
+            if !sid.is_empty() {
+                append("total", "");
+                clean_old(&st, 14);
+            }
+            let cwd = Some(s(j, "cwd")).filter(|c| !c.is_empty()).map(PathBuf::from).unwrap_or_else(|| vault.to_path_buf());
+            let text = context::build(vault, &cwd, s(j, "source"), "hermes");
+            Some(json!({ "context": text }).to_string())
+        }
+        "prompt" => ctx_of(prompt_pull(vault, "UserPromptSubmit")).map(|t| json!({ "context": t }).to_string()),
+        "tool" => {
+            if sid.is_empty() {
+                return None;
+            }
+            append("total", ".");
+            let tn = s(j, "tool_name");
+            let args = j.get("args").cloned().unwrap_or(json!({}));
+            let mut inputs = String::new();
+            strings(&args, &mut inputs);
+            append("inputs", &inputs);
+            match tn {
+                "terminal" => {
+                    let cmd = args.get("command").and_then(Value::as_str).unwrap_or("");
+                    static W: OnceLock<Regex> = OnceLock::new();
+                    let w = W.get_or_init(|| Regex::new(r"commit|kioku (today|journal|new|log|capture)|>>|tee ").unwrap());
+                    let v = vault.display().to_string();
+                    let tilde = v.strip_prefix(&util::home().display().to_string()).map(|r| format!("~{r}")).unwrap_or(v.clone());
+                    if (cmd.contains(&v) || cmd.contains(&tilde) || s(j, "cwd").starts_with(&v)) && w.is_match(cmd) {
+                        append("vault", "");
+                    }
+                    None
+                }
+                "write_file" | "patch" => {
+                    // The tool's result says where it wrote; else the path as given.
+                    let res: Value = serde_json::from_str(s(j, "result")).unwrap_or(json!({}));
+                    let mut paths: Vec<String> = res
+                        .get("files_modified")
+                        .and_then(Value::as_array)
+                        .map(|a| a.iter().filter_map(Value::as_str).map(str::to_string).collect())
+                        .unwrap_or_default();
+                    if let Some(r) = res.get("resolved_path").and_then(Value::as_str) {
+                        paths.push(r.to_string());
+                    }
+                    if paths.is_empty() {
+                        if let Some(p) = args.get("path").and_then(Value::as_str) {
+                            let p = match p.strip_prefix("~/") {
+                                Some(r) => format!("{}/{r}", util::home().display()),
+                                None => p.to_string(),
+                            };
+                            paths.push(if p.starts_with('/') { p } else { format!("{}/{p}", s(j, "cwd")) });
+                        }
+                    }
+                    paths.dedup();
+                    let mut files = Vec::new();
+                    for p in &paths {
+                        match in_vault(vault, p) {
+                            Some(x) => files.push(x),
+                            None => append("edits", "."),
+                        }
+                    }
+                    if files.is_empty() {
+                        return None;
+                    }
+                    append("vault", "");
+                    if off("KIOKU_WRITE_CHECK") {
+                        return None;
+                    }
+                    reason_of(write_check(vault, &files)).map(|m| json!({ "append": m }).to_string())
+                }
+                _ => None,
+            }
+        }
+        "stop" => {
+            if off("KIOKU_STOP_CHECK") || sid.is_empty() || !f("total").exists() {
+                return None;
+            }
+            let msg = |b: String| reason_of(Some(b)).map(|m| json!({ "message": m }).to_string());
+            if !f("learned").exists() {
+                let inputs = util::read(&f("inputs"));
+                if !inputs.is_empty() {
+                    let hits = unlinked_learned_in(vault, &inputs);
+                    if !hits.is_empty() {
+                        let _ = fs::write(f("learned"), "");
+                        return msg(learned_block(&hits));
+                    }
+                }
+            }
+            if f("asked").exists() || f("vault").exists() {
+                return None;
+            }
+            let n = |ext: &str| util::read(&f(ext)).len();
+            let min: usize = std::env::var("KIOKU_STOP_MIN_TOOLS").ok().and_then(|x| x.parse().ok()).unwrap_or(10);
+            if !(n("edits") >= 1 || n("total") >= min) {
+                return None;
+            }
+            let _ = fs::write(f("asked"), "");
+            msg(block(RECORD_REASON.into()))
+        }
+        _ => None,
     }
 }
 
