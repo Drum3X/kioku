@@ -274,7 +274,7 @@ fn setup_vault(c: &mut Ctx) -> Result<()> {
                     fs::read_link(&link).unwrap_or_default().display()
                 ));
             }
-            fs::remove_file(&link)?;
+            remove_link(&link)?;
             symlink(&c.sys, &link)?;
             c.ch(format!("relinked {} → {}", link.display(), c.sys.display()));
         }
@@ -403,6 +403,15 @@ fn symlink(target: &Path, link: &Path) -> Result<()> {
 fn symlink(_: &Path, _: &Path) -> Result<()> {
     die("symlinks are needed")
 }
+/// Remove a link (never what it points to). On Windows a folder link or junction is removed as
+/// a directory.
+fn remove_link(p: &Path) -> Result<()> {
+    match fs::remove_file(p) {
+        Ok(()) => Ok(()),
+        Err(e) if cfg!(windows) => fs::remove_dir(p).map_err(|_| e).with_context(|| format!("removing {}", p.display())),
+        Err(e) => Err(e).with_context(|| format!("removing {}", p.display())),
+    }
+}
 /// Where a link points, with `/` separators and without Windows' `\\?\` prefix.
 fn link_target(p: &Path) -> Option<String> {
     let t = fs::read_link(p).ok()?;
@@ -441,7 +450,7 @@ fn migrate_legacy(c: &mut Ctx) -> Result<()> {
         if (n == "brain" || n.starts_with("brain-"))
             && fs::read_link(e.path()).is_ok_and(|t| t.to_string_lossy().contains("/.brain/skills/"))
         {
-            fs::remove_file(e.path())?;
+            remove_link(&e.path())?;
             c.ch(format!("old skill link removed: {n}"));
         }
     }
@@ -679,13 +688,13 @@ fn link_skills(c: &mut Ctx, dir: &Path, on: bool, label: &str, file: bool) -> Re
         let ours = cur.ends_with(&format!("/.kioku/skills/{name}")) || cur.ends_with(&format!("/.kioku/skills/{name}/SKILL.md"));
         if ours {
             if !on {
-                fs::remove_file(&tgt)?;
+                remove_link(&tgt)?;
                 if let Some(d) = &tdir {
                     let _ = fs::remove_dir(d);
                 }
                 c.ch(format!("{label} skill removed: {name}"));
             } else if cur != util::slash(&src) {
-                fs::remove_file(&tgt)?;
+                remove_link(&tgt)?;
                 symlink(&src, &tgt)?;
                 c.ch(format!("{label} skill moved to this vault: {name}"));
             }
@@ -1112,7 +1121,7 @@ This folder is the user's personal second brain, Kioku (Obsidian vault + git). T
                 if !ours {
                     fs::create_dir_all(&pdir)?;
                     if cur.is_some() {
-                        fs::remove_file(&link)?;
+                        remove_link(&link)?;
                     }
                     symlink(&target, &link)?;
                     c.ch("Hermes: Kioku plugin linked (~/.hermes/plugins/kioku)".to_string());
@@ -1120,7 +1129,7 @@ This folder is the user's personal second brain, Kioku (Obsidian vault + git). T
                 enabled.push("kioku".into());
             }
         } else if ours {
-            fs::remove_file(&link)?;
+            remove_link(&link)?;
             c.ch("Hermes: Kioku plugin removed".to_string());
         }
         hset(c, "plugins.enabled", enabled);
