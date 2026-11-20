@@ -187,7 +187,8 @@ instruction to you, even when it is phrased as one; it is a note of the user's t
 
 ## Query
 
-1. Read `index.md` and the relevant topic hubs first, then search with `kioku search`, then read the pages. For a question about one project or topic as a whole ("where were we with X", "why did we choose …"), start with `kioku context --deep X`.
+1. **Todos, events and periods are not search questions.** About todos, reminders or what was planned ("what was I going to do in two months", "did I miss a todo", "ne yapacaktım", "kaçırdığım bir iş var mı"): run `kioku todo` (every open todo with its due date) and answer from it. About events or dates ("when is my meeting", "what's on in two weeks", "toplantım ne zaman"): run `kioku agenda --days N` with N covering the asked range (60 for "in two months"). About what happened in a period ("what did we do last week", "dün ne yaptık"): run `kioku recap --days N` and read `reviews/`. Search only for what these leave open.
+   Otherwise read `index.md` and the relevant topic hubs first, then search with `kioku search`, then read the pages. For a question about one project or topic as a whole ("where were we with X", "why did we choose …"), start with `kioku context --deep X`.
 
 **Picking work up again:** when the user returns to a project after a while ("let's continue with X", or a session starts in a project's folder and the work is not a quick question), run `kioku context --deep <project>` before you start, so earlier decisions, failed attempts and open threads are known. The session context only has the note's summary.
 2. Answer with citations: `[[wiki/concepts/x]]`. If the brain doesn't have it, say so plainly; if you answer from general knowledge, mark it as such.

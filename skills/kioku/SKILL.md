@@ -29,6 +29,7 @@ language; headings and entry types stay English.
 | "Research X", "araştır", "kapsamlı bir araştırma yap" | Do the research, then save the full report to `wiki/synthesis/` without asking, before your final answer (`kioku-ask`, Write back) |
 | "Check the brain", "clean up", "brain lint" | `kioku-lint` skill |
 | "What did we do today / this week?" | `kioku recap --days N`, then a short summary |
+| "What was I going to do …", "did I miss a todo", "when is my meeting" | `kioku todo` (all open todos with due dates) or `kioku agenda --days N`, not search |
 | "Let's continue with X", "where were we with X?", back on a project after a while | `kioku context --deep X` first, then answer or start the work; if it shows a handoff you are now picking up, change that line's `handoff:` to `resumed:` |
 | The user stops for now to go on elsewhere: "devret", "burada bırakıyorum", "yarın devam ederiz", "telefondan devam edeceğim", "hand off" | **Handoff** below |
 | "Get to know me", or Core is empty | **Onboarding** |
