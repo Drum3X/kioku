@@ -3,6 +3,7 @@ title: {{title}}
 type: synthesis
 lang:
 tags: []
+keys: []
 created: {{date}}
 updated: {{date}}
 sources: []

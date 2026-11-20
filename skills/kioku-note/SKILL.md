@@ -43,6 +43,7 @@ there is one.
 - **Frontmatter:**
   - `lang`: the conversation language;
   - `tags`: 1–4 fine-grained facets;
+  - `keys`: 3–8 phrases the user might search with that the page does not use: synonyms, the other language (Turkish/English), a plain description of what it is (SCHEMA.md, "Search keys");
   - for entities: `kind`, and `url` if known;
   - for ideas: `status: new`.
 - **URL given:** fetch it once with your web-fetch tool to learn what the thing is (name, purpose, platform, license or price if obvious). Write that in 1–2 sentences under `## What it is`, with the link. Don't save the page to `raw/`; this is a pointer, not a source.

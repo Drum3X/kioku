@@ -6,6 +6,7 @@ path:
 next:
 lang:
 tags: []
+keys: []
 created: {{date}}
 updated: {{date}}
 reviewed: {{date}}

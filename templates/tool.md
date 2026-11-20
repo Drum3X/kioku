@@ -5,6 +5,7 @@ kind: tool
 url:
 lang:
 tags: []
+keys: []
 created: {{date}}
 updated: {{date}}
 reviewed: {{date}}

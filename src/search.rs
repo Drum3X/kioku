@@ -1,4 +1,5 @@
-//! `kioku search`: ranked multi-term search (BM25 over title ×3, headings and tags ×2, body ×1,
+//! `kioku search`: ranked multi-term search (BM25 over title ×3, headings, tags, aliases and
+//! keys ×2, body ×1,
 //! times the share of terms matched, a page-type weight and a small recency bonus). Matching
 //! folds case and Turkish letters and allows suffixes both ways.
 //!
@@ -132,6 +133,7 @@ fn parse(vault: &Path, file: &Path) -> Doc {
         vec![
             fm.get("tags").cloned().unwrap_or_default(),
             fm.get("aliases").cloned().unwrap_or_default(),
+            fm.get("keys").cloned().unwrap_or_default(),
         ],
         vec![],
     ];

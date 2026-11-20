@@ -216,6 +216,7 @@ Follow the `kioku-lint` skill:
   url:               # entities: the thing's home page, if any
   status: new|exploring|project|dropped                          # ideas only
   tags: []
+  keys: []           # search keys: other words for what the page is about (see below)
   created: YYYY-MM-DD
   updated: YYYY-MM-DD
   reviewed: YYYY-MM-DD   # when its claims were last confirmed to still hold (see Freshness)
@@ -226,6 +227,7 @@ Follow the `kioku-lint` skill:
   ```
   Update `updated` whenever you change a page. Set `reviewed` when you have confirmed that the page's claims still hold (from a source, the system itself or the user), not on every edit.
 - **Freshness:** facts about things that change (a server's services, tool versions, a person's job, a project's status) go stale. A page's last check is `reviewed:`, else `updated:`, else `created:`; it is due again after `review_every` days, by default 60 for active projects; 90 for entities that are tools, sites, apps, libraries, services or servers, 180 for people and organizations; 180 for concepts and syntheses (sources, ideas, hubs, finished projects and entities such as anime or games are not asked about). `kioku stale` lists the due pages and the session context counts them. Ask the user about them at a natural moment, a few at a time, never in the middle of other work ("Is this still true: …?"). When a fact is confirmed, set `reviewed:` to today; when it changed, correct the page with a source and set `reviewed:`; when it is no longer known, mark the claim `(unverified)`. Write time-bound claims with their date ("as of 2026-11") so they can be checked later. A page that never goes stale gets `review_every: never`.
+- **Search keys (`keys:`):** wiki and project pages get 3–8 short phrases someone might search with that the page itself does not use: synonyms, the other language (Turkish and English both), plain descriptions ("yapay zeka asistanı" for an agent's page, "weekly review" for `haftalık değerlendirme`), what the user calls it, its common misspellings. Not words already in the title or headings, not every word of the body. Search weighs them like tags. Write them when you create a page and add one when a search missed the page because it was asked in other words.
 - **Topics line:** every wiki page except hubs has `Topics: [[wiki/topics/…]]` right under its H1 (see Topics).
 - **Links:** Obsidian wikilinks with the full path from the vault root: `[[wiki/concepts/llm-wiki|LLM Wiki]]`.
 - **Citations:** every claim links to a source: `… ([[wiki/sources/x]])` or `(source: [[daily/…]])`.

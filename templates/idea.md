@@ -4,6 +4,7 @@ type: idea
 status: new
 lang:
 tags: []
+keys: []
 created: {{date}}
 updated: {{date}}
 sources: []

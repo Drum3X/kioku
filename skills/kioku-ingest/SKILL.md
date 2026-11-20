@@ -62,7 +62,8 @@ Skip this step if the user said "process without asking".
 2. Fill the frontmatter:
    - `lang` (the source's language);
    - `sources: [raw/<yyyy>/<slug>.md]`;
-   - `tags`.
+   - `tags`;
+   - `keys`: 3–8 phrases someone might search for this source with that it does not use (synonyms, the other language).
 3. Write the body in the source's language:
    - **Summary:** 3–6 sentences.
    - **Key claims:** bullet points; each one must actually appear in the source.
