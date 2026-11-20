@@ -268,7 +268,7 @@ The CLI is also usable by hand as `kioku` (a link to `vault/.kioku/bin/kioku`):
 
 ```
 kioku health | capture "<text>" | context [--agent NAME | --deep <project|topic>] | whoami | today | journal | todo [--soon] | agenda [--days N] [--past] | new <type> "<Title>" | log <op> "<Title>"
-kioku search [--raw] [-n N] <term...> | recap [--days N] | stale [--all] | home [--print] | remote on|off|status|now|setup | update [--check|--to vX|--rollback] | version | lint-check
+kioku search [--raw] [-n N] <term...> | eval [-v] [FILE.tsv ...] | recap [--days N] | stale [--all] | home [--print] | remote on|off|status|now|setup | update [--check|--to vX|--rollback] | version | lint-check
 ```
 
 ## Quick capture and troubleshooting
@@ -277,6 +277,7 @@ kioku search [--raw] [-n N] <term...> | recap [--days N] | stale [--all] | home 
 - **`Home.md`** is a start page for browsing the vault in Obsidian: events of the coming week, due todos, active projects with their next step, open threads, pages changed this week, pages due for review and the inbox, each linked to its page. It is generated (at session start, after each commit and after pulls, or with `kioku home`) and kept out of git, so every machine has its own; don't edit it.
 - **Who wrote it:** several agents and machines write to one vault, so every work-log line carries `agent@host` next to its project (`- 21:55 [brain · claude@nitro] done: …`) and every commit ends with `Kioku-Agent: claude@nitro`. The session context tells each agent its name; `kioku whoami` prints it (the host is the machine's short name, `KIOKU_HOST` overrides it).
 - **`kioku context --deep <project or topic>`** gathers everything about one project or topic for picking work up again: the note, its decisions, open threads, learnings and recent work from the daily log (newest first), linked and linking pages, related todos and events. The agent runs it when you return to a project ("let's continue with Config"); the session context points to it when a session starts in a project's folder.
+- **`kioku eval`** measures how well search finds the right page. Each line of `tests/queries/*.tsv` is a question, the words an agent would search with, and the right page(s). Every question is searched with those words and with the whole question; it prints how many land first, in the top 3 and in the top 10, the mean reciprocal rank, and the questions that missed. Lines with no right page are questions the vault has nothing on: the search should come back empty. Run it before and after changing search, with your own questions (`kioku eval my-questions.tsv`).
 - **`kioku stale`** lists wiki and project pages whose facts have not been checked for a while: by default active projects after 60 days, tools, sites and services after 90, people and concepts after 180 (anime, games and the like never) (`review_every:` changes it per page, `reviewed:` records the last check). The session context counts them, `kioku lint-check` lists them without counting them as issues, and the agent asks you about a few at a time ("Is this still true?"), then sets `reviewed:` or corrects the page.
 - **`kioku health`** checks everything Kioku depends on (tools, the vault link and rules, each agent's rules, skills and hooks, git and autosync, vault health) and says how to fix each problem. `--offline` skips the network check.
 

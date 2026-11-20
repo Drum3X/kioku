@@ -3,6 +3,7 @@
 mod calendar;
 mod context;
 mod deep;
+mod eval;
 mod fm;
 mod git;
 mod handoff;
@@ -47,6 +48,7 @@ const USAGE: &str = r#"Usage: kioku <command> [args]
   new event "<Title>" DATE      Create an event in calendar/YYYY/
   log <op> "<Title>"            Append to log.md: ingest|query|lint|note|setup
   search [--raw] [-n N] <term...>  Ranked search; each word is a term, a "quoted phrase" one term. Turkish-aware
+  eval [-v] [FILE.tsv ...]        How well search finds the right page for test questions (default: tests/queries/*.tsv)
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
   stale [--all]                 Wiki and project pages whose facts are due to be checked again (reviewed:)
   home [--print]                Write Home.md, the start page for Obsidian (also at session start and after commits)
@@ -145,6 +147,7 @@ fn real_main() -> Result<i32> {
             Ok(0)
         }
         "search" => search::run(&vault, rest),
+        "eval" => eval::run(&vault, rest),
         "recap" => {
             print!("{}", notes::recap(&vault, rest)?);
             Ok(0)
