@@ -20,6 +20,7 @@ mod text;
 mod update;
 mod util;
 mod version;
+mod when;
 
 use anyhow::Result;
 use std::path::PathBuf;

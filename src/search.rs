@@ -274,7 +274,13 @@ fn rank(vault: &Path, terms: &[String], raw: bool, question: Option<&str>) -> Op
     }
     let mut seen = HashSet::new();
     q.retain(|t| seen.insert(t.key().to_string()));
-    if q.is_empty() {
+    // A time expression ("geçen hafta", "dün"): its words are not search terms; pages from that
+    // period come first below.
+    let when = period(terms, question);
+    if when.is_some() {
+        q.retain(|t| !t.key().split_whitespace().all(crate::when::is_time_word));
+    }
+    if q.is_empty() && when.is_none() {
         return None;
     }
 
@@ -365,7 +371,43 @@ fn rank(vault: &Path, terms: &[String], raw: bool, question: Option<&str>) -> Op
             })
             .collect();
     }
+    if let Some(r) = when {
+        let kind = |rel: &str| {
+            if rel.starts_with("reviews/") {
+                0
+            } else if rel.starts_with("daily/") {
+                1
+            } else if rel.starts_with("calendar/") {
+                2
+            } else {
+                3
+            }
+        };
+        let mut first: Vec<Hit> = docs
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| crate::when::span(&d.rel).is_some_and(|s| crate::when::overlaps(s, r)))
+            .map(|(i, _)| results.iter().find(|h| h.0 == i).copied().unwrap_or((i, 0.0, 0, 0)))
+            .collect();
+        // Within the period: by score (a review, which sums the period up, counts 1.5×), then
+        // reviews, daily notes and events before the rest, newest first.
+        let w = |h: &Hit| h.1 * if kind(&docs[h.0].rel) == 0 { 1.5 } else { 1.0 };
+        first.sort_by(|a, b| {
+            w(b).partial_cmp(&w(a))
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(kind(&docs[a.0].rel).cmp(&kind(&docs[b.0].rel)))
+                .then(docs[b.0].rel.cmp(&docs[a.0].rel))
+        });
+        let ids: HashSet<usize> = first.iter().map(|h| h.0).collect();
+        first.extend(results.into_iter().filter(|h| !ids.contains(&h.0)));
+        results = first;
+    }
     Some((q, docs, results))
+}
+
+/// The date range a time expression in the terms or the question names, if any.
+fn period(terms: &[String], question: Option<&str>) -> Option<crate::when::Range> {
+    crate::when::range(&format!("{} {}", terms.join(" "), question.unwrap_or("")), util::today())
 }
 
 /// Each section's text for the vector index: (doc index, section index, "Title. Heading\nbody").
@@ -448,6 +490,9 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
     let Some((q, docs, results)) = rank(vault, &terms, raw, question.as_deref()) else {
         return Ok(0);
     };
+    if let Some((a, b)) = period(&terms, question.as_deref()) {
+        println!("(time: {a} … {b}; pages from that period first)");
+    }
 
     let line_hits = |l: &str| {
         let f = fold(l);
