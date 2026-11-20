@@ -2,8 +2,8 @@
 //! questions. Each line of a TSV file is `question<TAB>terms;separated;by;semicolons<TAB>
 //! expected/page.md|or/another.md`. Every question is searched twice: with its terms (what an
 //! agent passes) and with the whole question. An empty expected column means the vault has
-//! nothing on it: the search should come back empty. Default files: tests/queries/*.tsv in the
-//! Kioku checkout.
+//! nothing on it: the search should come back empty. Default files: the vault's eval/*.tsv (the
+//! user's own questions, kept private) and tests/queries/*.tsv in the Kioku checkout.
 
 use crate::{search, util};
 use anyhow::Result;
@@ -83,13 +83,16 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
     let verbose = args.iter().any(|a| a == "-v" || a == "--verbose");
     let mut files: Vec<PathBuf> = args.iter().filter(|a| !a.starts_with('-')).map(PathBuf::from).collect();
     if files.is_empty() {
-        let dir = util::sys_dir().join("tests/queries");
-        files = std::fs::read_dir(&dir)
-            .map(|rd| rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "tsv")).collect())
-            .unwrap_or_default();
-        files.sort();
+        // The user's own questions live in the vault (eval/, private); the checkout's are examples.
+        for dir in [vault.join("eval"), util::sys_dir().join("tests/queries")] {
+            let mut v: Vec<PathBuf> = std::fs::read_dir(&dir)
+                .map(|rd| rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "tsv")).collect())
+                .unwrap_or_default();
+            v.sort();
+            files.extend(v);
+        }
         if files.is_empty() {
-            return util::die(format!("no question files in {}; usage: kioku eval [-v] [FILE.tsv ...]", dir.display()));
+            return util::die("no question files in eval/ or tests/queries; usage: kioku eval [-v] [FILE.tsv ...]");
         }
     }
     let cases: Vec<Case> = files.iter().flat_map(|f| load(f)).collect();
