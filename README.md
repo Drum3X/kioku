@@ -278,6 +278,15 @@ kioku search [--raw] [-n N] <term...> | eval [-v] [FILE.tsv ...] | recap [--days
 - **Who wrote it:** several agents and machines write to one vault, so every work-log line carries `agent@host` next to its project (`- 21:55 [brain · claude@nitro] done: …`) and every commit ends with `Kioku-Agent: claude@nitro`. The session context tells each agent its name; `kioku whoami` prints it (the host is the machine's short name, `KIOKU_HOST` overrides it).
 - **`kioku context --deep <project or topic>`** gathers everything about one project or topic for picking work up again: the note, its decisions, open threads, learnings and recent work from the daily log (newest first), linked and linking pages, related todos and events. The agent runs it when you return to a project ("let's continue with Config"); the session context points to it when a session starts in a project's folder.
 - **`kioku eval`** measures how well search finds the right page. Each line of `tests/queries/*.tsv` is a question, the words an agent would search with, and the right page(s). Every question is searched with those words and with the whole question; it prints how many land first, in the top 3 and in the top 10, the mean reciprocal rank, and the questions that missed. Lines with no right page are questions the vault has nothing on: the search should come back empty. Run it before and after changing search, with your own questions (`kioku eval my-questions.tsv`).
+- **Time in a search:** "last week", "yesterday", "in two weeks", "geçen hafta", "dün" are read as dates. Pages from that period (daily notes, journal days, weekly and monthly reviews, calendar events) come first, reviews ahead.
+- **Hybrid search (optional, off by default):** `kioku search` can also rank the vault's sections by meaning with the multilingual-e5-small model and merge that with the word ranking. It finds pages asked about in other words or the other language: on the author's own questions, the right page's mean rank score (MRR) rose from 0.55 to 0.67. The release binaries are built without it. To use it:
+  ```sh
+  cargo build --release --features semantic   # needs the ONNX Runtime library at run time
+  export KIOKU_ORT_LIB=/path/to/libonnxruntime.so
+  kioku semantic pull                          # the model, ~135 MB, checksum checked
+  kioku semantic on                            # kioku semantic off turns it off again
+  ```
+  A search then takes about a second (the model loads each time); section vectors are cached in `~/.cache/kioku/` and only changed sections are recomputed. `kioku semantic status` says what is missing; without any of it, search stays as before.
 - **`kioku stale`** lists wiki and project pages whose facts have not been checked for a while: by default active projects after 60 days, tools, sites and services after 90, people and concepts after 180 (anime, games and the like never) (`review_every:` changes it per page, `reviewed:` records the last check). The session context counts them, `kioku lint-check` lists them without counting them as issues, and the agent asks you about a few at a time ("Is this still true?"), then sets `reviewed:` or corrects the page.
 - **`kioku health`** checks everything Kioku depends on (tools, the vault link and rules, each agent's rules, skills and hooks, git and autosync, vault health) and says how to fix each problem. `--offline` skips the network check.
 
@@ -326,12 +335,12 @@ written in the language you speak. Every page records its language in `lang:`. S
 
 ## Development
 
-The source is in `src/` (one Rust crate, no network or async dependencies). With Nix, `nix develop`
+The source is in `src/` (one Rust crate, no network or async dependencies; the optional `semantic` feature adds ONNX Runtime and a tokenizer). With Nix, `nix develop`
 gives cargo, clippy and rustfmt. `cargo build --release` builds `target/release/kioku`;
 `install.sh` links `bin/kioku` to it when it builds from source, so a checkout the vault links to
 runs your build. `cargo test` runs the unit tests; `tests/make-fixture.sh DIR` builds a test
 vault with tricky cases (recurring and broken events, invalid dates, broken links, private
-pages) to try commands on. A `v*` tag builds and publishes the release binaries
+pages) to try commands on. `tests/e2e.sh FILE.tsv …` is the end-to-end test: every eval question goes to a fresh, read-only Claude Code session (`claude -p`), which has to answer citing one of the right pages, or say the brain has nothing when there is none. It spends your subscription's tokens, so run it before a release. A `v*` tag builds and publishes the release binaries
 (`.github/workflows/release.yml`).
 
 ## Update and uninstall

@@ -277,6 +277,15 @@ kioku search [--raw] [-n N] <terim...> | eval [-v] [DOSYA.tsv ...] | recap [--da
 - **Kim yazdı:** tek vault'a birden fazla ajan ve makine yazdığı için her iş kaydı satırı projesinin yanında `ajan@makine` taşır (`- 21:55 [brain · claude@nitro] done: …`) ve her commit `Kioku-Agent: claude@nitro` satırıyla biter. Oturum bağlamı her ajana adını söyler; `kioku whoami` onu yazar (makine, kısa makine adıdır; `KIOKU_HOST` onu değiştirir).
 - **`kioku context --deep <proje ya da konu>`** bir projeye ya da konuya geri dönmek için onunla ilgili her şeyi toplar: notun kendisi, iş kaydındaki kararlar, açık işler, öğrenmeler ve son yapılanlar (yeniden eskiye), bağlantılı ve bağlanan sayfalar, ilgili yapılacaklar ve etkinlikler. Ajan bunu bir projeye döndüğünde çalıştırır ("Config'le devam edelim"); oturum bir projenin klasöründe başlarsa bağlam bu komutu hatırlatır.
 - **`kioku eval`** aramanın doğru sayfayı ne kadar iyi bulduğunu ölçer. `tests/queries/*.tsv` dosyalarının her satırında bir soru, ajanın arayacağı kelimeler ve doğru sayfa(lar) var. Her soru hem bu kelimelerle hem sorunun tamamıyla aranır; doğru sayfanın kaç soruda ilk sırada, ilk 3'te ve ilk 10'da geldiğini, ortalama sırayı (MRR) ve kaçırılan soruları yazar. Doğru sayfası boş bırakılan satırlar vault'ta karşılığı olmayan sorulardır: arama boş dönmeli. Aramayı değiştirmeden önce ve sonra kendi sorularınla çalıştır (`kioku eval sorularim.tsv`).
+- **Aramada zaman:** "geçen hafta", "dün", "2 hafta sonra", "last week" gibi ifadeler tarihe çevrilir. O döneme ait sayfalar (günlükler, journal günleri, haftalık ve aylık değerlendirmeler, takvim etkinlikleri) önce gelir, değerlendirmeler en önde.
+- **Hibrit arama (isteğe bağlı, varsayılan olarak kapalı):** `kioku search` vault'un bölümlerini multilingual-e5-small modeliyle anlamına göre de sıralayıp kelime sıralamasıyla birleştirebilir. Başka kelimelerle ya da öbür dilde sorulan sayfaları bulur: yazarın kendi sorularında doğru sayfanın ortalama sıra skoru (MRR) 0,55'ten 0,67'ye çıktı. Sürüm ikilileri bu özellik olmadan derlenir. Kullanmak için:
+  ```sh
+  cargo build --release --features semantic   # çalışırken ONNX Runtime kütüphanesi gerekir
+  export KIOKU_ORT_LIB=/yol/libonnxruntime.so
+  kioku semantic pull                          # model, ~135 MB, sağlama toplamı kontrol edilir
+  kioku semantic on                            # kioku semantic off yeniden kapatır
+  ```
+  Bir arama o zaman yaklaşık bir saniye sürer (model her seferinde yüklenir); bölüm vektörleri `~/.cache/kioku/` altında tutulur, yalnızca değişen bölümler yeniden hesaplanır. `kioku semantic status` neyin eksik olduğunu söyler; eksik bir şey varsa arama eskisi gibi çalışır.
 - **`kioku stale`** bilgileri bir süredir kontrol edilmemiş wiki ve proje sayfalarını listeler: varsayılan olarak aktif projeler 60, araçlar, siteler ve servisler 90, kişiler ve kavramlar 180 gün sonra (anime, oyun gibi şeyler hiç) (`review_every:` bunu sayfa başına değiştirir, `reviewed:` son kontrolü tutar). Oturum bağlamı bunları sayar, `kioku lint-check` sorun saymadan listeler; ajan her seferinde birkaçını sana sorar ("Bu hâlâ doğru mu?"), sonra `reviewed:` alanını günceller ya da sayfayı düzeltir.
 - **`kioku health`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı ve kuralları, her ajanın kuralları, skill'leri ve hook'ları, git ve autosync, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrolünü atlar.
 
@@ -325,12 +334,15 @@ aynı sayar ve ekleri tolere eder: "açılışta", "açılış"ı bulur.
 
 ## Geliştirme
 
-Kaynak `src/` altında (tek bir Rust crate'i; ağ ya da async bağımlılığı yok). Nix ile `nix develop`
+Kaynak `src/` altında (tek bir Rust crate'i; ağ ya da async bağımlılığı yok; isteğe bağlı `semantic` özelliği ONNX Runtime ve bir tokenizer ekler). Nix ile `nix develop`
 cargo, clippy ve rustfmt verir. `cargo build --release` `target/release/kioku`'yu derler;
 `install.sh` kaynaktan derlediğinde `bin/kioku`'yu ona bağlar, böylece vault'un bağlı olduğu
 checkout senin derlemeni çalıştırır. `cargo test` birim testlerini çalıştırır;
 `tests/make-fixture.sh KLASÖR` komutları denemek için zor durumlar içeren bir test vault'u kurar
-(tekrarlayan ve bozuk etkinlikler, geçersiz tarihler, kırık bağlantılar, özel sayfalar). Bir `v*`
+(tekrarlayan ve bozuk etkinlikler, geçersiz tarihler, kırık bağlantılar, özel sayfalar).
+`tests/e2e.sh DOSYA.tsv …` uçtan uca testtir: her eval sorusu yeni ve salt okunur bir Claude Code
+oturumuna (`claude -p`) gider; oturum doğru sayfalardan birine dayanarak cevap vermeli, doğru sayfa
+yoksa beyinde olmadığını söylemeli. Aboneliğinin token'larını harcar, o yüzden sürümden önce çalıştır. Bir `v*`
 etiketi sürüm ikililerini derleyip yayınlar (`.github/workflows/release.yml`).
 
 ## Güncelleme ve kaldırma
