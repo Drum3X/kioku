@@ -373,23 +373,30 @@ fn symlink(target: &Path, link: &Path) -> Result<()> {
     std::os::unix::fs::symlink(target, link).with_context(|| format!("linking {}", link.display()))
 }
 /// Windows: a directory symlink when allowed (Developer Mode), else a junction (no rights
-/// needed); a file symlink, else a copy.
+/// needed); a file symlink, else a copy. Paths are given to Windows with `\` only: a `/` left in
+/// a path (`.kioku/skills`) makes cmd read `/skills` as a switch of mklink, and a symlink target
+/// with `/` does not resolve.
 #[cfg(windows)]
 fn symlink(target: &Path, link: &Path) -> Result<()> {
+    use std::os::windows::process::CommandExt;
+    let target = PathBuf::from(target.to_string_lossy().replace('/', "\\"));
+    let link = PathBuf::from(link.to_string_lossy().replace('/', "\\"));
+    let (target, link) = (target.as_path(), link.as_path());
     if target.is_dir() {
         if std::os::windows::fs::symlink_dir(target, link).is_ok() {
             return Ok(());
         }
-        let ok = Command::new("cmd")
-            .arg("/C")
-            .arg("mklink")
-            .arg("/J")
-            .arg(link)
-            .arg(target)
-            .output()
-            .is_ok_and(|o| o.status.success());
+        // cmd does its own parsing: pass the command line as is, each path in quotes.
+        let out = Command::new("cmd")
+            .raw_arg(format!("/C mklink /J \"{}\" \"{}\"", link.display(), target.display()))
+            .output();
+        let ok = out.as_ref().is_ok_and(|o| o.status.success());
         if !ok {
-            return die(format!("could not link {} to {} (junction)", link.display(), target.display()));
+            let why = out
+                .map(|o| String::from_utf8_lossy(&o.stderr).trim().to_string())
+                .unwrap_or_else(|e| e.to_string());
+            let (l, t) = (link.display(), target.display());
+            return die(format!("could not link {l} to {t} (junction): {why}"));
         }
         return Ok(());
     }
@@ -678,7 +685,7 @@ fn link_skills(c: &mut Ctx, dir: &Path, on: bool, label: &str, file: bool) -> Re
         .collect();
     names.sort();
     for name in names {
-        let base = c.vault.join(".kioku/skills").join(&name);
+        let base = c.vault.join(".kioku").join("skills").join(&name);
         let (tdir, tgt, src) = if file {
             (Some(dir.join(&name)), dir.join(&name).join("SKILL.md"), base.join("SKILL.md"))
         } else {
@@ -837,10 +844,7 @@ fn claude(c: &mut Ctx) -> Result<bool> {
     if !c.old.is_empty() {
         dirs.push(c.old.clone());
     }
-    let rules: Vec<String> = dirs
-        .iter()
-        .flat_map(|d| [format!("Read(/{d}/**)"), format!("Edit(/{d}/**)")])
-        .collect();
+    let rules: Vec<String> = dirs.iter().flat_map(|d| perm_rules(d)).collect();
     let v = c.vault.display().to_string();
     edit_list(
         &mut s,
@@ -852,11 +856,7 @@ fn claude(c: &mut Ctx) -> Result<bool> {
         &mut s,
         &["permissions", "allow"],
         &rules,
-        if on {
-            vec![format!("Read(/{v}/**)"), format!("Edit(/{v}/**)")]
-        } else {
-            vec![]
-        },
+        if on { perm_rules(&v).to_vec() } else { vec![] },
     );
     edit_list(
         &mut s,
@@ -869,6 +869,24 @@ fn claude(c: &mut Ctx) -> Result<bool> {
         c.ch("~/.claude/settings.json updated (backup: settings.json.kioku.bak)");
     }
     Ok(on)
+}
+/// Claude Code's Read/Edit rules for a folder. `//path` is an absolute path; on Windows Claude
+/// Code matches paths in POSIX form (`C:\Users\x` is `/c/Users/x`).
+fn perm_rules(dir: &str) -> [String; 2] {
+    let p = posix_path(dir);
+    [format!("Read(/{p}/**)"), format!("Edit(/{p}/**)")]
+}
+fn posix_path(dir: &str) -> String {
+    if !cfg!(windows) {
+        return dir.to_string();
+    }
+    let s = dir.replace('\\', "/");
+    let b = s.as_bytes();
+    if b.len() >= 2 && b[1] == b':' && b[0].is_ascii_alphabetic() {
+        format!("/{}{}", (b[0] as char).to_ascii_lowercase(), &s[2..])
+    } else {
+        s
+    }
 }
 /// At path (objects created as needed): remove `drop` from the list, append `add`; remove the
 /// list and parents left empty.
@@ -945,12 +963,12 @@ fn codex(c: &mut Ctx) -> Result<bool> {
     if on || tf.exists() {
         let tblock = format!(
             "# kioku:start — managed by kioku/install.sh: lets Codex write to the vault from any project\n[sandbox_workspace_write]\nwritable_roots = [{}]\n# kioku:end",
-            serde_json::to_string(&c.vault.display().to_string())?
+            toml_str(&c.vault.display().to_string())?
         );
         let cur = util::read(&tf).trim_end_matches('\n').to_string();
         let rest = strip_block(&cur, &|l| l.starts_with("# kioku:start"), &|l| l.starts_with("# kioku:end"));
         let new = if on && rest.lines().any(|l| l.starts_with("[sandbox_workspace_write]")) {
-            if !rest.contains(&format!("\"{}\"", c.vault.display())) {
+            if !codex_has_root(&rest, &c.vault) {
                 warn(&format!("{} has its own [sandbox_workspace_write]; add \"{}\" to its writable_roots so Codex can write to the vault from other projects", tf.display(), c.vault.display()));
             }
             rest
@@ -973,6 +991,29 @@ fn codex(c: &mut Ctx) -> Result<bool> {
         }
     }
     Ok(on)
+}
+
+/// A TOML string for a path: a literal string ('C:\Users\x', no escapes) when it can be one, so
+/// the path reads as written; else a basic string.
+fn toml_str(s: &str) -> Result<String> {
+    if !s.contains('\'') && !s.contains('\n') {
+        return Ok(format!("'{s}'"));
+    }
+    Ok(serde_json::to_string(s)?)
+}
+/// Whether config.toml names the vault as a string, in any of the forms it may be written in.
+pub fn codex_has_root(toml: &str, vault: &Path) -> bool {
+    let v = vault.display().to_string();
+    let mut forms = vec![format!("\"{v}\""), format!("'{v}'"), format!("\"{}\"", v.replace('\\', "\\\\"))];
+    if cfg!(windows) {
+        let s = util::slash(vault);
+        forms.push(format!("\"{s}\""));
+        forms.push(format!("'{s}'"));
+        let b = v.replace('/', "\\");
+        forms.push(format!("'{b}'"));
+        forms.push(format!("\"{}\"", b.replace('\\', "\\\\")));
+    }
+    forms.iter().any(|f| toml.contains(f))
 }
 
 // ---------- Antigravity: rules in ~/.gemini/GEMINI.md, skills in ~/.gemini/config/skills, hooks
@@ -1109,7 +1150,7 @@ This folder is the user's personal second brain, Kioku (Obsidian vault + git). T
         // vault's .kioku so it follows updates, and enabled in plugins.enabled.
         let pdir = hermes_home().join("plugins");
         let link = pdir.join("kioku");
-        let target = c.vault.join(".kioku/hermes-plugin/kioku");
+        let target = c.vault.join(".kioku").join("hermes-plugin").join("kioku");
         let cur = fs::read_link(&link).ok();
         let ours = cur.as_ref().is_some_and(|p| p.ends_with(".kioku/hermes-plugin/kioku"));
         let mut enabled = hlist("plugins.enabled");

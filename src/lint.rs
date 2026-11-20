@@ -288,11 +288,13 @@ pub fn lint_check(vault: &Path) -> (String, usize) {
 
 /// Problems in just-written vault files: "- file: problem" lines (empty when fine).
 pub fn check_file(vault: &Path, args: &[String]) -> String {
-    let vs = format!("{}/", vault.display());
+    // Compared with `/` separators, so a Windows path as typed (`C:\…\vault\x.md`) matches too.
+    let vs = format!("{}/", util::slash(vault));
     let mut files: Vec<String> = Vec::new();
     for a in args {
-        let f = a.strip_prefix(&vs).unwrap_or(a);
-        if f.starts_with('/') || !f.ends_with(".md") {
+        let a = if cfg!(windows) { a.replace('\\', "/") } else { a.clone() };
+        let f = a.strip_prefix(&vs).unwrap_or(&a);
+        if f.starts_with('/') || Path::new(f).is_absolute() || !f.ends_with(".md") {
             continue;
         }
         if ["raw/", ".kioku/", ".obsidian/", ".git/", ".claude/", ".codex/"]

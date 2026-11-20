@@ -227,7 +227,7 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
             "hooks in hooks.json (trust them once with /hooks in Codex)",
             &format!("Kioku hooks missing from {}/hooks.json; run: kioku update", cx.display()),
         );
-        if util::read(&cx.join("config.toml")).contains(&format!("\"{}\"", vault.display())) {
+        if crate::install::codex_has_root(&util::read(&cx.join("config.toml")), vault) {
             r.ok("the vault is a writable root of Codex's sandbox");
         } else {
             r.wrn(&format!(
