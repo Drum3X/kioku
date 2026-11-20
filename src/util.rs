@@ -24,6 +24,10 @@ fn xdg(var: &str, default: &str) -> PathBuf {
 pub fn config_dir() -> PathBuf {
     xdg("XDG_CONFIG_HOME", ".config").join("kioku")
 }
+/// ~/.cache/kioku
+pub fn cache_dir() -> PathBuf {
+    xdg("XDG_CACHE_HOME", ".cache").join("kioku")
+}
 /// ~/.local/state/kioku
 pub fn state_dir() -> PathBuf {
     xdg("XDG_STATE_HOME", ".local/state").join("kioku")

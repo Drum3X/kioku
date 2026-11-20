@@ -14,6 +14,7 @@ mod install;
 mod lint;
 mod notes;
 mod search;
+mod semantic;
 mod stale;
 mod text;
 mod update;
@@ -47,8 +48,9 @@ const USAGE: &str = r#"Usage: kioku <command> [args]
   new <type> "<Title>"          Create a page: source|concept|entity|tool|idea|topic|synthesis|project|contact|review
   new event "<Title>" DATE      Create an event in calendar/YYYY/
   log <op> "<Title>"            Append to log.md: ingest|query|lint|note|setup
-  search [--raw] [-n N] <term...>  Ranked search; each word is a term, a "quoted phrase" one term. Turkish-aware
+  search [--raw] [-n N] [-q Q] <term...> Ranked search; each word is a term, a "quoted phrase" one term. Turkish-aware
   eval [-v] [FILE.tsv ...]        How well search finds the right page for test questions (default: tests/queries/*.tsv)
+  semantic status|on|off|pull|index  Optional hybrid search with the e5 model (off by default; builds with --features semantic)
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
   stale [--all]                 Wiki and project pages whose facts are due to be checked again (reviewed:)
   home [--print]                Write Home.md, the start page for Obsidian (also at session start and after commits)
@@ -148,6 +150,7 @@ fn real_main() -> Result<i32> {
         }
         "search" => search::run(&vault, rest),
         "eval" => eval::run(&vault, rest),
+        "semantic" => semantic::run(&vault, rest),
         "recap" => {
             print!("{}", notes::recap(&vault, rest)?);
             Ok(0)

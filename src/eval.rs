@@ -105,8 +105,8 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
     let mut detail = Vec::new();
     for c in &cases {
         let words: Vec<String> = c.question.split_whitespace().map(str::to_string).collect();
-        let ht = if c.terms.is_empty() { vec![] } else { search::top(vault, &c.terms, DEPTH) };
-        let hq = search::top(vault, &words, DEPTH);
+        let ht = if c.terms.is_empty() { vec![] } else { search::top_q(vault, &c.terms, Some(&c.question), DEPTH) };
+        let hq = search::top_q(vault, &words, Some(&c.question), DEPTH);
         if c.expected.is_empty() {
             abstain += 1;
             abstain_terms += ht.is_empty() as usize;

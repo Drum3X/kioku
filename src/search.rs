@@ -249,7 +249,7 @@ fn recency(d: &Doc) -> f64 {
 /// (page index, score, terms matched, best section)
 type Hit = (usize, f64, usize, usize);
 
-fn rank(vault: &Path, terms: &[String], raw: bool) -> Option<(Vec<Term>, Vec<Doc>, Vec<Hit>)> {
+fn rank(vault: &Path, terms: &[String], raw: bool, question: Option<&str>) -> Option<(Vec<Term>, Vec<Doc>, Vec<Hit>)> {
     let stop: HashSet<String> = words(STOP_WORDS).into_iter().collect();
     let mut query: Vec<Term> = Vec::new();
     for t in terms {
@@ -352,12 +352,70 @@ fn rank(vault: &Path, terms: &[String], raw: bool) -> Option<(Vec<Term>, Vec<Doc
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| docs[a.0].rel.cmp(&docs[b.0].rel))
     });
+    // Hybrid search, when switched on: fuse with the sections ranked by meaning.
+    let query = question.map(str::to_string).unwrap_or_else(|| terms.join(" "));
+    if let Some(vec) = crate::semantic::rank(vault, &section_texts(&docs), &query) {
+        let bm: Vec<usize> = results.iter().map(|r| r.0).collect();
+        let vd: Vec<usize> = vec.iter().map(|v| v.0).collect();
+        results = crate::semantic::fuse(&bm, &vd)
+            .into_iter()
+            .map(|(d, s)| match results.iter().find(|r| r.0 == d) {
+                Some(r) => (d, s * 100.0, r.2, r.3),
+                None => (d, s * 100.0, 0, vec.iter().find(|v| v.0 == d).map(|v| v.1).unwrap_or(0)),
+            })
+            .collect();
+    }
     Some((q, docs, results))
+}
+
+/// Each section's text for the vector index: (doc index, section index, "Title. Heading\nbody").
+/// Private pages are left out.
+fn section_texts(docs: &[Doc]) -> Vec<(usize, usize, String)> {
+    let mut out = Vec::new();
+    for (i, d) in docs.iter().enumerate() {
+        if d.private {
+            continue;
+        }
+        let title = if d.title.is_empty() {
+            d.rel.rsplit('/').next().unwrap_or(&d.rel).trim_end_matches(".md").to_string()
+        } else {
+            d.title.clone()
+        };
+        for (k, p) in d.parts.iter().enumerate() {
+            let from = p.line.map(|l| l + 1).unwrap_or(0);
+            let to = d.parts.get(k + 1).and_then(|n| n.line).unwrap_or(d.body.len());
+            let body: Vec<&str> = d.body[from.min(to)..to]
+                .iter()
+                .map(String::as_str)
+                .filter(|l| !l.trim().is_empty() && !l.starts_with("# ") && !l.starts_with("Topics:"))
+                .collect();
+            if body.is_empty() && p.heading.is_empty() {
+                continue;
+            }
+            let text: String = format!("{title}. {}\n{}", p.heading, body.join("\n")).chars().take(2000).collect();
+            out.push((i, k, text));
+        }
+    }
+    out
+}
+
+/// `kioku semantic index`: embed every section not in the cache yet.
+pub fn index_all(vault: &Path) -> anyhow::Result<usize> {
+    let mut files = Vec::new();
+    for d in ["Core.md", "projects", "wiki", "daily", "journal", "calendar", "contacts", "reviews", "index.md"] {
+        walk(&vault.join(d), &mut files);
+    }
+    let docs: Vec<Doc> = files.iter().map(|f| parse(vault, f)).collect();
+    crate::semantic::index(vault, &section_texts(&docs))
 }
 
 /// The best pages for the terms: (relative path, title), private pages left out.
 pub fn top(vault: &Path, terms: &[String], n: usize) -> Vec<(String, String)> {
-    let Some((_, docs, results)) = rank(vault, terms, false) else {
+    top_q(vault, terms, None, n)
+}
+/// Like `top`, with the user's question for the vector side of hybrid search.
+pub fn top_q(vault: &Path, terms: &[String], question: Option<&str>, n: usize) -> Vec<(String, String)> {
+    let Some((_, docs, results)) = rank(vault, terms, false, question) else {
         return vec![];
     };
     results
@@ -372,20 +430,22 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
     let mut raw = false;
     let mut limit = 20usize;
     let mut terms: Vec<String> = Vec::new();
+    let mut question: Option<String> = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
             "--raw" => raw = true,
             "-n" | "--limit" => limit = it.next().and_then(|v| v.parse::<usize>().ok()).filter(|n| *n > 0).unwrap_or(20),
+            "-q" | "--question" => question = it.next().cloned(),
             _ => terms.push(a.clone()),
         }
     }
     if terms.is_empty() {
-        eprintln!("kioku: usage: kioku search [--raw] [-n N] <term...>");
+        eprintln!("kioku: usage: kioku search [--raw] [-n N] [-q \"question\"] <term...>");
         return Ok(2);
     }
 
-    let Some((q, docs, results)) = rank(vault, &terms, raw) else {
+    let Some((q, docs, results)) = rank(vault, &terms, raw, question.as_deref()) else {
         return Ok(0);
     };
 
