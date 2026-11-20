@@ -1,6 +1,10 @@
 //! `kioku search`: ranked multi-term search (BM25 over title ×3, headings and tags ×2, body ×1,
 //! times the share of terms matched, a page-type weight and a small recency bonus). Matching
 //! folds case and Turkish letters and allows suffixes both ways.
+//!
+//! A page is ranked as a whole. Its sections (`##` and `###` headings) are scored too, only to
+//! show which section matches best, so that an agent can go straight to it in a long page.
+//! (Ranking by the best section was measured with `kioku eval` and did not help: 2026-11-20.)
 
 use crate::text::{fold, word_re, words};
 use crate::util;
@@ -44,6 +48,31 @@ fn word_match(w: &str, d: &str) -> f64 {
     0.0
 }
 
+/// Word counts of some text, per field (title, headings and tags, body).
+#[derive(Default)]
+struct Part {
+    counts: [HashMap<String, usize>; 3],
+    folded: [String; 3],
+    len: usize,
+    /// The section's heading and its line in the body (none for the header and the intro).
+    heading: String,
+    line: Option<usize>,
+}
+impl Part {
+    fn new(fields: &[Vec<String>; 3], heading: String, line: Option<usize>) -> Part {
+        let mut p = Part { heading, line, ..Default::default() };
+        for (k, f) in fields.iter().enumerate() {
+            let joined = f.join("\n");
+            for w in words(&joined) {
+                *p.counts[k].entry(w).or_insert(0) += 1;
+                p.len += 1;
+            }
+            p.folded[k] = fold(&joined);
+        }
+        p
+    }
+}
+
 struct Doc {
     rel: String,
     title: String,
@@ -51,8 +80,10 @@ struct Doc {
     date: Option<String>,
     body: Vec<String>,
     body_start: usize,
-    counts: [HashMap<String, usize>; 3],
-    folded: [String; 3],
+    /// Title, tags, aliases and the `#` heading: counted with every section.
+    header: Part,
+    /// The intro before the first section, then one part per `##`/`###` section.
+    parts: Vec<Part>,
     len: usize,
 }
 
@@ -96,7 +127,7 @@ fn parse(vault: &Path, file: &Path) -> Doc {
     }
     let body: Vec<String> = lines.iter().skip(i).map(|s| s.to_string()).collect();
     let title = fm.get("title").cloned().unwrap_or_default();
-    let mut fields: [Vec<String>; 3] = [
+    let mut head: [Vec<String>; 3] = [
         vec![title.clone()],
         vec![
             fm.get("tags").cloned().unwrap_or_default(),
@@ -104,27 +135,29 @@ fn parse(vault: &Path, file: &Path) -> Doc {
         ],
         vec![],
     ];
-    for l in &body {
+    let mut parts = Vec::new();
+    let mut cur: [Vec<String>; 3] = Default::default();
+    let (mut cur_head, mut cur_line) = (String::new(), None);
+    for (n, l) in body.iter().enumerate() {
         if let Some(t) = l.strip_prefix("# ") {
-            fields[0].push(t.to_string());
+            head[0].push(t.to_string());
         } else if is_heading2(l) {
             let h = l.trim_start_matches('#');
-            fields[1].push(h.strip_prefix(' ').unwrap_or(h).to_string());
+            let h = h.strip_prefix(' ').unwrap_or(h).to_string();
+            if l.starts_with("## ") || l.starts_with("### ") {
+                parts.push(Part::new(&cur, std::mem::take(&mut cur_head), cur_line));
+                cur = Default::default();
+                cur_head = h.clone();
+                cur_line = Some(n);
+            }
+            cur[1].push(h);
         } else {
-            fields[2].push(l.clone());
+            cur[2].push(l.clone());
         }
     }
-    let mut counts: [HashMap<String, usize>; 3] = Default::default();
-    let mut len = 0;
-    let mut folded: [String; 3] = Default::default();
-    for k in 0..3 {
-        let joined = fields[k].join("\n");
-        for w in words(&joined) {
-            *counts[k].entry(w).or_insert(0) += 1;
-            len += 1;
-        }
-        folded[k] = fold(&joined);
-    }
+    parts.push(Part::new(&cur, cur_head, cur_line));
+    let header = Part::new(&head, String::new(), None);
+    let len = header.len + parts.iter().map(|p| p.len).sum::<usize>();
     let base = file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let date = ["updated", "date", "created"]
         .iter()
@@ -144,8 +177,8 @@ fn parse(vault: &Path, file: &Path) -> Doc {
         date,
         body,
         body_start: i,
-        counts,
-        folded,
+        header,
+        parts,
         len,
     }
 }
@@ -158,7 +191,7 @@ fn is_heading2(l: &str) -> bool {
 const FIELD_W: [f64; 3] = [3.0, 2.0, 1.0];
 
 #[allow(clippy::needless_range_loop)]
-fn term_freq(d: &Doc, t: &Term) -> f64 {
+fn term_freq(d: &Part, t: &Term) -> f64 {
     let mut tf = 0.0;
     for k in 0..3 {
         match t {
@@ -211,8 +244,9 @@ fn recency(d: &Doc) -> f64 {
 
 /// Ranked pages for the terms: (query terms, parsed pages, (page index, score, terms matched)),
 /// best first. None when the query is empty after stop words or the vault has no pages.
-/// (page index, score, terms matched)
-type Hit = (usize, f64, usize);
+/// (page index, score, terms matched, best section)
+type Hit = (usize, f64, usize, usize);
+
 fn rank(vault: &Path, terms: &[String], raw: bool) -> Option<(Vec<Term>, Vec<Doc>, Vec<Hit>)> {
     let stop: HashSet<String> = words(STOP_WORDS).into_iter().collect();
     let mut query: Vec<Term> = Vec::new();
@@ -258,8 +292,22 @@ fn rank(vault: &Path, terms: &[String], raw: bool) -> Option<(Vec<Term>, Vec<Doc
     }
     let n = docs.len() as f64;
     let avg = docs.iter().map(|d| d.len as f64).sum::<f64>() / n;
+    let nparts = docs.iter().map(|d| d.parts.len()).sum::<usize>() as f64;
+    let avg_part = docs
+        .iter()
+        .flat_map(|d| d.parts.iter().map(|p| (p.len + d.header.len) as f64))
+        .sum::<f64>()
+        / nparts.max(1.0);
     let (k1, b) = (1.2, 0.75);
-    let tfs: Vec<Vec<f64>> = docs.iter().map(|d| q.iter().map(|t| term_freq(d, t)).collect()).collect();
+    // Per page: the header's term frequencies, each section's, and the page's (their sum).
+    let htf: Vec<Vec<f64>> = docs.iter().map(|d| q.iter().map(|t| term_freq(&d.header, t)).collect()).collect();
+    let ptf: Vec<Vec<Vec<f64>>> = docs
+        .iter()
+        .map(|d| d.parts.iter().map(|p| q.iter().map(|t| term_freq(p, t)).collect()).collect())
+        .collect();
+    let tfs: Vec<Vec<f64>> = (0..docs.len())
+        .map(|i| (0..q.len()).map(|j| htf[i][j] + ptf[i].iter().map(|p| p[j]).sum::<f64>()).collect())
+        .collect();
     let idf: Vec<f64> = (0..q.len())
         .map(|j| {
             let df = tfs.iter().filter(|r| r[j] > 0.0).count() as f64;
@@ -267,22 +315,35 @@ fn rank(vault: &Path, terms: &[String], raw: bool) -> Option<(Vec<Term>, Vec<Doc
         })
         .collect();
 
-    let mut results: Vec<(usize, f64, usize)> = Vec::new();
-    for (i, d) in docs.iter().enumerate() {
+    // BM25 times the share of terms matched, for term frequencies over a text of length len.
+    let score = |tf: &dyn Fn(usize) -> f64, len: f64, avg: f64| {
         let (mut s, mut matched) = (0.0, 0);
-        for j in 0..q.len() {
-            let tf = tfs[i][j];
+        for (j, w) in idf.iter().enumerate() {
+            let tf = tf(j);
             if tf == 0.0 {
                 continue;
             }
             matched += 1;
-            s += idf[j] * (tf * (k1 + 1.0)) / (tf + k1 * (1.0 - b + b * d.len as f64 / avg));
+            s += w * (tf * (k1 + 1.0)) / (tf + k1 * (1.0 - b + b * len / avg));
         }
+        (s * matched as f64 / q.len() as f64, matched)
+    };
+    let mut results: Vec<Hit> = Vec::new();
+    for (i, d) in docs.iter().enumerate() {
+        let (whole, matched) = score(&|j| tfs[i][j], d.len as f64, avg);
         if matched == 0 {
             continue;
         }
-        s *= (matched as f64 / q.len() as f64) * type_weight(&d.rel) * recency(d);
-        results.push((i, s, matched));
+        let (mut best, mut at) = (0.0, 0);
+        // The section that matches best, for the output.
+        for (k, p) in d.parts.iter().enumerate() {
+            let (s, _) = score(&|j| htf[i][j] + ptf[i][k][j], (p.len + d.header.len) as f64, avg_part);
+            if s > best {
+                (best, at) = (s, k);
+            }
+        }
+        let s = whole * type_weight(&d.rel) * recency(d);
+        results.push((i, s, matched, at));
     }
     results.sort_by(|a, b| {
         b.1.partial_cmp(&a.1)
@@ -334,7 +395,7 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
         })
     };
     let mut out = String::new();
-    for (i, s, matched) in results.into_iter().take(limit) {
+    for (i, s, matched, at) in results.into_iter().take(limit) {
         let d = &docs[i];
         let p = if d.private { " [private]" } else { "" };
         let m = if q.len() > 1 {
@@ -344,8 +405,19 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
         };
         let title = if d.title.is_empty() { "?" } else { &d.title };
         out.push_str(&format!("{} — {}{}  ({:.2}{})\n", d.rel, title, p, s, m));
+        // The best section first (its heading, then its matching lines), then the rest.
+        let (from, to) = match d.parts.get(at).and_then(|p| p.line) {
+            Some(l) if d.parts.len() > 1 => {
+                let end = d.parts.get(at + 1).and_then(|p| p.line).unwrap_or(d.body.len());
+                out.push_str(&format!("    {}:§ {}\n", l + 1 + d.body_start, d.parts[at].heading));
+                (l + 1, end)
+            }
+            _ => (0, 0),
+        };
+        let order = (from..to).chain((0..d.body.len()).filter(|n| *n < from || *n >= to));
         let mut shown = 0;
-        for (n, l) in d.body.iter().enumerate() {
+        for n in order {
+            let l = &d.body[n];
             if shown >= 2 {
                 break;
             }
