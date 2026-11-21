@@ -72,6 +72,29 @@ pub fn canon(p: &Path) -> PathBuf {
         Err(_) => p.to_path_buf(),
     }
 }
+/// A folder as written in a note (`~/Projects/x`, `/home/u/x`, `C:\\Users\\u\\x`) in the form
+/// folders are compared in: `~` is this machine's home, `/` separators, no trailing `/`, and
+/// lower case on Windows.
+pub fn folder_key(p: &str) -> String {
+    let p = p.trim();
+    let p = match p.strip_prefix('~') {
+        Some(r) if r.is_empty() || r.starts_with('/') || r.starts_with('\\') => format!("{}{r}", slash(&home())),
+        _ => p.to_string(),
+    };
+    let p = p.replace('\\', "/");
+    let p = p.trim_end_matches('/').to_string();
+    if cfg!(windows) {
+        p.to_lowercase()
+    } else {
+        p
+    }
+}
+/// Whether `dir` is the folder `root` (as written in a note) or inside it.
+pub fn is_under(dir: &Path, root: &str) -> bool {
+    let r = folder_key(root);
+    let d = folder_key(&slash(dir));
+    !r.is_empty() && (d == r || d.starts_with(&format!("{r}/")))
+}
 /// Whether the path, written with `/` and without `.exe`, is `<vault>/.kioku/bin/kioku`; the vault.
 pub fn vault_of_self(p: &Path) -> Option<PathBuf> {
     let s = slash(p);
@@ -324,6 +347,15 @@ mod tests {
         assert_eq!(vault_of_self(Path::new("/home/u/Brain/.kioku/bin/kioku")), Some(PathBuf::from("/home/u/Brain")));
         assert_eq!(vault_of_self(Path::new("/home/u/Brain/.kioku/bin/kioku.exe")), Some(PathBuf::from("/home/u/Brain")));
         assert_eq!(vault_of_self(Path::new("/usr/bin/kioku")), None);
+    }
+    #[test]
+    fn folders() {
+        let h = slash(&home());
+        assert!(is_under(Path::new(&format!("{h}/Projects/kioku/src")), "~/Projects/kioku"));
+        assert!(is_under(Path::new(&format!("{h}/Projects/kioku")), "~/Projects/kioku/"));
+        assert!(!is_under(Path::new(&format!("{h}/Projects/kioku2")), "~/Projects/kioku"));
+        assert!(is_under(Path::new("/srv/x/y"), "/srv/x"));
+        assert!(!is_under(Path::new("/srv/x"), ""));
     }
     #[test]
     fn crlf() {

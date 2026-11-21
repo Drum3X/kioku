@@ -2,7 +2,7 @@
 title: {{title}}
 type: project
 status: active
-path:
+paths: []
 next:
 lang:
 tags: []

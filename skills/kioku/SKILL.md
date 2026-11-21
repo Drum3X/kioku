@@ -39,7 +39,7 @@ language; headings and entry types stay English.
 1. Open today's daily file with `kioku today`. One line per entry:
    `- HH:MM [project · agent@host] decision|done|learned|preference|open|handoff: text ([[link]])`
    Infer the project from the session's folder or the topic. When your work finishes an earlier `open:` thread (or makes it moot), change that line's `open:` to `closed:` in its daily file, keeping the text. `agent@host` is who you are in the records: the session context says it ("You are `…` in the records"), or run `kioku whoami --agent <your name>`.
-2. If the work belongs to a project, update `projects/<slug>.md` (`status`, `next`, `updated`, History; `reviewed` too when you have just confirmed its Status section is current). If there is no note and the topic will recur, create one with `kioku new project "<Name>"`, set `path:` to the folder's absolute path, and add it to `index.md` › Projects.
+2. If the work belongs to a project, update `projects/<slug>.md` (`status`, `next`, `updated`, History; `reviewed` too when you have just confirmed its Status section is current). If there is no note and the topic will recur, create one with `kioku new project "<Name>"`, set `paths:` to the folder (with `~` for the home folder, e.g. `[~/Projects/x]`), and add it to `index.md` › Projects. When the session context says the folder is not in the note's paths yet (another machine), add it to `paths:`.
 3. Every `learned` entry also goes into the wiki: add it to the relevant `wiki/concepts/` or `wiki/entities/` page with `(source: [[daily/YYYY-MM-DD]])`; a new page gets a `Topics:` line and a line in its topic hub (see `kioku-note`). Then end the daily line with a link to the page, e.g. `([[wiki/concepts/x]])`. Without that link, `kioku lint-check` and the Stop hook report it as not done. Too narrow for the wiki? Then it is not `learned`: use `done`/`decision` or the project note.
 4. Commit:
    ```
@@ -91,6 +91,6 @@ until the user ends it.
 1. **Draft Core:** write a draft of `Core.md` in the user's language, using the headings already in the file. Use **only what the user said**: no guesses, no embellishment. Leave a heading empty if nothing was said about it.
 2. **Show the draft** in a compact form and ask for corrections. This is the approval the schema requires for `Core.md`.
 3. **Write it:** apply the corrections, write `Core.md`, delete the `<!-- kioku:empty … -->` line, set `lang:` and `updated`.
-4. **Put the rest where it belongs:** facts that are not about the user themself go elsewhere. Active work goes into `projects/` notes (with `path:` when known). Tools and organizations go into `wiki/entities/` if they are worth a page. Add any new pages to `index.md`.
+4. **Put the rest where it belongs:** facts that are not about the user themself go elsewhere. Active work goes into `projects/` notes (with `paths:` when known). Tools and organizations go into `wiki/entities/` if they are worth a page. Add any new pages to `index.md`.
 5. Run `kioku log note "Core: onboarding"` and commit with `core: onboarding`.
 6. Ask the user to open a new session (ideally in another project) and ask "What does Core say?". Cross-session memory counts as verified only after that test.

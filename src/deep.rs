@@ -33,11 +33,10 @@ fn find(vault: &Path, q: &str) -> Option<PathBuf> {
         return None;
     }
     let matches = |f: &Path, text: &str| {
-        let p = fm::field(text, "path");
-        let last = p.trim_end_matches('/').rsplit('/').next().unwrap_or("");
+        let last = |p: &String| util::folder_key(p).rsplit('/').next().unwrap_or("").to_string();
         norm(&stem(f)) == nq
             || norm(&title_of(text, f)) == nq
-            || (!last.is_empty() && norm(last) == nq)
+            || fm::paths(text).iter().any(|p| !last(p).is_empty() && norm(&last(p)) == nq)
             || fm::parse(text)
                 .0
                 .get("aliases")

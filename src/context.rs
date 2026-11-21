@@ -34,6 +34,15 @@ fn compact(lines: &[String]) -> String {
     }
     out
 }
+/// A folder for a note's paths:, with ~ for the home folder when it is inside it.
+fn tilde_of(p: &Path) -> String {
+    let s = util::slash(p);
+    let h = util::slash(&util::home());
+    match s.strip_prefix(&h) {
+        Some(r) if r.is_empty() || r.starts_with('/') => format!("~{r}"),
+        _ => s,
+    }
+}
 /// What `$(…)` gives: trailing newlines removed.
 fn sub(s: &str) -> &str {
     s.trim_end_matches('\n')
@@ -110,24 +119,27 @@ pub fn build(vault: &Path, cwd: &Path, source: &str, agent: &str) -> String {
     // 2. Note for this folder: a project whose path: contains cwd, or a project/entity named like cwd
     let projects = sorted_glob(&vault.join("projects"), false);
     let base = cwd.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
-    let cwd_s = format!("{}/", cwd.display());
-    let home = util::home();
+    // A project whose path:/paths: (one per machine) holds this folder, else one named like it.
     let mut found: Option<PathBuf> = None;
+    let mut by_name: Option<PathBuf> = None;
     for f in &projects {
         let t = util::read(f);
         if fm::is_private(&t) {
             continue;
         }
-        let p = fm::field(&t, "path");
-        let p = match p.strip_prefix('~') {
-            Some(r) => format!("{}{r}", home.display()),
-            None => p,
-        };
-        let stem = f.file_stem().unwrap().to_string_lossy().into_owned();
-        if (!p.is_empty() && cwd_s.starts_with(&format!("{}/", p.trim_end_matches('/')))) || stem == base {
+        if fm::paths(&t).iter().any(|p| util::is_under(cwd, p)) {
             found = Some(f.clone());
             break;
         }
+        let stem = f.file_stem().unwrap().to_string_lossy().to_lowercase();
+        if by_name.is_none() && stem == base {
+            by_name = Some(f.clone());
+        }
+    }
+    // Found only by its name: the note does not know this machine's folder yet.
+    let no_path = found.is_none() && by_name.is_some();
+    if found.is_none() {
+        found = by_name;
     }
     if found.is_none() {
         let e = vault.join("wiki/entities").join(format!("{base}.md"));
@@ -137,6 +149,9 @@ pub fn build(vault: &Path, cwd: &Path, source: &str, agent: &str) -> String {
     }
     if let Some(f) = found {
         add(&format!("## Note for this folder: {}", util::rel(vault, &f)));
+        if no_path {
+            add(&format!("(This folder is not in the note's paths: yet. When you next update the note, add it to paths: as `{}`, so sessions here find it on this machine.)", tilde_of(cwd)));
+        }
         add(&format!("(Picking up work here after a while: run `{v}/.kioku/bin/kioku context --deep {}` for its decisions, open threads and recent work.)", f.file_stem().unwrap().to_string_lossy()));
         add(sub(util::cap(&compact(&body(&util::read(&f))), 3000)));
         add("");

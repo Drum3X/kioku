@@ -20,6 +20,20 @@ pub fn get(text: &str, key: &str) -> Option<String> {
     }
     None
 }
+/// A project's folders: `path:` and `paths:` (a value or a list), one per machine it lives
+/// on. Empty values are left out.
+pub fn paths(text: &str) -> Vec<String> {
+    let (data, _) = parse(text);
+    let mut out = Vec::new();
+    for k in ["path", "paths"] {
+        match data.get(k) {
+            Some(Val::Str(s)) if !s.trim().is_empty() => out.push(s.trim().to_string()),
+            Some(Val::List(v)) => out.extend(v.iter().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())),
+            _ => {}
+        }
+    }
+    out
+}
 /// The field, or "" when missing.
 pub fn field(text: &str, key: &str) -> String {
     get(text, key).unwrap_or_default()
