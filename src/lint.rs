@@ -286,6 +286,15 @@ pub fn lint_check(vault: &Path) -> (String, usize) {
     }
     issues += rc.len();
 
+    out.push_str("## Decisions that may replace an earlier one, last 30 days (kioku supersedes; not counted as issues)\n");
+    let sc = crate::supersede::candidates(vault, 30, crate::semantic::ready());
+    for (a, b) in &sc {
+        out.push_str(&format!("- {}\n  → {}\n", crate::supersede::line(a), crate::supersede::line(b)));
+    }
+    if sc.is_empty() {
+        out.push_str("(none)\n");
+    }
+
     out.push_str("## Calendar, todos and contacts\n");
     let vo = calendar::validate(vault);
     if vo.is_empty() {
@@ -363,6 +372,9 @@ pub fn check_file(vault: &Path, args: &[String]) -> String {
     let mut out = secrets_out;
     for f in &files {
         let text = util::read(&vault.join(f));
+        if let Some(n) = crate::supersede::nudge(vault, f, &text) {
+            out.push_str(&n);
+        }
         if let Some(n) = crate::corrections::nudge(vault, f, &text) {
             out.push_str(&n);
         }

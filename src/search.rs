@@ -86,6 +86,8 @@ struct Doc {
     /// The intro before the first section, then one part per `##`/`###` section.
     parts: Vec<Part>,
     len: usize,
+    /// The page that replaces this one (`superseded_by:`).
+    successor: Option<String>,
 }
 
 fn walk(p: &Path, out: &mut Vec<PathBuf>) {
@@ -126,7 +128,9 @@ fn parse(vault: &Path, file: &Path) -> Doc {
         }
         i += 1;
     }
-    let body: Vec<String> = lines.iter().skip(i).map(|s| s.to_string()).collect();
+    // Superseded work-log lines stay in the file (and git) but are not searched.
+    let body: Vec<String> = lines.iter().skip(i).map(|s| if crate::supersede::is_line(s) { String::new() } else { s.to_string() }).collect();
+    let successor = crate::supersede::page_successor(&text);
     let title = fm.get("title").cloned().unwrap_or_default();
     let mut head: [Vec<String>; 3] = [
         vec![title.clone()],
@@ -182,6 +186,7 @@ fn parse(vault: &Path, file: &Path) -> Doc {
         header,
         parts,
         len,
+        successor,
     }
 }
 /// `## ` … `###### ` heading.
@@ -371,6 +376,13 @@ fn rank(vault: &Path, terms: &[String], raw: bool, question: Option<&str>) -> Op
             })
             .collect();
     }
+    // A superseded page ranks far lower: what replaced it should come first.
+    if docs.iter().any(|d| d.successor.is_some()) {
+        for h in results.iter_mut().filter(|h| docs[h.0].successor.is_some()) {
+            h.1 *= 0.3;
+        }
+        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    }
     if let Some(r) = when {
         let kind = |rel: &str| {
             if rel.starts_with("reviews/") {
@@ -523,6 +535,10 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
             String::new()
         };
         let title = if d.title.is_empty() { "?" } else { &d.title };
+        let p = match &d.successor {
+            Some(s) => format!("{p} [superseded by [[{s}]]]"),
+            None => p.to_string(),
+        };
         out.push_str(&format!("{} — {}{}  ({:.2}{})\n", d.rel, title, p, s, m));
         // The best section first (its heading, then its matching lines), then the rest.
         let (from, to) = match d.parts.get(at).and_then(|p| p.line) {

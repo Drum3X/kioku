@@ -25,6 +25,7 @@ language of the user's notes; keep it short (a phone screen or two).
    - New or updated wiki pages: `git log --since="N days ago" --name-only --format= -- wiki | sort -u`.
    - Local agent memories the vault does not have: `kioku memories --semantic` (on this machine; it matches by meaning across languages when the build has hybrid search, else by words). Check the page it names before treating an entry as already in the vault. Mention them under *Next* in one line.
    - Repeated corrections not yet a rule: `kioku corrections`. Put each under *Next* as a proposed rule for the user to accept or decline.
+   - Decisions that may replace an earlier one: `kioku supersedes`. Where the newer one clearly replaces the older, mark the older `superseded:` (see the schema); list the unclear pairs under *Next* for the user.
    - Pages due for review: `kioku stale`. Put at most three under *Next* as questions for the user ("Still true? …").
 3. **Write** with `kioku new review "<Title>"` (title: `Week 2026-W47`, `November 2026`, or the dates), then fill it in. Set `period:` (week, month or days), `from:`, `to:` and `lang:`. Sections, each a few bullets, left out when empty:
    - **Done:** finished work and results that matter, grouped by project or area, not every small task.

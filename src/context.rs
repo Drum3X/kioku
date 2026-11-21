@@ -133,6 +133,9 @@ fn daily_section(days: &[(String, Vec<String>)], budget: usize) -> String {
     for (d, (_, ls)) in days.iter().enumerate() {
         let tail = &ls[ls.len().saturating_sub(25)..];
         for l in tail {
+            if crate::supersede::is_line(l) {
+                continue;
+            }
             lines.push((d, if keep(l) { l.clone() } else { shorten(l, 200) }));
         }
     }
@@ -298,7 +301,7 @@ pub fn build_parts(vault: &Path, cwd: &Path, source: &str, agent: &str, sync: bo
     let mut act = String::new();
     for f in &projects {
         let t = util::read(f);
-        if fm::is_private(&t) || fm::field(&t, "status") != "active" {
+        if fm::is_private(&t) || fm::field(&t, "status") != "active" || crate::supersede::page_successor(&t).is_some() {
             continue;
         }
         let rel = util::rel(vault, f);

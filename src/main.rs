@@ -19,6 +19,7 @@ mod search;
 mod secrets;
 mod semantic;
 mod stale;
+mod supersede;
 mod text;
 mod update;
 mod util;
@@ -56,6 +57,7 @@ const USAGE: &str = r#"Usage: kioku <command> [args]
   search [--raw] [-n N] [-q Q] <term...> Ranked search; each word is a term, a "quoted phrase" one term. Turkish-aware
   eval [-v] [FILE.tsv ...]        How well search finds the right page for test questions (default: tests/queries/*.tsv)
   corrections                   Repeated corrections (correction: lines) not yet turned into a rule
+  supersedes                    Recent decisions/preferences that may replace an earlier one (superseded:)
   memories [--semantic] [--all] [--done ID …] What the agents here keep in their own memory and the vault does not know
   semantic status|on|off|pull|index  Hybrid search with the e5 model (built in, off until semantic on; build: --features semantic-bundled)
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
@@ -170,6 +172,7 @@ fn real_main() -> Result<i32> {
         "search" => search::run(&vault, rest),
         "memories" => memories::run(&vault, rest),
         "corrections" => corrections::run(&vault, rest),
+        "supersedes" => supersede::run(&vault, rest),
         "check-secrets" => secrets::run(&vault, rest),
         "bg" => git::bg(&vault, rest),
         "eval" => eval::run(&vault, rest),

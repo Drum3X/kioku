@@ -154,6 +154,9 @@ pub fn build(vault: &Path, q: &str) -> String {
             "## {}",
             if rel.starts_with("projects/") { "Project note" } else { "Page" }
         ));
+        if let Some(s) = crate::supersede::page_successor(&text) {
+            add(&format!("(Out of date: superseded by [[{s}]]; read that page for what holds now.)"));
+        }
         // The page's own headings one level down, under this section; its title is above.
         let body: Vec<String> = fm::body_lines(&text)
             .into_iter()

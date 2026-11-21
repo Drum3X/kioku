@@ -401,6 +401,23 @@ mod imp {
     }
 }
 
+/// Vectors for short texts (compared with each other: both sides embedded as queries), not
+/// cached. None without hybrid search in the build, or without the model or ONNX Runtime.
+pub fn embed(texts: &[String]) -> Option<Vec<Vec<f32>>> {
+    #[cfg(feature = "semantic")]
+    {
+        if !model_ok() || texts.is_empty() {
+            return None;
+        }
+        return imp::load().and_then(|mut m| m.embed(texts, true)).map_err(|e| eprintln!("kioku: semantic match unavailable ({e:#})")).ok();
+    }
+    #[allow(unreachable_code)]
+    {
+        let _ = texts;
+        None
+    }
+}
+
 /// For each text, the most similar section by meaning: (doc index, cosine). None when this
 /// build has no hybrid search or the model or ONNX Runtime is missing (whether switched on or not:
 /// the caller asked for it explicitly).
