@@ -240,7 +240,7 @@ Follow the `kioku-lint` skill:
 ## Prohibited
 
 - Do not make things up. If unsure, don't write it, or mark it `(unverified)`.
-- **Never** write secrets: passwords, API keys, tokens, card numbers, ID numbers. The repo is pushed to GitHub.
+- **Never** write secrets: passwords, API keys, tokens, card numbers, ID numbers. The repo is pushed to GitHub. The write check and `kioku lint-check` report what looks like one, and the vault's pre-commit hook refuses to commit it (`kioku check-secrets`); remove it, don't work around the check. A line that only documents an example format can carry `kioku:allow-secret`.
 - Do not modify saved files under `raw/`.
 - Do not change `Core.md` without the user's approval. Do not delete, move or rename existing notes.
 - Do not touch `.kioku/` unless the user asks.

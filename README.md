@@ -306,6 +306,7 @@ kioku search [--raw] [-n N] <term...> | eval [-v] [FILE.tsv ...] | recap [--days
   kioku semantic on                            # kioku semantic off turns it off again
   ```
   A search then takes about a second (the model loads each time); section vectors are cached in `~/.cache/kioku/` and only changed sections are recomputed. `kioku semantic status` says what is missing; without any of it, search stays as before.
+- **Secret check:** the write check, `kioku lint-check` and the vault's pre-commit hook look for API keys and tokens (Anthropic, OpenAI, GitHub, Google, AWS, Slack, Telegram), private key blocks, JWTs, `password = …` style values and card numbers. A commit that would add one is refused (`kioku check-secrets --staged` says where). A line documenting an example can carry `kioku:allow-secret`.
 - **`kioku stale`** lists wiki and project pages whose facts have not been checked for a while: by default active projects after 60 days, tools, sites and services after 90, people and concepts after 180 (anime, games and the like never) (`review_every:` changes it per page, `reviewed:` records the last check). The session context counts them, `kioku lint-check` lists them without counting them as issues, and the agent asks you about a few at a time ("Is this still true?"), then sets `reviewed:` or corrects the page.
 - **`kioku health`** checks everything Kioku depends on (tools, the vault link and rules, each agent's rules, skills and hooks, git and autosync, vault health) and says how to fix each problem. `--offline` skips the network check.
 

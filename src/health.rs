@@ -289,8 +289,12 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
             "post-commit hook missing; run: kioku remote setup",
         );
         let pre = util::read(&vault.join(".git/hooks/pre-commit"));
-        if pre.contains("kioku sync") || pre.contains("sync --ids") {
-            r.wrn("an old pre-commit hook (CalDAV ids) is left; run: kioku remote setup");
+        if pre.contains("check-secrets") {
+            r.ok("pre-commit hook (secret check)");
+        } else if pre.contains("kioku sync") || pre.contains("sync --ids") {
+            r.wrn("an old pre-commit hook (CalDAV ids) is left; run: kioku update");
+        } else {
+            r.wrn("no pre-commit secret check; run: kioku update");
         }
         if vault.join(".git/rebase-merge").is_dir() || vault.join(".git/rebase-apply").is_dir() {
             r.bad("a rebase is in progress in the vault; finish or abort it");

@@ -151,11 +151,33 @@ fn sorted_md(vault: &Path, dirs: &[&str]) -> Vec<String> {
 }
 
 /// Returns (report, issue count).
+/// Files worth scanning for secrets (text the agents write), by extension.
+fn text_file(f: &str) -> bool {
+    let ext = f.rsplit_once('.').map(|x| x.1.to_lowercase()).unwrap_or_default();
+    ["md", "txt", "json", "yaml", "yml", "toml", "csv", "tsv", "html", "htm", "sh", "ps1", "ini", "conf", "env", "ics", "vcf"].contains(&ext.as_str())
+}
+
 pub fn lint_check(vault: &Path) -> (String, usize) {
     let idx = Index::build(vault);
     let mut out = String::new();
     let mut issues = 0;
     let mut inbound: HashSet<String> = HashSet::new();
+
+    out.push_str("## Secrets (API keys, tokens, private keys, passwords, card numbers)\n");
+    let mut found = 0;
+    for e in ignore::WalkBuilder::new(vault).hidden(false).require_git(false).build().flatten() {
+        let rel = util::rel(vault, e.path());
+        if !e.file_type().is_some_and(|t| t.is_file()) || rel.starts_with(".git/") || rel.starts_with(".kioku/") || !text_file(&rel) {
+            continue;
+        }
+        let r = crate::secrets::report(&rel, &util::read(e.path()));
+        found += r.lines().count();
+        out.push_str(&r);
+    }
+    if found == 0 {
+        out.push_str("(none)\n");
+    }
+    issues += found;
 
     out.push_str("## Broken links\n");
     // Like rg --glob "!.kioku/**" --glob "!CLAUDE.md" --glob "!AGENTS.md" (basenames anywhere)
@@ -291,6 +313,15 @@ pub fn check_file(vault: &Path, args: &[String]) -> String {
     // Compared with `/` separators, so a Windows path as typed (`C:\…\vault\x.md`) matches too.
     let vs = format!("{}/", util::slash(vault));
     let mut files: Vec<String> = Vec::new();
+    // Secrets: every text file written into the vault, raw/ included.
+    let mut secrets_out = String::new();
+    for a in args {
+        let a = if cfg!(windows) { a.replace('\\', "/") } else { a.clone() };
+        let f = a.strip_prefix(&vs).unwrap_or(&a);
+        if !f.starts_with('/') && !Path::new(f).is_absolute() && !f.starts_with(".git/") && !f.starts_with(".kioku/") && text_file(f) && vault.join(f).is_file() {
+            secrets_out.push_str(&crate::secrets::report(f, &util::read(&vault.join(f))));
+        }
+    }
     for a in args {
         let a = if cfg!(windows) { a.replace('\\', "/") } else { a.clone() };
         let f = a.strip_prefix(&vs).unwrap_or(&a);
@@ -311,10 +342,10 @@ pub fn check_file(vault: &Path, args: &[String]) -> String {
         }
     }
     if files.is_empty() {
-        return String::new();
+        return secrets_out;
     }
     let idx = Index::build(vault);
-    let mut out = String::new();
+    let mut out = secrets_out;
     for f in &files {
         let text = util::read(&vault.join(f));
         let mut lines = text.lines();

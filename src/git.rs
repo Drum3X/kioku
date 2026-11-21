@@ -47,11 +47,19 @@ pub fn bg(vault: &Path, args: &[String]) -> Result<i32> {
     Ok(0)
 }
 
+const PRE_HOOK: &str = r#"#!/bin/sh
+# kioku: before each commit, keep secrets (API keys, tokens, passwords) out of the vault
+B="$(git rev-parse --show-toplevel)/.kioku/bin/kioku"
+[ -f "$B.exe" ] && B="$B.exe"
+[ -f "$B" ] || exit 0
+exec "$B" check-secrets --staged
+"#;
+
 fn ours(text: &str) -> bool {
     text.lines().any(|l| l.starts_with("# kioku:") || l.starts_with("# second-brain:"))
 }
 
-/// Install the post-commit hook; remove the pre-commit hook of earlier versions (CalDAV ids).
+/// Install the post-commit hook and the pre-commit secret check.
 /// Returns what changed, one line each.
 pub fn setup_hooks(vault: &Path) -> Result<Vec<String>> {
     if !vault.join(".git").is_dir() {
@@ -68,10 +76,14 @@ pub fn setup_hooks(vault: &Path) -> Result<Vec<String>> {
         set_exec(&f)?;
         msgs.push("installed post-commit hook".to_string());
     }
+    // The pre-commit hook stops secrets; it replaces the CalDAV one of earlier versions.
     let pre = hd.join("pre-commit");
-    if pre.exists() && ours(&util::read(&pre)) {
-        fs::remove_file(&pre)?;
-        msgs.push("removed the old pre-commit hook".to_string());
+    if pre.exists() && !ours(&util::read(&pre)) {
+        eprintln!("kioku: {} exists and is not ours; left untouched (the secret check runs in the write check only)", pre.display());
+    } else if util::read(&pre) != PRE_HOOK {
+        fs::write(&pre, PRE_HOOK)?;
+        set_exec(&pre)?;
+        msgs.push("installed pre-commit hook (secret check)".to_string());
     }
     Ok(msgs)
 }

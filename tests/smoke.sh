@@ -41,6 +41,13 @@ git -C "$V" add -A && git -C "$V" commit -qm smoke
 for _ in $(seq 1 20); do [ -f "$V/Home.md" ] && break; sleep 0.5; done
 [ -f "$V/Home.md" ] || fail "post-commit hook did not refresh Home.md"
 
+# A secret is reported by the write check and stopped by the pre-commit hook.
+printf -- '---\ntitle: S\n---\n# S\nghp_0123456789abcdefABCDEF0123456789abcd\n' > "$V/wiki/concepts/s.md"
+"$K" check-file "$(win "$V/wiki/concepts/s.md")" | grep -q "looks like a secret" || fail "check-file missed a secret"
+git -C "$V" add -A
+if git -C "$V" commit -qm secret 2>/dev/null; then fail "pre-commit hook let a secret in"; fi
+git -C "$V" reset -q HEAD -- . && rm -f "$V/wiki/concepts/s.md"
+
 "$K" install --vault "$(win "$V")" --uninstall --no-bin-link > /dev/null || fail "uninstall"
 grep -q "hook claude" "$HOME/.claude/settings.json" 2>/dev/null && fail "hooks left after uninstall"
 echo "smoke OK"

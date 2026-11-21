@@ -14,6 +14,7 @@ mod install;
 mod lint;
 mod notes;
 mod search;
+mod secrets;
 mod semantic;
 mod stale;
 mod text;
@@ -150,6 +151,7 @@ fn real_main() -> Result<i32> {
             Ok(0)
         }
         "search" => search::run(&vault, rest),
+        "check-secrets" => secrets::run(&vault, rest),
         "bg" => git::bg(&vault, rest),
         "eval" => eval::run(&vault, rest),
         "semantic" => semantic::run(&vault, rest),
