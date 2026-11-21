@@ -50,7 +50,8 @@ Three parts work with any agent:
   - `kioku-ingest` adds sources;
   - `kioku-ask` answers with citations;
   - `kioku-lint` runs a health check of the notes;
-  - `kioku-review` writes weekly reviews and challenges plans.
+  - `kioku-review` writes weekly reviews and challenges plans;
+  - `kioku-dream` consolidates the week on a branch of its own, merged only with your yes.
 - **CLI (`kioku`):** context, search, todos, agenda, new pages, checks, git sync.
 
 On top of that, the installer wires each agent it finds on the machine. What each one gets:
@@ -240,9 +241,9 @@ EOF
 chmod +x ~/.hermes/scripts/morning.sh
 hermes cron create "0 8 * * *" --name morning --no-agent --script morning.sh --deliver telegram
 
-# A weekly review with the kioku-review skill
-hermes cron create "0 20 * * 0" "Weekly review of this vault with the kioku-review skill: write the page, commit it, then run .kioku/bin/kioku remote now. Reply with the review." \
-  --name weekly --skill kioku-review --workdir ~/Documents/Kioku --deliver telegram
+# A weekly review with the kioku-review skill, then the dream pass (kioku-dream) on a branch of its own
+hermes cron create "0 20 * * 0" "Weekly review of this vault with the kioku-review skill: write the page, commit it, then run .kioku/bin/kioku remote now. Then the dream pass with the kioku-dream skill. Reply with the review, then what the dream pass did." \
+  --name weekly --skill kioku-review --skill kioku-dream --workdir ~/Documents/Kioku --deliver telegram
 ```
 
 ### Other agents
@@ -302,6 +303,7 @@ kioku search [--raw] [-n N] <term...> | eval [-v] [FILE.tsv ...] | recap [--days
 - **Local memories:** each agent also has a small memory of its own (Claude Code's auto memory, Hermes's MEMORY.md and USER.md, Codex's memories) that the other agents never see. `kioku memories` lists what is there and not in the vault; the agent proposes where each entry belongs (Core.md and AGENTS.md only with your yes) and marks it handled. The local files are only read.
 - **Corrections become rules:** when you correct an agent, it records a `correction:` line. When the same correction comes up again, in any agent, the write check says so and the agent proposes a standing rule for `AGENTS.md` (or `Core.md`), written only with your yes; the lines are then marked `ruled:` or `declined:`. `kioku corrections` and `kioku lint-check` list repeats that are not a rule yet.
 - **Replaced decisions drop out:** when a decision or preference replaces an earlier one, the old line becomes `superseded:` and the new one says `(replaces DATE HH:MM)`; a page replaced by another gets `superseded_by:`. The old knowledge stays in the file and in git, but no longer shows up in the session context, the deep context or search (a superseded page ranks far lower and says what replaced it). The write check names earlier decisions of the same project that look like the new one, and `kioku supersedes` lists recent pairs (by meaning and shared words when the hybrid search model is there).
+- **Weekly dream pass:** after the weekly review, an agent consolidates the week (`kioku dream start`, the kioku-dream skill): replaced decisions marked `superseded:`, learnings carried into the wiki, page sentences the log moved past corrected. It works on a copy of the vault, on a branch `dream/DATE` pushed to the remote; `kioku dream finish` puts back anything it may not change (Core.md, AGENTS.md, your journal, calendar, contacts, sources, reviews, deletions) and drops the pass when search (`kioku eval`) or the checks got worse. Your next session says a dream waits; the agent explains it and merges all, some files or nothing (`kioku dream show|merge [--only FILE…]|drop`) with your answer. Measured on copies of a real vault: planted problems fixed 12 of 12 times, no trap touched; on the real week it corrected three stale sentences, all right; about a minute per run.
 - **Secret check:** the write check, `kioku lint-check` and the vault's pre-commit hook look for API keys and tokens (Anthropic, OpenAI, GitHub, Google, AWS, Slack, Telegram), private key blocks, JWTs, `password = …` style values and card numbers. A commit that would add one is refused (`kioku check-secrets --staged` says where). A line documenting an example can carry `kioku:allow-secret`.
 - **`kioku stale`** lists wiki and project pages whose facts have not been checked for a while: by default active projects after 60 days, tools, sites and services after 90, people and concepts after 180 (anime, games and the like never) (`review_every:` changes it per page, `reviewed:` records the last check). The session context counts them, `kioku lint-check` lists them without counting them as issues, and the agent asks you about a few at a time ("Is this still true?"), then sets `reviewed:` or corrects the page.
 - **`kioku health`** checks everything Kioku depends on (tools, the vault link and rules, each agent's rules, skills and hooks, git and autosync, vault health) and says how to fix each problem. `--offline` skips the network check.

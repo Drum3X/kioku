@@ -167,7 +167,7 @@ fn sync_locked(vault: &Path, mode: &str) -> Result<bool> {
     }
     let mut last = String::new();
     for attempt in 1..=3u64 {
-        let o = util::run(&mut g(&["pull", "--rebase", "--autostash", "-q"]), 20)?;
+        let o = util::run(&mut g(&["pull", "--rebase", "--autostash", "--prune", "-q"]), 20)?;
         if !o.status.success() {
             let _ = util::run(&mut g(&["rebase", "--abort"]), 10);
             let out = format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr));

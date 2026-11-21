@@ -79,18 +79,42 @@ impl Score {
     }
 }
 
+/// The default question files: the vault's eval/*.tsv, then the checkout's tests/queries/*.tsv.
+fn default_files(vault: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    for dir in [vault.join("eval"), util::sys_dir().join("tests/queries")] {
+        let mut v: Vec<PathBuf> = std::fs::read_dir(&dir)
+            .map(|rd| rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "tsv")).collect())
+            .unwrap_or_default();
+        v.sort();
+        files.extend(v);
+    }
+    files
+}
+
+/// MRR (by terms, by whole question) of `vault` on the questions of `questions_from` (default
+/// files), for comparing two copies of a vault. None without questions.
+pub fn mrr(vault: &Path, questions_from: &Path) -> Option<(f64, f64)> {
+    let cases: Vec<Case> = default_files(questions_from).iter().flat_map(|f| load(f)).filter(|c| !c.expected.is_empty()).collect();
+    if cases.is_empty() {
+        return None;
+    }
+    let (mut t, mut q) = (Score::default(), Score::default());
+    for c in &cases {
+        let words: Vec<String> = c.question.split_whitespace().map(str::to_string).collect();
+        let ht = if c.terms.is_empty() { vec![] } else { search::top_q(vault, &c.terms, Some(&c.question), DEPTH) };
+        t.add(rank(&ht, &c.expected));
+        q.add(rank(&search::top_q(vault, &words, Some(&c.question), DEPTH), &c.expected));
+    }
+    Some((t.rr / t.n as f64, q.rr / q.n as f64))
+}
+
 pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
     let verbose = args.iter().any(|a| a == "-v" || a == "--verbose");
     let mut files: Vec<PathBuf> = args.iter().filter(|a| !a.starts_with('-')).map(PathBuf::from).collect();
     if files.is_empty() {
         // The user's own questions live in the vault (eval/, private); the checkout's are examples.
-        for dir in [vault.join("eval"), util::sys_dir().join("tests/queries")] {
-            let mut v: Vec<PathBuf> = std::fs::read_dir(&dir)
-                .map(|rd| rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "tsv")).collect())
-                .unwrap_or_default();
-            v.sort();
-            files.extend(v);
-        }
+        files = default_files(vault);
         if files.is_empty() {
             return util::die("no question files in eval/ or tests/queries; usage: kioku eval [-v] [FILE.tsv ...]");
         }

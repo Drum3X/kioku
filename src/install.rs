@@ -397,7 +397,7 @@ fn setup_vault(c: &mut Ctx) -> Result<()> {
 }
 
 #[cfg(unix)]
-fn symlink(target: &Path, link: &Path) -> Result<()> {
+pub(crate) fn symlink(target: &Path, link: &Path) -> Result<()> {
     std::os::unix::fs::symlink(target, link).with_context(|| format!("linking {}", link.display()))
 }
 /// Windows: a directory symlink when allowed (Developer Mode), else a junction (no rights
@@ -405,7 +405,7 @@ fn symlink(target: &Path, link: &Path) -> Result<()> {
 /// a path (`.kioku/skills`) makes cmd read `/skills` as a switch of mklink, and a symlink target
 /// with `/` does not resolve.
 #[cfg(windows)]
-fn symlink(target: &Path, link: &Path) -> Result<()> {
+pub(crate) fn symlink(target: &Path, link: &Path) -> Result<()> {
     use std::os::windows::process::CommandExt;
     let target = PathBuf::from(target.to_string_lossy().replace('/', "\\"));
     let link = PathBuf::from(link.to_string_lossy().replace('/', "\\"));
@@ -435,7 +435,7 @@ fn symlink(target: &Path, link: &Path) -> Result<()> {
     Ok(())
 }
 #[cfg(not(any(unix, windows)))]
-fn symlink(_: &Path, _: &Path) -> Result<()> {
+pub(crate) fn symlink(_: &Path, _: &Path) -> Result<()> {
     die("symlinks are needed")
 }
 /// Remove a link (never what it points to). On Windows a folder link or junction is removed as

@@ -49,7 +49,8 @@ birkaçını birlikte kullansan da tek bir hafızan olur.
   - `kioku-ingest` kaynak ekler;
   - `kioku-ask` kaynak göstererek cevap verir;
   - `kioku-lint` notların sağlık kontrolünü yapar;
-  - `kioku-review` haftalık değerlendirme yazar ve planları sorgular.
+  - `kioku-review` haftalık değerlendirme yazar ve planları sorgular;
+  - `kioku-dream` haftayı ayrı bir dalda toparlar, yalnızca onayınla birleşir.
 - **CLI (`kioku`):** bağlam, arama, yapılacaklar, ajanda, yeni sayfa, kontroller, git eşitlemesi.
 
 Bunların üstüne installer, makinede bulduğu her ajanı bağlar. Her biri şunları alır:
@@ -239,9 +240,9 @@ EOF
 chmod +x ~/.hermes/scripts/morning.sh
 hermes cron create "0 8 * * *" --name morning --no-agent --script morning.sh --deliver telegram
 
-# kioku-review skill'iyle haftalık değerlendirme
-hermes cron create "0 20 * * 0" "Bu vault'un haftalık değerlendirmesini kioku-review skill'iyle yap: sayfayı yaz, commit et, sonra .kioku/bin/kioku remote now çalıştır. Değerlendirmeyi cevap olarak yaz." \
-  --name weekly --skill kioku-review --workdir ~/Documents/Kioku --deliver telegram
+# kioku-review skill'iyle haftalık değerlendirme, ardından ayrı bir dalda dream geçişi (kioku-dream)
+hermes cron create "0 20 * * 0" "Bu vault'un haftalık değerlendirmesini kioku-review skill'iyle yap: sayfayı yaz, commit et, sonra .kioku/bin/kioku remote now çalıştır. Ardından kioku-dream skill'iyle dream geçişini yap. Önce değerlendirmeyi, sonra dream geçişinin ne yaptığını cevap olarak yaz." \
+  --name weekly --skill kioku-review --skill kioku-dream --workdir ~/Documents/Kioku --deliver telegram
 ```
 
 ### Diğer ajanlar
@@ -301,6 +302,7 @@ kioku search [--raw] [-n N] <terim...> | eval [-v] [DOSYA.tsv ...] | recap [--da
 - **Yerel hafızalar:** her ajanın diğerlerinin göremediği küçük bir hafızası da var (Claude Code'un otomatik hafızası, Hermes'in MEMORY.md ve USER.md dosyaları, Codex'in hafızası). `kioku memories` orada olup vault'ta olmayanları listeler; ajan her girdinin nereye ait olduğunu önerir (Core.md ve AGENTS.md yalnızca onayınla) ve işlendi olarak işaretler. Yerel dosyalar yalnızca okunur.
 - **Düzeltmeler kurala dönüşür:** bir ajanı düzelttiğinde ajan bir `correction:` satırı yazar. Aynı düzeltme hangi ajanda olursa olsun ikinci kez geldiğinde yazma kontrolü bunu söyler ve ajan `AGENTS.md`'ye (ya da `Core.md`'ye) kalıcı bir kural önerir; kural yalnızca onayınla yazılır, satırlar `ruled:` ya da `declined:` olarak işaretlenir. `kioku corrections` ve `kioku lint-check` henüz kurala dönüşmemiş tekrarları listeler.
 - **Eskiyen kararlar geri çekilir:** yeni bir karar ya da tercih eskisinin yerini aldığında eski satır `superseded:` olur, yenisi `(replaces TARİH SS:DD)` der; başka bir sayfanın yerini aldığı sayfa `superseded_by:` alır. Eski bilgi dosyada ve git geçmişinde kalır ama oturum bağlamında, derin bağlamda ve aramada artık çıkmaz (eskimiş sayfa aramada çok geriye düşer ve yerine neyin geçtiğini söyler). Yazma kontrolü aynı projenin yenisine benzeyen eski kararlarını gösterir, `kioku supersedes` son çiftleri listeler (hibrit arama modeli varsa anlamına ve ortak kelimelere göre).
+- **Haftalık dream geçişi:** haftalık değerlendirmeden sonra bir ajan haftayı toparlar (`kioku dream start`, kioku-dream skill'i): yerini yenisi alan kararlar `superseded:` olur, öğrenmeler wikiye taşınır, günlüğün gerisinde kalan sayfa cümleleri düzeltilir. Vault'un bir kopyasında, uzak depoya gönderilen `dream/TARİH` dalında çalışır; `kioku dream finish` dokunmaması gerekenleri (Core.md, AGENTS.md, journal, takvim, rehber, kaynaklar, değerlendirmeler, silmeler) geri alır, arama (`kioku eval`) ya da kontroller kötüleşirse geçişi atar. Bir sonraki oturumun bekleyen bir dream olduğunu söyler; ajan değişiklikleri anlatır, cevabına göre hepsini, bazı dosyaları ya da hiçbirini birleştirir (`kioku dream show|merge [--only DOSYA…]|drop`). Gerçek bir vault'un kopyalarında ölçüldü: yerleştirilen sorunlar 12/12 düzeltildi, hiçbir tuzağa dokunulmadı; gerçek haftada eskimiş üç cümle düzeltildi, üçü de doğru; bir çalıştırma yaklaşık bir dakika.
 - **Gizli bilgi kontrolü:** yazma kontrolü, `kioku lint-check` ve vault'un pre-commit hook'u API anahtarlarını ve token'ları (Anthropic, OpenAI, GitHub, Google, AWS, Slack, Telegram), özel anahtar bloklarını, JWT'leri, `password = …` biçimindeki değerleri ve kart numaralarını arar. Bunlardan birini ekleyecek bir commit reddedilir (`kioku check-secrets --staged` nerede olduğunu söyler). Örnek bir biçimi anlatan satıra `kioku:allow-secret` eklenebilir.
 - **`kioku stale`** bilgileri bir süredir kontrol edilmemiş wiki ve proje sayfalarını listeler: varsayılan olarak aktif projeler 60, araçlar, siteler ve servisler 90, kişiler ve kavramlar 180 gün sonra (anime, oyun gibi şeyler hiç) (`review_every:` bunu sayfa başına değiştirir, `reviewed:` son kontrolü tutar). Oturum bağlamı bunları sayar, `kioku lint-check` sorun saymadan listeler; ajan her seferinde birkaçını sana sorar ("Bu hâlâ doğru mu?"), sonra `reviewed:` alanını günceller ya da sayfayı düzeltir.
 - **`kioku health`** Kioku'nun dayandığı her şeyi kontrol eder (araçlar, vault bağlantısı ve kuralları, her ajanın kuralları, skill'leri ve hook'ları, git ve autosync, vault sağlığı) ve her sorun için ne yapılacağını söyler. `--offline` ağ kontrolünü atlar.
