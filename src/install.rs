@@ -18,6 +18,8 @@ from every project. Safe to re-run.
                                     installed, otherwise ~/Documents/Kioku)
   kioku install --uninstall         remove the wiring from every agent (the vault is kept)
 
+  --host NAME       this machine's name in the records (agent@NAME) and in projects' hosts:;
+                    kept for later installs (default: the hostname; $KIOKU_HOST still wins)
   --relink          re-point an existing .kioku link at this copy (used by the Nix module,
                     whose store path changes on every update)
   --no-bin-link     don't link the kioku command into ~/.local/bin (a package provides it)
@@ -29,6 +31,7 @@ from every project. Safe to re-run.
 
 struct Opts {
     uninstall: bool,
+    host: Option<String>,
     vault: Option<String>,
     relink: bool,
     bin_link: bool,
@@ -86,6 +89,7 @@ pub fn run(args: &[String]) -> Result<i32> {
         codex: true,
         antigravity: true,
         hermes: true,
+        host: None,
     };
     let mut i = 0;
     while i < args.len() {
@@ -101,6 +105,11 @@ pub fn run(args: &[String]) -> Result<i32> {
                 i += 1;
             }
             _ if a.starts_with("--vault=") => o.vault = Some(a["--vault=".len()..].to_string()),
+            "--host" => {
+                o.host = Some(args.get(i + 1).cloned().unwrap_or_default());
+                i += 1;
+            }
+            _ if a.starts_with("--host=") => o.host = Some(a["--host=".len()..].to_string()),
             "--uninstall" => o.uninstall = true,
             "--relink" => o.relink = true,
             "--no-bin-link" => o.bin_link = false,
@@ -115,6 +124,13 @@ pub fn run(args: &[String]) -> Result<i32> {
             _ => return die(format!("unknown argument: {a} (see --help)")),
         }
         i += 1;
+    }
+    if let Some(h) = &o.host {
+        let h = h.trim().to_lowercase();
+        if h.is_empty() || !h.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+            return die("--host needs a short name: letters, digits and '-' (e.g. laptop, oracle, windows)");
+        }
+        o.host = Some(h);
     }
     if !which("git") {
         return die("'git' is required");
@@ -181,8 +197,9 @@ pub fn run(args: &[String]) -> Result<i32> {
                 agents.push(a);
             }
         }
+        let host = c.o.host.clone().or_else(|| util::record_get("host")).unwrap_or_default();
         let r = format!(
-            "version={}\nfingerprint={}\nvault={}\nsource={}\nflags={}\nagents={}\n",
+            "version={}\nfingerprint={}\nvault={}\nsource={}\nflags={}\nagents={}\nhost={host}\n",
             version::VERSION,
             version::fingerprint(&c.sys),
             c.vault.display(),
@@ -191,6 +208,12 @@ pub fn run(args: &[String]) -> Result<i32> {
             agents.join(" ")
         );
         util::write(&rec, &r)?;
+        if host.is_empty() {
+            println!(
+                "This machine is `{}` in the records (its hostname). Give it a short name with: kioku install --host NAME",
+                util::host()
+            );
+        }
     }
 
     if c.changes.is_empty() {

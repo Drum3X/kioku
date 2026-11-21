@@ -3,6 +3,7 @@ title: {{title}}
 type: project
 status: active
 paths: []
+hosts: []
 next:
 lang:
 tags: []

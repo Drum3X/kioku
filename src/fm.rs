@@ -34,6 +34,14 @@ pub fn paths(text: &str) -> Vec<String> {
     }
     out
 }
+/// A list field (`[a, b]`, `- a` lines, or one value), items trimmed, empty ones left out.
+pub fn list(text: &str, key: &str) -> Vec<String> {
+    match parse(text).0.get(key) {
+        Some(Val::Str(s)) => s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect(),
+        Some(Val::List(v)) => v.iter().map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect(),
+        None => vec![],
+    }
+}
 /// The field, or "" when missing.
 pub fn field(text: &str, key: &str) -> String {
     get(text, key).unwrap_or_default()

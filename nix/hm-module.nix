@@ -65,6 +65,16 @@ in {
       '';
     };
 
+    host = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "laptop";
+      description = ''
+        This machine's short name in the records (agent@host) and in projects' hosts: lists.
+        null keeps the name given before, else the hostname.
+      '';
+    };
+
     antigravity = mkOption {
       type = types.bool;
       default = true;
@@ -122,7 +132,7 @@ in {
             run ln -sfn ${bin} "$b"
           fi
         ''}
-        run ${bin} install --vault ${escapeShellArg cfg.vault} --relink --no-bin-link${lib.optionalString (!cfg.claudeCode) " --no-claude"}${lib.optionalString (!cfg.codex) " --no-codex"}${lib.optionalString (!cfg.antigravity) " --no-antigravity"}
+        run ${bin} install --vault ${escapeShellArg cfg.vault} --relink --no-bin-link${lib.optionalString (cfg.host != null) " --host ${escapeShellArg cfg.host}"}${lib.optionalString (!cfg.claudeCode) " --no-claude"}${lib.optionalString (!cfg.codex) " --no-codex"}${lib.optionalString (!cfg.antigravity) " --no-antigravity"}
       )
     '';
   };

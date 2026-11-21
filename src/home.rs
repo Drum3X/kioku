@@ -88,8 +88,10 @@ pub fn render(vault: &Path) -> String {
         }
         let rel = util::rel(vault, f);
         let next = fm::field(&t, "next");
+        let hosts = fm::list(&t, "hosts");
+        let on = if hosts.is_empty() { String::new() } else { format!(" ({})", hosts.join(", ")) };
         act.push(format!(
-            "- {}{}",
+            "- {}{on}{}",
             link(&rel, &title(&t, &rel)),
             if next.is_empty() {
                 String::new()

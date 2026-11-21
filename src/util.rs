@@ -175,9 +175,13 @@ pub fn sys_dir() -> PathBuf {
     canon(&vault().join(".kioku"))
 }
 
-/// This machine's short name: $KIOKU_HOST, else the hostname up to the first dot.
+/// This machine's short name: $KIOKU_HOST, else the name given at install (--host), else the
+/// hostname up to the first dot.
 pub fn host() -> String {
     if let Some(h) = env::var("KIOKU_HOST").ok().filter(|h| !h.trim().is_empty()) {
+        return h.trim().to_string();
+    }
+    if let Some(h) = record_get("host").filter(|h| !h.trim().is_empty()) {
         return h.trim().to_string();
     }
     let h = fs::read_to_string("/proc/sys/kernel/hostname")

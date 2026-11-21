@@ -149,6 +149,13 @@ pub fn build(vault: &Path, cwd: &Path, source: &str, agent: &str) -> String {
     }
     if let Some(f) = found {
         add(&format!("## Note for this folder: {}", util::rel(vault, &f)));
+        // The project lives here: this machine should be among its hosts:.
+        let t = util::read(&f);
+        let here = util::host();
+        let hosts = fm::list(&t, "hosts");
+        if util::rel(vault, &f).starts_with("projects/") && !hosts.iter().any(|h| h.eq_ignore_ascii_case(&here)) {
+            add(&format!("(This machine, `{here}`, is not in the note's hosts: yet; add it when you next update the note.)"));
+        }
         if no_path {
             add(&format!("(This folder is not in the note's paths: yet. When you next update the note, add it to paths: as `{}`, so sessions here find it on this machine.)", tilde_of(cwd)));
         }
@@ -176,8 +183,16 @@ pub fn build(vault: &Path, cwd: &Path, source: &str, agent: &str) -> String {
             continue;
         }
         let rel = util::rel(vault, f);
+        let hosts = fm::list(&t, "hosts");
+        let on = if hosts.is_empty() {
+            String::new()
+        } else {
+            let here = util::host();
+            let mark = if hosts.iter().any(|h| h.eq_ignore_ascii_case(&here)) { ", this machine" } else { "" };
+            format!(" (on: {}{mark})", hosts.join(", "))
+        };
         act.push_str(&format!(
-            "- [[{}]] {} — next: {}\n",
+            "- [[{}]] {}{on} — next: {}\n",
             rel.strip_suffix(".md").unwrap_or(&rel),
             fm::field(&t, "title"),
             fm::field(&t, "next")
