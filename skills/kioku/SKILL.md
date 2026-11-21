@@ -26,7 +26,7 @@ language; headings and entry types stay English.
 | A person's contact details | `kioku-contacts` skill (contacts/) |
 | "What do we know about X?", anything needing past knowledge | `kioku-ask` skill |
 | A link, PDF or article: "add it to the brain", "read and process this" | `kioku-ingest` skill |
-| "Hafızaları topla", "what do the agents remember on their own", or `kioku lint-check` shows local memories | `kioku memories`: for each entry known to one agent, propose where it goes (Core.md or AGENTS.md only with the user's yes; a decision or a project's rule into the project note or the daily log); then `kioku memories --done ID …`, also for notes that stay local |
+| "Hafızaları topla", "what do the agents remember on their own", or `kioku lint-check` shows local memories | `kioku memories --semantic` (by meaning when available, else by words; check the page it names): for each entry known to one agent, propose where it goes (Core.md or AGENTS.md only with the user's yes; a decision or a project's rule into the project note or the daily log); then `kioku memories --done ID …`, also for notes that stay local |
 | "Research X", "araştır", "kapsamlı bir araştırma yap" | Do the research, then save the full report to `wiki/synthesis/` without asking, before your final answer (`kioku-ask`, Write back) |
 | "Check the brain", "clean up", "brain lint" | `kioku-lint` skill |
 | "What did we do today / this week?" | `kioku recap --days N`, then a short summary |

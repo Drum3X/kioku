@@ -4,7 +4,7 @@
 //!
 //! Off twice by default: the release binaries are built without it (cargo feature `semantic`),
 //! and a build with it still needs `kioku semantic on`. It also needs the ONNX Runtime library
-//! (`KIOKU_ORT_LIB` or `ORT_DYLIB_PATH`, else `libonnxruntime` from the system) and the model
+//! (`KIOKU_ORT_LIB` or `ORT_DYLIB_PATH`; without one it stays off: ort would abort the process) and the model
 //! (`kioku semantic pull`, ~135 MB into ~/.cache/kioku/models). Section vectors are cached in
 //! ~/.cache/kioku/index and only changed sections are embedded again. Whenever anything is
 //! missing, search quietly stays BM25.
@@ -113,7 +113,7 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
             );
             println!(
                 "  ONNX Runtime library: {}",
-                ort_lib().unwrap_or_else(|| "KIOKU_ORT_LIB not set; the system's libonnxruntime is tried".into())
+                ort_lib().unwrap_or_else(|| "not set (KIOKU_ORT_LIB=/path/to/libonnxruntime.so); hybrid search stays off".into())
             );
             if !(BUILT && switched_on() && model_ok()) {
                 println!("  search uses BM25 only.");
@@ -193,9 +193,12 @@ mod imp {
         if !model_ok() {
             return Err(anyhow!("model not downloaded (kioku semantic pull)"));
         }
-        if let Some(lib) = ort_lib() {
-            ort::init_from(lib).commit().context("loading the ONNX Runtime library")?;
+        // ort aborts the process when it cannot load the library, so check it is there first.
+        let lib = ort_lib().ok_or_else(|| anyhow!("ONNX Runtime library not set (KIOKU_ORT_LIB)"))?;
+        if !Path::new(&lib).is_file() {
+            return Err(anyhow!("ONNX Runtime library not found: {lib}"));
         }
+        ort::init_from(lib).commit().context("loading the ONNX Runtime library")?;
         let mut tok = Tokenizer::from_file(model_dir().join("tokenizer.json")).map_err(|e| anyhow!("tokenizer: {e}"))?;
         tok.with_truncation(Some(TruncationParams { max_length: 512, ..Default::default() }))
             .map_err(|e| anyhow!("tokenizer: {e}"))?;
@@ -335,8 +338,47 @@ mod imp {
         Ok(out)
     }
 
+    /// For each text, the section most like it: (doc index, cosine similarity).
+    pub fn best(vault: &Path, sections: &[(usize, usize, String)], texts: &[String]) -> Result<Vec<(usize, f32)>> {
+        let (vs, mut model) = vectors(vault, sections)?;
+        let qs = model.embed(texts, true)?;
+        Ok(qs
+            .iter()
+            .map(|q| {
+                vs.iter()
+                    .zip(sections)
+                    .map(|(v, s)| (s.0, v.iter().zip(q).map(|(a, b)| a * b).sum::<f32>()))
+                    .fold((0, f32::MIN), |b, x| if x.1 > b.1 { x } else { b })
+            })
+            .collect())
+    }
+
     pub fn index(vault: &Path, sections: &[(usize, usize, String)]) -> Result<usize> {
         vectors(vault, sections).map(|_| sections.len())
+    }
+}
+
+/// For each text, the most similar section by meaning: (doc index, cosine). None when this
+/// build has no hybrid search or the model or ONNX Runtime is missing (whether switched on or not:
+/// the caller asked for it explicitly).
+pub fn best(vault: &Path, sections: &[(usize, usize, String)], texts: &[String]) -> Option<Vec<(usize, f32)>> {
+    #[cfg(feature = "semantic")]
+    {
+        if !model_ok() {
+            return None;
+        }
+        match imp::best(vault, sections, texts) {
+            Ok(r) => return Some(r),
+            Err(e) => {
+                eprintln!("kioku: semantic match unavailable ({e:#})");
+                return None;
+            }
+        }
+    }
+    #[allow(unreachable_code)]
+    {
+        let _ = (vault, sections, texts);
+        None
     }
 }
 

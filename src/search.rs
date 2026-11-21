@@ -451,6 +451,18 @@ pub fn index_all(vault: &Path) -> anyhow::Result<usize> {
     crate::semantic::index(vault, &section_texts(&docs))
 }
 
+/// For each text, the vault page whose section is most like it by meaning, and the cosine
+/// similarity (hybrid search's model; None when unavailable).
+pub fn semantic_matches(vault: &Path, texts: &[String]) -> Option<Vec<(String, f32)>> {
+    let mut files = Vec::new();
+    for d in ["Core.md", "AGENTS.md", "projects", "wiki", "daily", "journal", "reviews", "index.md"] {
+        walk(&vault.join(d), &mut files);
+    }
+    let docs: Vec<Doc> = files.iter().map(|f| parse(vault, f)).collect();
+    let r = crate::semantic::best(vault, &section_texts(&docs), texts)?;
+    Some(r.into_iter().map(|(d, s)| (docs[d].rel.clone(), s)).collect())
+}
+
 /// The best pages for the terms: (relative path, title), private pages left out.
 pub fn top(vault: &Path, terms: &[String], n: usize) -> Vec<(String, String)> {
     top_q(vault, terms, None, n)

@@ -118,17 +118,37 @@ pub fn covered(vault: &Path, e: &Entry) -> Option<String> {
     best.filter(|b| b.0 >= 0.6).map(|b| b.1)
 }
 
-/// Open entries (not handled) and, for each, the vault page that already holds it.
-pub fn open(vault: &Path) -> Vec<(Entry, Option<String>)> {
+/// Similarity (multilingual-e5-small cosine) from which an entry counts as already in the vault.
+pub const SIMILAR: f32 = SEMANTIC_THRESHOLD;
+const SEMANTIC_THRESHOLD: f32 = 0.84;
+
+/// Open entries (not handled, or all) and, for each, the vault page that already holds it: by
+/// meaning when `semantic` and the model is there (it works across languages), else by words.
+pub fn list(vault: &Path, all: bool, semantic: bool) -> Vec<(Entry, Option<String>, Option<f32>)> {
     let done = handled();
-    entries()
-        .into_iter()
-        .filter(|e| !done.contains(&e.id))
-        .map(|e| {
-            let c = covered(vault, &e);
-            (e, c)
+    let es: Vec<Entry> = entries().into_iter().filter(|e| all || !done.contains(&e.id)).collect();
+    let sem = if semantic && !es.is_empty() {
+        search::semantic_matches(vault, &es.iter().map(|e| e.text.clone()).collect::<Vec<_>>())
+    } else {
+        None
+    };
+    es.into_iter()
+        .enumerate()
+        .map(|(i, e)| match &sem {
+            Some(m) => {
+                let (page, sim) = m[i].clone();
+                let c = (sim >= SIMILAR).then_some(page).or_else(|| covered(vault, &e));
+                (e, c, Some(sim))
+            }
+            None => {
+                let c = covered(vault, &e);
+                (e, c, None)
+            }
         })
         .collect()
+}
+pub fn open(vault: &Path) -> Vec<(Entry, Option<String>)> {
+    list(vault, false, false).into_iter().map(|(e, c, _)| (e, c)).collect()
 }
 
 pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
@@ -150,25 +170,33 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
         print!("marked handled:\n{add}");
         return Ok(0);
     }
-    let list = open(vault);
+    let all = args.iter().any(|a| a == "--all");
+    let semantic = args.iter().any(|a| a == "--semantic");
+    let list: Vec<(Entry, Option<String>, Option<f32>)> = list(vault, all, semantic);
+    let sim = |s: &Option<f32>| s.map(|x| format!(" (similarity {x:.2})")).unwrap_or_default();
+    if semantic && list.iter().all(|x| x.2.is_none()) && !list.is_empty() {
+        eprintln!("kioku: --semantic needs a build with hybrid search and its model (kioku semantic status); matching by words");
+    }
     if list.is_empty() {
         println!("No local memories to look at on this machine ({}).", util::host());
         return Ok(0);
     }
-    let (only, inv): (Vec<_>, Vec<_>) = list.iter().partition(|(_, c)| c.is_none());
+    let (only, inv): (Vec<_>, Vec<_>) = list.iter().partition(|(_, c, _)| c.is_none());
     if !only.is_empty() {
         println!("Known to one agent only ({}):", util::host());
-        for (e, _) in &only {
-            println!("- [{}] {}: {}\n    {}", e.id, e.agent, e.title, util::slash(&e.file));
+        for (e, _, s) in &only {
+            println!("- [{}] {}: {}{}\n    {}", e.id, e.agent, e.title, sim(s), util::slash(&e.file));
         }
     }
     if !inv.is_empty() {
         println!("Already in the vault (mark them handled):");
-        for (e, c) in &inv {
-            println!("- [{}] {}: {} → {}", e.id, e.agent, util::take(&e.title, 100), c.as_deref().unwrap_or(""));
+        for (e, c, s) in &inv {
+            println!("- [{}] {}: {} → {}{}", e.id, e.agent, util::take(&e.title, 100), c.as_deref().unwrap_or(""), sim(s));
         }
     }
-    println!("\n(Matched by words: an entry written in another language than the vault may be there anyway; check before copying it.)");
+    if !semantic {
+        println!("\n(Matched by words: an entry written in another language than the vault may be there anyway; check before copying it, or use --semantic.)");
+    }
     println!(
         "\nFor each entry known to one agent: if every agent should know it, propose where it goes (about the user: Core.md; a working rule: AGENTS.md › Personal rules; both only with the user's yes; knowledge or a decision: a wiki page or the daily log); a note only for that agent stays local. Then: kioku memories --done ID …"
     );
