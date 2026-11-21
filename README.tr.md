@@ -350,7 +350,7 @@ aynı sayar ve ekleri tolere eder: "açılışta", "açılış"ı bulur.
   - `KIOKU_STOP_CHECK=0` kayıt hatırlatmasını ve sıkıştırma notunu kapatır.
   - `KIOKU_WRITE_CHECK=0` yazma kontrolünü kapatır.
   - `KIOKU_STOP_MIN_TOOLS=10` kaç araç çağrısının "gerçek iş" sayılacağını belirler.
-  - `KIOKU_CONTEXT_MAX=12000` oturum başı bağlamını bayt olarak sınırlar.
+  - `KIOKU_CONTEXT_MAX=9500` oturum başı bağlamını karakter olarak sınırlar (Claude Code bir hook'un bağlamını yalnızca 10.000 karaktere kadar gösterir). Her bölümün kendi bütçesi var: Core 3.500, klasörün notu 2.000, devirler 1.200, aktif projeler 1.000, yapılacaklar 900, etkinlikler 700; son iki günün iş kaydı kalan yeri alır (en fazla 4.000). Bütçesini aşan bölüm kısaltılır, hiçbir zaman satır ortasından kesilmez: kararlar, açık işler, devirler ve tercihler tam kalır, uzun satırlar bağlantıları korunarak kısaltılır, en eski sıradan satırlar ise nereden okunacağını söyleyen bir notla çıkarılır. `kioku context --budget` her bölümün boyutunu gösterir; `kioku health` Core.md bütçesine yaklaşınca uyarır.
 
 ## Geliştirme
 

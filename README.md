@@ -351,7 +351,7 @@ written in the language you speak. Every page records its language in `lang:`. S
   - `KIOKU_STOP_CHECK=0` turns off the recording reminder and the compaction note.
   - `KIOKU_WRITE_CHECK=0` turns off the write check.
   - `KIOKU_STOP_MIN_TOOLS=10` sets how many tool calls count as "real work".
-  - `KIOKU_CONTEXT_MAX=12000` caps the session-start context in bytes.
+  - `KIOKU_CONTEXT_MAX=9500` caps the session-start context in characters (Claude Code shows a hook's context only up to 10,000). Each section has its own budget: Core 3,500, the note for the folder 2,000, handoffs 1,200, active projects 1,000, todos 900, events 700, and the last two days of the work log what is left (up to 4,000). Over a budget, a section is shortened, never cut mid-line: decisions, open threads, handoffs and preferences stay whole, long lines are shortened with their link kept, and the oldest ordinary lines are left out with a note saying where to read them. `kioku context --budget` shows each section's size; `kioku health` warns when Core.md nears its budget.
 
 ## Development
 

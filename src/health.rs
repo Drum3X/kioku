@@ -338,6 +338,21 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
             "lint-check: {n} issue(s); run: kioku lint-check, or ask your agent to \"check the brain\""
         ));
     }
+    // The session context: within its budget, and Core.md with room to grow.
+    let (ctx, parts) = crate::context::build_parts(vault, vault, "", "", false);
+    let max = crate::context::max_chars();
+    let core = parts.iter().find(|p| p.0 == "Core").map(|p| p.1).unwrap_or(0);
+    if ctx.contains("over its") {
+        r.wrn(&format!("the session context is cut at its {max}-character budget; see kioku context --budget"));
+    } else if core * 10 > crate::context::CORE * 8 {
+        r.wrn(&format!(
+            "Core.md is at {}% of its {}-character budget in the session context; consider tightening it (kioku context --budget)",
+            core * 100 / crate::context::CORE,
+            crate::context::CORE
+        ));
+    } else {
+        r.ok(&format!("session context {} of {max} characters", ctx.chars().count()));
+    }
     r.head("");
     r.head(&format!("{} problem(s), {} warning(s)", r.fails, r.warns));
     print!("{}", r.out);

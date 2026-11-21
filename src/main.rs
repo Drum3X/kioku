@@ -30,6 +30,7 @@ const USAGE: &str = r#"Usage: kioku <command> [args]
   context                       Print the session-start context (Core, recent notes, todos, agenda);
                                 pulls first with autosync. For agents without a SessionStart hook
   context --agent NAME          The same, signing records as NAME@host (the agent: claude, codex, hermes …)
+  context --budget              Each section of that context with its size and budget (characters)
   whoami [--agent NAME]         Who writes the records: NAME@host (default $KIOKU_AGENT)
   context --deep <project|topic>  Everything about one project or topic: the note, decisions, open
                                 threads, learnings and recent work from the daily log, linked pages
@@ -113,6 +114,18 @@ fn real_main() -> Result<i32> {
                 return util::die("usage: kioku context --deep <project or topic>");
             }
             println!("{}", deep::build(&vault, &q));
+            Ok(0)
+        }
+        "context" if rest.first().map(String::as_str) == Some("--budget") => {
+            let cwd = std::env::current_dir().unwrap_or_else(|_| vault.clone());
+            let (text, parts) = context::build_parts(&vault, &cwd, "", "", false);
+            println!("{:<24} {:>7} {:>8} {:>7}", "section", "chars", "~tokens", "budget");
+            for (name, n, b) in &parts {
+                let b = if *b == 0 { "-".to_string() } else { b.to_string() };
+                println!("{name:<24} {n:>7} {:>8} {b:>7}", n / 3);
+            }
+            let n = text.chars().count();
+            println!("{:<24} {n:>7} {:>8} {:>7}", "total", n / 3, context::max_chars());
             Ok(0)
         }
         "context" => {
