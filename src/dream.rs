@@ -1,12 +1,13 @@
-//! The dream pass: a weekly consolidation of the vault by an agent, on a branch of its own, so
-//! nothing reaches the notes before the user says yes. `start` makes a copy of the vault (a git
+//! The dream pass: a weekly consolidation of the vault by an agent, on a copy of it, checked
+//! before anything reaches the notes. `start` makes a copy of the vault (a git
 //! worktree outside it, on branch `dream/YYYY-MM-DD`) and prints what to work on; the agent edits
 //! the copy (kioku-dream skill); `finish` puts back anything it must not touch, drops the work
-//! when search or the checks got worse, commits it on the branch and pushes the branch. The
-//! session context then says a dream is waiting; `show`, `merge` (all or some files) and `drop`
-//! act on it with the user's yes.
+//! when search or the checks got worse, and else applies it to the vault as one commit, which
+//! `undo` takes back (all or some files). With `git config kioku.dreamreview true` (or when it no
+//! longer applies cleanly) it waits on its pushed branch instead: the session context says so, and
+//! `show`, `merge` (all or some files) and `drop` act on it with the user's yes.
 //!
-//!   kioku dream start [--days N] | finish -m "summary" | status | show | merge [--only FILE…] | drop
+//!   kioku dream start [--days N] | finish -m "summary" | undo [FILE…] | status | show | merge [--only FILE…] | drop
 
 use crate::{eval, lint, supersede, util};
 use anyhow::Result;
@@ -23,6 +24,9 @@ const MAX_DROP: f64 = 0.02;
 
 fn work_dir() -> PathBuf {
     util::state_dir().join("dream")
+}
+fn base_file() -> PathBuf {
+    util::state_dir().join("dream-base")
 }
 fn kept(p: &str) -> bool {
     KEEP.iter().any(|k| if k.ends_with('/') { p.starts_with(k) } else { p == *k || p.starts_with(&format!("{k}/")) })
@@ -125,6 +129,7 @@ fn start(vault: &Path, args: &[String]) -> Result<i32> {
     let d = work_dir();
     fs::create_dir_all(d.parent().unwrap())?;
     git(vault, &["worktree", "add", "-q", "-b", &b, &d.to_string_lossy(), "HEAD"])?;
+    fs::write(base_file(), git(vault, &["rev-parse", "HEAD"])?)?;
     let sys = util::canon(&vault.join(".kioku"));
     if sys.is_dir() {
         let _ = crate::install::symlink(&sys, &d.join(".kioku"));
@@ -149,6 +154,13 @@ fn finish(vault: &Path, args: &[String]) -> Result<i32> {
     }
     let msg = args.iter().position(|a| a == "-m").and_then(|i| args.get(i + 1)).cloned().unwrap_or_default();
     let b = git(&d, &["rev-parse", "--abbrev-ref", "HEAD"])?;
+    // An agent that committed anyway: its commits are undone, their changes kept, and checked
+    // like the rest.
+    let base = util::read(&base_file()).trim().to_string();
+    if !base.is_empty() && git(&d, &["rev-parse", "HEAD"])? != base {
+        git(&d, &["reset", "-q", "--soft", &base])?;
+        git(&d, &["reset", "-q"])?;
+    }
     // Put back what the dream must not change, and anything deleted.
     let mut put_back = Vec::new();
     for l in git(&d, &["status", "--porcelain", "--untracked-files=all"])?.lines() {
@@ -204,6 +216,22 @@ fn finish(vault: &Path, args: &[String]) -> Result<i32> {
     git(&d, &["-c", &format!("core.hooksPath={}", util::slash(&none)), "commit", "-q", "-m", &body])?;
     let stat = git(&d, &["diff", "--stat", "HEAD~1", "HEAD"])?;
     remove_work(vault);
+    let summary = format!("{} file(s); {scores}; lint-check issues {i0} → {i1}.\n{stat}", changed.len());
+    // By default the pass goes straight into the vault, as one commit that `kioku dream undo`
+    // takes back. With `git config kioku.dreamreview true` it waits on its branch for the user.
+    if !review_mode(vault) {
+        let _ = crate::git::sync(vault, "pull");
+        let o = util::run(util::git(vault).args(["cherry-pick", &b]).env("KIOKU_GIT_SYNCING", "1"), 60)?;
+        if o.status.success() {
+            let _ = git(vault, &["branch", "-D", &b]);
+            let _ = crate::git::sync(vault, "now");
+            println!("Dream merged into the vault: {summary}");
+            println!("Tell the user what changed (one line each). To take it back, all or some files: kioku dream undo [FILE…].");
+            return Ok(0);
+        }
+        let _ = git(vault, &["cherry-pick", "--abort"]);
+        println!("(could not apply it to the vault as it is now; it waits on its branch for the user instead)");
+    }
     let pushed = if has_origin(vault) {
         match git(vault, &["push", "-q", "-u", "origin", &b]) {
             Ok(_) => " (pushed)".to_string(),
@@ -212,8 +240,48 @@ fn finish(vault: &Path, args: &[String]) -> Result<i32> {
     } else {
         String::new()
     };
-    println!("Dream ready on branch {b}{pushed}: {} file(s); {scores}; lint-check issues {i0} → {i1}.\n{stat}", changed.len());
+    println!("Dream ready on branch {b}{pushed}: {summary}");
     println!("The user decides in a later session (the session context says it waits): kioku dream show / merge / drop.");
+    Ok(0)
+}
+
+fn review_mode(vault: &Path) -> bool {
+    util::git_out(vault, &["config", "--bool", "kioku.dreamreview"]).as_deref() == Some("true")
+}
+
+/// The last dream commit in the vault's history (its subject is the branch name).
+fn last_dream(vault: &Path) -> Option<(String, String)> {
+    let l = util::git_out(vault, &["log", "-1", "--format=%H %s", "--grep=^dream/[0-9]", "--extended-regexp"])?;
+    let (h, s) = l.split_once(' ')?;
+    Some((h.to_string(), s.to_string()))
+}
+
+/// `kioku dream undo [FILE…]`: take back the last dream, all of it or some files.
+fn undo(vault: &Path, files: &[String]) -> Result<i32> {
+    let Some((h, s)) = last_dream(vault) else {
+        return util::die("no dream in the vault's history");
+    };
+    let _ = crate::git::sync(vault, "pull");
+    // Each file as it was before the dream (a file the dream added is removed).
+    let all: Vec<String> = git(vault, &["diff", "--name-only", &format!("{h}^"), &h])?.lines().map(str::to_string).collect();
+    let files: Vec<String> = if files.is_empty() { all.clone() } else { files.to_vec() };
+    if let Some(f) = files.iter().find(|f| !all.contains(f)) {
+        return util::die(format!("{s} did not change {f}; it changed: {}", all.join(", ")));
+    }
+    {
+        for f in &files {
+            if util::git_out(vault, &["cat-file", "-e", &format!("{h}^:{f}")]).is_some() {
+                git(vault, &["checkout", &format!("{h}^"), "--", f])?;
+            } else {
+                git(vault, &["rm", "-q", "--", f])?;
+            }
+        }
+        let mut c = vec!["commit".to_string(), "-q".to_string(), "-m".to_string(), format!("dream: undo {s} for {}", files.join(", ")), "--".to_string()];
+        c.extend(files.iter().cloned());
+        git(vault, &c.iter().map(String::as_str).collect::<Vec<_>>())?;
+    }
+    let _ = crate::git::sync(vault, "now");
+    println!("took back {s}{}", if files.is_empty() { String::new() } else { format!(" for {}", files.join(", ")) });
     Ok(0)
 }
 
@@ -259,6 +327,7 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
         "finish" => finish(vault, rest),
         "show" => show(vault, rest),
         "merge" => merge(vault, rest),
+        "undo" => undo(vault, rest),
         "drop" => {
             let b = pick(vault, rest.first())?;
             drop_branch(vault, &b);
@@ -276,7 +345,7 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
             }
             Ok(0)
         }
-        _ => util::die("usage: kioku dream start [--days N] | finish -m \"summary\" | status | show | merge [--only FILE…] | drop"),
+        _ => util::die("usage: kioku dream start [--days N] | finish -m \"summary\" | undo [FILE…] | status | show | merge [--only FILE…] | drop"),
     }
 }
 

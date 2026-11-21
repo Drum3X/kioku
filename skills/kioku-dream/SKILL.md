@@ -1,6 +1,6 @@
 ---
 name: kioku-dream
-description: The weekly dream pass over the user's second brain (the Kioku vault) — consolidates the last week's work log on a branch of its own (replaced decisions marked superseded, learnings carried into the wiki, pages corrected where the log moved on, duplicates linked); nothing reaches the notes until the user says yes. Use in the scheduled weekly run (for example the Hermes weekly job, after the review), or when the user asks for it ("dream", "rüya geçişi", "haftalık toparlama", "vault'u toparla"). Also when the session context says a dream waits, to show, merge or drop it.
+description: The weekly dream pass over the user's second brain (the Kioku vault) — consolidates the last week's work log on a copy of the vault (replaced decisions marked superseded, learnings carried into the wiki, pages corrected where the log moved on, duplicates linked), checked and then applied as one commit the user can take back. Use in the scheduled weekly run (for example the Hermes weekly job, after the review), or when the user asks for it ("dream", "rüya geçişi", "haftalık toparlama", "vault'u toparla"). Also when the user wants (part of) a dream taken back ("dream'in şunu geri al", "undo the dream"), or the session context says a dream waits on its branch.
 ---
 
 # kioku-dream
@@ -19,12 +19,16 @@ CLI: `$VAULT/.kioku/bin/kioku`
    3. **Pages behind the log:** a project, wiki or hub page that states something a newer line changed (a time, a setting, a version, a status, which tool is used): correct that sentence, cite the daily line, set `updated:`.
    4. **Duplicates:** the same knowledge on two wiki pages: keep it on the better page and link it from the other.
 4. Do not touch `Core.md`, `AGENTS.md`, `raw/`, `.kioku/`, `journal/`, `calendar/`, `contacts/`, `reviews/` or `eval/`; do not delete, move or rename files or delete daily lines; do not resolve a contradiction you are not sure of or reword a page beyond the sentence that changed. (`finish` puts such changes back anyway.) Do not commit: `finish` does.
-5. `kioku dream finish -m "<one line per change: file: what, why>"`. It drops the pass when search (kioku eval) or the checks got worse, else commits it on the branch and pushes the branch.
+5. `kioku dream finish -m "<one line per change: file: what, why>"`. It puts back anything outside the rules and drops the pass when search (kioku eval) or the checks got worse; else it applies the pass to the vault as one commit (or, in review mode, leaves it on its branch).
 6. Your final message, in the language of the user's notes, short: what `finish` said, the changes (one line each), then proposals: things for `Core.md` or `AGENTS.md`, and anything you were not sure of. In the weekly run this comes after the review.
 
-## When a dream waits
+## Taking a dream back
 
-The session context says so. At a natural moment, tell the user in one line and offer to go through it. `kioku dream show` prints the branch's summary and diff: explain the changes in a few plain bullets (not the diff itself). Then, with their answer:
+When the user does not want a change of the last dream: `kioku dream undo <file> …` (or `kioku dream undo` for all of it). Each file goes back to how it was before the pass, in a new commit. Say what was taken back.
+
+## When a dream waits on its branch
+
+Only with `git config kioku.dreamreview true` in the vault, or when the pass no longer applied cleanly. The session context says so. At a natural moment, tell the user in one line and offer to go through it. `kioku dream show` prints the branch's summary and diff: explain the changes in a few plain bullets (not the diff itself). Then, with their answer:
 - all of it: `kioku dream merge`;
 - some files: `kioku dream merge --only <file> …`;
 - none: `kioku dream drop`.
