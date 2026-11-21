@@ -13,6 +13,7 @@ mod home;
 mod hook;
 mod install;
 mod lint;
+mod memories;
 mod notes;
 mod search;
 mod secrets;
@@ -55,6 +56,7 @@ const USAGE: &str = r#"Usage: kioku <command> [args]
   search [--raw] [-n N] [-q Q] <term...> Ranked search; each word is a term, a "quoted phrase" one term. Turkish-aware
   eval [-v] [FILE.tsv ...]        How well search finds the right page for test questions (default: tests/queries/*.tsv)
   corrections                   Repeated corrections (correction: lines) not yet turned into a rule
+  memories [--done ID …]        What the agents here keep in their own memory and the vault does not know
   semantic status|on|off|pull|index  Optional hybrid search with the e5 model (off by default; builds with --features semantic)
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
   stale [--all]                 Wiki and project pages whose facts are due to be checked again (reviewed:)
@@ -166,6 +168,7 @@ fn real_main() -> Result<i32> {
             Ok(0)
         }
         "search" => search::run(&vault, rest),
+        "memories" => memories::run(&vault, rest),
         "corrections" => corrections::run(&vault, rest),
         "check-secrets" => secrets::run(&vault, rest),
         "bg" => git::bg(&vault, rest),

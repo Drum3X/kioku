@@ -1109,18 +1109,6 @@ fn hset(c: &mut Ctx, key: &str, want: Vec<String>) {
     }
 }
 
-/// Hermes's home: $HERMES_HOME, else %LOCALAPPDATA%\\hermes on Windows, else ~/.hermes.
-fn hermes_home() -> PathBuf {
-    if let Some(h) = std::env::var_os("HERMES_HOME").filter(|v| !v.is_empty()) {
-        return PathBuf::from(h);
-    }
-    if cfg!(windows) {
-        if let Some(l) = std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()) {
-            return PathBuf::from(l).join("hermes");
-        }
-    }
-    home().join(".hermes")
-}
 /// A hook command of ours for `agent`: `…/.kioku/bin/kioku[.exe]["] hook <agent> …`.
 fn ours_hook(cmd: &str, agent: &str) -> bool {
     let c = cmd.replace('\\', "/");
@@ -1149,7 +1137,7 @@ This folder is the user's personal second brain, Kioku (Obsidian vault + git). T
     if on || (hmd.exists() && (!c.o.hermes || c.o.uninstall)) {
         set_block(c, &hmd, on, &blk, &md_start, &md_end)?;
     }
-    if which("hermes") && hermes_home().is_dir() {
+    if which("hermes") && util::hermes_home().is_dir() {
         let hsk = format!("{}/.kioku/skills", util::slash(&c.vault));
         let dis = ["obsidian", "weekly-review-planning"];
         let mut ext: Vec<String> = hlist("skills.external_dirs")
@@ -1171,7 +1159,7 @@ This folder is the user's personal second brain, Kioku (Obsidian vault + git). T
         hset(c, "skills.disabled", disabled);
         // The Kioku plugin (session context, write check, stop reminder), linked through the
         // vault's .kioku so it follows updates, and enabled in plugins.enabled.
-        let pdir = hermes_home().join("plugins");
+        let pdir = util::hermes_home().join("plugins");
         let link = pdir.join("kioku");
         let target = c.vault.join(".kioku").join("hermes-plugin").join("kioku");
         let cur = fs::read_link(&link).ok();

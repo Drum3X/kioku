@@ -298,6 +298,10 @@ pub fn lint_check(vault: &Path) -> (String, usize) {
         issues += vo.len();
     }
 
+    out.push_str("## Local agent memories on this machine (kioku memories; not counted as issues)\n");
+    let lm = crate::memories::open(vault).into_iter().filter(|(_, c)| c.is_none()).count();
+    out.push_str(&format!("{lm} entr(y/ies) known to one agent only\n"));
+
     out.push_str("## inbox\n");
     out.push_str(&format!("{} unprocessed file(s)\n", util::inbox_count(vault)));
 

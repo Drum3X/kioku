@@ -46,6 +46,18 @@ pub fn cache_dir() -> PathBuf {
 pub fn state_dir() -> PathBuf {
     xdg("XDG_STATE_HOME", ".local/state", "LOCALAPPDATA", "state")
 }
+/// Hermes's home: $HERMES_HOME, else %LOCALAPPDATA%\\hermes on Windows, else ~/.hermes.
+pub fn hermes_home() -> PathBuf {
+    if let Some(h) = env_path("HERMES_HOME") {
+        return h;
+    }
+    if cfg!(windows) {
+        if let Some(l) = env_path("LOCALAPPDATA") {
+            return l.join("hermes");
+        }
+    }
+    home().join(".hermes")
+}
 /// For short-lived markers: $XDG_RUNTIME_DIR, else the system temp folder.
 pub fn temp_dir() -> PathBuf {
     env_path("XDG_RUNTIME_DIR").unwrap_or_else(env::temp_dir)

@@ -23,6 +23,7 @@ language of the user's notes; keep it short (a phone screen or two).
    - What is coming: `kioku agenda --days 7`.
    - Active projects (`projects/*.md` with `status: active`): their status and `next:`.
    - New or updated wiki pages: `git log --since="N days ago" --name-only --format= -- wiki | sort -u`.
+   - Local agent memories the vault does not have: `kioku memories` (on this machine). Mention them under *Next* in one line.
    - Repeated corrections not yet a rule: `kioku corrections`. Put each under *Next* as a proposed rule for the user to accept or decline.
    - Pages due for review: `kioku stale`. Put at most three under *Next* as questions for the user ("Still true? …").
 3. **Write** with `kioku new review "<Title>"` (title: `Week 2026-W47`, `November 2026`, or the dates), then fill it in. Set `period:` (week, month or days), `from:`, `to:` and `lang:`. Sections, each a few bullets, left out when empty:
