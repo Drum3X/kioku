@@ -276,6 +276,16 @@ pub fn lint_check(vault: &Path) -> (String, usize) {
     }
     issues += ln.len();
 
+    out.push_str("## Repeated corrections, not yet a rule (kioku corrections)\n");
+    let rc = crate::corrections::repeated(vault);
+    for g in &rc {
+        out.push_str(&format!("- seen {} times: {}\n", g.len(), crate::corrections::line(&g[g.len() - 1])));
+    }
+    if rc.is_empty() {
+        out.push_str("(none)\n");
+    }
+    issues += rc.len();
+
     out.push_str("## Calendar, todos and contacts\n");
     let vo = calendar::validate(vault);
     if vo.is_empty() {
@@ -348,6 +358,9 @@ pub fn check_file(vault: &Path, args: &[String]) -> String {
     let mut out = secrets_out;
     for f in &files {
         let text = util::read(&vault.join(f));
+        if let Some(n) = crate::corrections::nudge(vault, f, &text) {
+            out.push_str(&n);
+        }
         let mut lines = text.lines();
         if lines.next() == Some("---") && !lines.any(|l| l == "---") {
             out.push_str(&format!("- {f}: the frontmatter is not closed (no second ---)\n"));

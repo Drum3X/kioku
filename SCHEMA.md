@@ -92,6 +92,7 @@ something, it is lost.
 - **preference:** the user adopting or rejecting an approach.
 - **open:** unfinished work to come back to. When it is finished or no longer relevant, change that line's `open:` to `closed:` in place (keep the text) and record a `done` line; Home.md and `kioku context --deep` show only lines still `open:`.
 - **handoff:** where a session stopped, when the user pauses to carry on in another session or on another machine ("devret", "burada bırakıyorum", "telefondan devam edeceğim", "hand off"): what is done, what is half done (files, branch, uncommitted changes, anything waiting on the user) and the next step, in one line. The next sessions see it in their session context, Home.md and `kioku context --deep`. Whoever picks it up changes that line's `handoff:` to `resumed:` in place. A handoff stops being shown after 14 days.
+- **correction:** the user corrected you ("no, not like that", "why is this in English", "I told you not to …"): what you did, and what they want instead, in one line. Record it right away, also for small things. When the write check says the same correction came up before (in any agent's records; `kioku corrections` lists them), ask the user whether to make it a standing rule: propose one short line for `AGENTS.md` › Personal rules (or `Core.md` when it is about the user), and write it only with their yes. Then change those lines' `correction:` to `ruled:`, or to `declined:` if they said no.
 
 **Do not record:**
 - Transient details.
@@ -102,7 +103,7 @@ something, it is lost.
 
 **How:**
 1. Open the daily file with `kioku today`. One line per entry:
-   `- HH:MM [project · agent@host] type: text ([[link]])`, where type is `decision|done|learned|preference|open|handoff` and `agent@host` says who wrote it (the session context gives yours, or run `kioku whoami --agent <you>`).
+   `- HH:MM [project · agent@host] type: text ([[link]])`, where type is `decision|done|learned|preference|open|handoff|correction` and `agent@host` says who wrote it (the session context gives yours, or run `kioku whoami --agent <you>`).
    Example: `- 14:20 [config · claude@nitro] decision: stay on ripgrep, not qmd yet; fewer than 200 pages ([[wiki/concepts/llm-wiki]])`
    Older lines without the `· agent@host` part are fine; leave them.
 2. If the work belongs to a project, update `projects/<slug>.md`: `status`, `next`, `updated`, and one line under History. If there is no project note and the work will recur, create one with `kioku new project`; the SessionStart hook will surface this note in sessions opened in its folder. The project's folder goes in `paths:`, one entry per machine it lives on; write it with `~` for the home folder (`paths: [~/Projects/x]`), so one entry covers every machine where it sits in the same place (Linux, macOS, Windows), and add an absolute path only where it differs (`/srv/x`, `D:/Code/x`). When the session context says this folder is not in the note's paths yet, add it. A single `path:` (older notes) is still read. `hosts:` lists the machines the project lives on, by their Kioku names (`hosts: [laptop, server]`; yours is in "You are `agent@host`"); add a machine when the session context says it is missing.
