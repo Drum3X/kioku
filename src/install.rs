@@ -213,7 +213,7 @@ pub fn run(args: &[String]) -> Result<i32> {
             agents.join(" ")
         );
         util::write(&rec, &r)?;
-        if host.is_empty() {
+        if host.is_empty() && std::env::var("KIOKU_HOST").map(|h| h.trim().is_empty()).unwrap_or(true) {
             println!(
                 "This machine is `{}` in the records (its hostname). Give it a short name with: kioku install --host NAME",
                 util::host()
