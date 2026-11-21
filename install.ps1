@@ -44,9 +44,16 @@ function Download {
 
 function Build {
     if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) { return $false }
-    Write-Host "building kioku $Ver from source (cargo build --release) ..."
+    Write-Host "building kioku $Ver from source (cargo build --release, with hybrid search) ..."
     Push-Location $Sys
-    try { cargo build --release --locked; if ($LASTEXITCODE -ne 0) { Die 'cargo build failed' } } finally { Pop-Location }
+    try {
+        cargo build --release --locked --features semantic-bundled
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "kioku: building with hybrid search failed; building without it"
+            cargo build --release --locked
+            if ($LASTEXITCODE -ne 0) { Die 'cargo build failed' }
+        }
+    } finally { Pop-Location }
     Copy-Item -Force (Join-Path $Sys 'target\release\kioku.exe') $Bin
     return $true
 }

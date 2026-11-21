@@ -57,7 +57,7 @@ const USAGE: &str = r#"Usage: kioku <command> [args]
   eval [-v] [FILE.tsv ...]        How well search finds the right page for test questions (default: tests/queries/*.tsv)
   corrections                   Repeated corrections (correction: lines) not yet turned into a rule
   memories [--semantic] [--all] [--done ID …] What the agents here keep in their own memory and the vault does not know
-  semantic status|on|off|pull|index  Optional hybrid search with the e5 model (off by default; builds with --features semantic)
+  semantic status|on|off|pull|index  Hybrid search with the e5 model (built in, off until semantic on; build: --features semantic-bundled)
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
   stale [--all]                 Wiki and project pages whose facts are due to be checked again (reviewed:)
   home [--print]                Write Home.md, the start page for Obsidian (also at session start and after commits)

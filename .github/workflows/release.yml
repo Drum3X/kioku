@@ -11,11 +11,13 @@ jobs:
     strategy:
       matrix:
         include:
-          - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04 }
-          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm }
-          - { target: x86_64-apple-darwin, os: macos-15-intel }
-          - { target: aarch64-apple-darwin, os: macos-15 }
-          - { target: x86_64-pc-windows-msvc, os: windows-latest, ext: .exe }
+          # Hybrid search built in (ONNX Runtime linked in); glibc on Linux, as the linked-in
+          # ONNX Runtime needs it. Ubuntu 22.04 keeps the glibc floor at 2.35.
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-22.04, features: semantic-bundled }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-22.04-arm, features: semantic-bundled }
+          - { target: x86_64-apple-darwin, os: macos-15-intel, features: semantic-bundled }
+          - { target: aarch64-apple-darwin, os: macos-15, features: semantic-bundled }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, ext: .exe, features: semantic-bundled }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -25,14 +27,14 @@ jobs:
           v="$(tr -d '[:space:]' < VERSION)"
           [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "tag ${GITHUB_REF_NAME} but VERSION $v"; exit 1; }
           grep -q "^version = \"$v\"" Cargo.toml || { echo "Cargo.toml version differs from VERSION"; exit 1; }
-      - name: Install musl tools
-        if: contains(matrix.target, 'musl')
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - name: Build
         shell: bash
         run: |
           rustup target add ${{ matrix.target }}
-          cargo build --release --locked --target ${{ matrix.target }}
+          cargo build --release --locked --target ${{ matrix.target }} --features "${{ matrix.features }}"
           cp target/${{ matrix.target }}/release/kioku${{ matrix.ext }} kioku-${{ matrix.target }}${{ matrix.ext }}
       - uses: actions/upload-artifact@v4
         with:
@@ -54,7 +56,7 @@ jobs:
           # A version with a suffix (0.3.0-beta.1) is published as a pre-release.
           pre=""; case "${GITHUB_REF_NAME}" in *-*) pre="--prerelease" ;; esac
           gh release create "${GITHUB_REF_NAME}" kioku-* SHA256SUMS --repo "${GITHUB_REPOSITORY}" $pre \
-            --title "${GITHUB_REF_NAME}" --notes "Binaries for Linux (x86_64, aarch64; static musl), macOS (x86_64, arm64) and Windows (x86_64)."
+            --title "${GITHUB_REF_NAME}" --notes "Binaries for Linux (x86_64, aarch64; glibc 2.35+), macOS (x86_64, arm64) and Windows (x86_64), with hybrid search built in (off until kioku semantic on)."
   test:
     runs-on: ubuntu-24.04
     steps:

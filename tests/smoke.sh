@@ -10,6 +10,7 @@ win() { if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else echo "
 fail() { echo "SMOKE FAIL: $*" >&2; exit 1; }
 
 T="$(mktemp -d)"
+export KIOKU_NO_MODEL=1   # no model download in a test vault
 export HOME="$T/home" XDG_CONFIG_HOME="" XDG_STATE_HOME="" XDG_CACHE_HOME=""
 export USERPROFILE="$(win "$HOME")" APPDATA="$(win "$T/appdata")" LOCALAPPDATA="$(win "$T/local")"
 mkdir -p "$HOME/.claude" "$T/appdata" "$T/local"

@@ -43,6 +43,10 @@ pub fn switched_on() -> bool {
     util::read(&switch_file()).trim() == "on"
 }
 pub const BUILT: bool = cfg!(feature = "semantic");
+/// Whether the model is downloaded (kioku semantic pull, also run by the install step).
+pub fn ready() -> bool {
+    BUILT && model_ok()
+}
 
 /// Doc indices by meaning, best first, with each doc's best section: None when hybrid search
 /// is off or unavailable. `sections`: (doc index, section index, text).
@@ -92,10 +96,64 @@ fn sha_file(p: &Path) -> String {
 fn model_ok() -> bool {
     FILES.iter().all(|(_, n, sha)| sha_file(&model_dir().join(n)) == *sha)
 }
+/// Where ONNX Runtime is loaded from (semantic-dynamic): KIOKU_ORT_LIB or ORT_DYLIB_PATH, else
+/// the path baked in at build time (the Nix package). None with the library linked in.
 fn ort_lib() -> Option<String> {
+    if cfg!(not(feature = "semantic-dynamic")) {
+        return None;
+    }
     ["KIOKU_ORT_LIB", "ORT_DYLIB_PATH"]
         .iter()
         .find_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()))
+        .or_else(|| option_env!("KIOKU_ORT_LIB_DEFAULT").map(str::to_string))
+}
+
+/// Download the pinned model files (checksums checked). `loud`: say what is happening.
+pub fn pull(loud: bool) -> Result<()> {
+    if !util::which("curl") {
+        return util::die("curl is needed to download the model");
+    }
+    let dir = model_dir();
+    std::fs::create_dir_all(&dir)?;
+    for (f, n, sha) in FILES {
+        let dst = dir.join(n);
+        if sha_file(&dst) == sha {
+            if loud {
+                println!("{n}: already here");
+            }
+            continue;
+        }
+        let url = format!("https://huggingface.co/{REPO}/resolve/{REV}/{f}");
+        let tmp = dir.join(format!("{n}.part"));
+        if loud {
+            println!("{n}: downloading {url}");
+        }
+        let st = std::process::Command::new("curl").args(["-fsSL", "--retry", "2", "-o"]).arg(&tmp).arg(&url).status()?;
+        if !st.success() {
+            let _ = std::fs::remove_file(&tmp);
+            return util::die(format!("download failed: {url}"));
+        }
+        if sha_file(&tmp) != sha {
+            let _ = std::fs::remove_file(&tmp);
+            return util::die(format!("{n}: checksum mismatch, not kept"));
+        }
+        std::fs::rename(&tmp, &dst)?;
+    }
+    if loud {
+        println!("Model ready in {}", dir.display());
+    }
+    Ok(())
+}
+/// The install step: a build with hybrid search gets its model, so lint-check and the review can
+/// match by meaning; search itself stays off until `kioku semantic on`.
+pub fn ensure_model() -> Option<String> {
+    if !BUILT || model_ok() || std::env::var("KIOKU_NO_MODEL").is_ok() {
+        return None;
+    }
+    Some(match pull(false) {
+        Ok(()) => format!("hybrid search model downloaded ({MODEL}, ~135 MB); search stays BM25 until: kioku semantic on"),
+        Err(e) => format!("hybrid search model not downloaded ({e:#}); later: kioku semantic pull"),
+    })
 }
 
 pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
@@ -105,7 +163,7 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
             println!("Hybrid search (e5 + BM25): {}", if switched_on() { "on" } else { "off" });
             println!(
                 "  this kioku: {}",
-                if BUILT { "built with it" } else { "built without it (cargo build --release --features semantic)" }
+                if BUILT { "built with it" } else { "built without it (cargo build --release --features semantic-bundled)" }
             );
             println!(
                 "  model {MODEL}: {}",
@@ -113,7 +171,13 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
             );
             println!(
                 "  ONNX Runtime library: {}",
-                ort_lib().unwrap_or_else(|| "not set (KIOKU_ORT_LIB=/path/to/libonnxruntime.so); hybrid search stays off".into())
+                if cfg!(feature = "semantic-dynamic") {
+                    ort_lib().unwrap_or_else(|| "not set (KIOKU_ORT_LIB=/path/to/libonnxruntime.so); hybrid search stays off".into())
+                } else if BUILT {
+                    "linked in".into()
+                } else {
+                    "-".into()
+                }
             );
             if !(BUILT && switched_on() && model_ok()) {
                 println!("  search uses BM25 only.");
@@ -123,7 +187,7 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
         "on" | "off" => {
             let on = args[0] == "on";
             if on && !BUILT {
-                return util::die("this kioku was built without hybrid search: cargo build --release --features semantic");
+                return util::die("this kioku was built without hybrid search: cargo build --release --features semantic-bundled");
             }
             util::write(&switch_file(), if on { "on\n" } else { "off\n" })?;
             println!("Hybrid search {}.", if on { "on" } else { "off" });
@@ -133,32 +197,7 @@ pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
             Ok(0)
         }
         "pull" => {
-            if !util::which("curl") {
-                return util::die("curl is needed to download the model");
-            }
-            let dir = model_dir();
-            std::fs::create_dir_all(&dir)?;
-            for (f, n, sha) in FILES {
-                let dst = dir.join(n);
-                if sha_file(&dst) == sha {
-                    println!("{n}: already here");
-                    continue;
-                }
-                let url = format!("https://huggingface.co/{REPO}/resolve/{REV}/{f}");
-                let tmp = dir.join(format!("{n}.part"));
-                println!("{n}: downloading {url}");
-                let st = std::process::Command::new("curl").args(["-fsSL", "--retry", "2", "-o"]).arg(&tmp).arg(&url).status()?;
-                if !st.success() {
-                    let _ = std::fs::remove_file(&tmp);
-                    return util::die(format!("download failed: {url}"));
-                }
-                if sha_file(&tmp) != sha {
-                    let _ = std::fs::remove_file(&tmp);
-                    return util::die(format!("{n}: checksum mismatch, not kept"));
-                }
-                std::fs::rename(&tmp, &dst)?;
-            }
-            println!("Model ready in {}", dir.display());
+            pull(true)?;
             Ok(0)
         }
         "index" => {
@@ -193,12 +232,16 @@ mod imp {
         if !model_ok() {
             return Err(anyhow!("model not downloaded (kioku semantic pull)"));
         }
-        // ort aborts the process when it cannot load the library, so check it is there first.
-        let lib = ort_lib().ok_or_else(|| anyhow!("ONNX Runtime library not set (KIOKU_ORT_LIB)"))?;
-        if !Path::new(&lib).is_file() {
-            return Err(anyhow!("ONNX Runtime library not found: {lib}"));
+        // Loaded at run time: ort aborts the process when it cannot load the library, so check
+        // it is there first.
+        #[cfg(feature = "semantic-dynamic")]
+        {
+            let lib = ort_lib().ok_or_else(|| anyhow!("ONNX Runtime library not set (KIOKU_ORT_LIB)"))?;
+            if !Path::new(&lib).is_file() {
+                return Err(anyhow!("ONNX Runtime library not found: {lib}"));
+            }
+            ort::init_from(lib).commit().context("loading the ONNX Runtime library")?;
         }
-        ort::init_from(lib).commit().context("loading the ONNX Runtime library")?;
         let mut tok = Tokenizer::from_file(model_dir().join("tokenizer.json")).map_err(|e| anyhow!("tokenizer: {e}"))?;
         tok.with_truncation(Some(TruncationParams { max_length: 512, ..Default::default() }))
             .map_err(|e| anyhow!("tokenizer: {e}"))?;

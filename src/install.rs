@@ -173,6 +173,11 @@ pub fn run(args: &[String]) -> Result<i32> {
     let cx = codex(&mut c)?;
     let ag = antigravity(&mut c)?;
     let hm = hermes(&mut c)?;
+    if !c.o.uninstall {
+        if let Some(m) = crate::semantic::ensure_model() {
+            c.ch(m);
+        }
+    }
 
     // Record what was installed (kioku update and the session-start check read it).
     let rec = util::record_file();

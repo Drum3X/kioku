@@ -22,8 +22,8 @@ current() { [ -x "$BIN" ] && "$BIN" version 2>/dev/null | grep -q "^$VER "; }
 download() {
   local t
   case "$(uname -s)-$(uname -m)" in
-    Linux-x86_64) t=x86_64-unknown-linux-musl ;;
-    Linux-aarch64 | Linux-arm64) t=aarch64-unknown-linux-musl ;;
+    Linux-x86_64) t=x86_64-unknown-linux-gnu ;;
+    Linux-aarch64 | Linux-arm64) t=aarch64-unknown-linux-gnu ;;
     Darwin-x86_64) t=x86_64-apple-darwin ;;
     Darwin-arm64) t=aarch64-apple-darwin ;;
     *) return 1 ;;
@@ -42,8 +42,8 @@ download() {
 
 build() {
   command -v cargo >/dev/null || return 1
-  echo "building kioku $VER from source (cargo build --release) …"
-  (cd "$SYS" && cargo build --release --locked)
+  echo "building kioku $VER from source (cargo build --release, with hybrid search) …"
+  (cd "$SYS" && { cargo build --release --locked --features semantic-bundled || { echo "kioku: building with hybrid search failed (it needs pkg-config and OpenSSL to fetch ONNX Runtime); building without it" >&2; cargo build --release --locked; }; })
   rm -f "$BIN"; ln -s ../target/release/kioku "$BIN"
 }
 

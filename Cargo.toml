@@ -16,13 +16,17 @@ serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
 unicode-normalization = "0.1"
 walkdir = "2"
-# The optional e5 hybrid search (`cargo build --features semantic`); off by default.
-ort = { version = "=2.0.0-rc.10", default-features = false, features = ["std", "load-dynamic"], optional = true }
+# Hybrid search with the e5 model. Built in with ONNX Runtime linked in (semantic-bundled: the
+# release binaries, install.sh) or loaded at run time (semantic-dynamic: the Nix package, which
+# bakes in nixpkgs' library). Search itself stays off until `kioku semantic on`.
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["std"], optional = true }
 tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"], optional = true }
 
 [features]
 default = []
 semantic = ["dep:ort", "dep:tokenizers"]
+semantic-bundled = ["semantic", "ort/download-binaries"]
+semantic-dynamic = ["semantic", "ort/load-dynamic"]
 
 [profile.release]
 opt-level = 3

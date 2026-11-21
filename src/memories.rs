@@ -147,9 +147,7 @@ pub fn list(vault: &Path, all: bool, semantic: bool) -> Vec<(Entry, Option<Strin
         })
         .collect()
 }
-pub fn open(vault: &Path) -> Vec<(Entry, Option<String>)> {
-    list(vault, false, false).into_iter().map(|(e, c, _)| (e, c)).collect()
-}
+
 
 pub fn run(vault: &Path, args: &[String]) -> Result<i32> {
     if args.first().map(String::as_str) == Some("--done") {

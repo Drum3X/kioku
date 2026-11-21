@@ -2,6 +2,7 @@
   lib,
   rustPlatform,
   git,
+  onnxruntime,
 }: let
   # What the binary calls at run time. Hooks run from the agents, so the Home Manager module
   # also puts these on the user's PATH.
@@ -30,6 +31,11 @@ in
       ];
     };
     cargoLock.lockFile = ../Cargo.lock;
+
+    # Hybrid search with nixpkgs' ONNX Runtime, loaded at run time from the path baked in here
+    # (the sandbox cannot download the linked-in one). Search stays off until kioku semantic on.
+    buildFeatures = ["semantic-dynamic"];
+    env.KIOKU_ORT_LIB_DEFAULT = "${onnxruntime}/lib/libonnxruntime.so";
 
     # share/kioku is what a vault's .kioku link points to: the system files with the binary in
     # share/kioku/bin/kioku. bin/kioku is the same binary (it finds the vault through the

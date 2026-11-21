@@ -299,7 +299,8 @@ pub fn lint_check(vault: &Path) -> (String, usize) {
     }
 
     out.push_str("## Local agent memories on this machine (kioku memories; not counted as issues)\n");
-    let lm = crate::memories::open(vault).into_iter().filter(|(_, c)| c.is_none()).count();
+    // By meaning when the model is there (it works across languages), else by words.
+    let lm = crate::memories::list(vault, false, crate::semantic::ready()).into_iter().filter(|(_, c, _)| c.is_none()).count();
     out.push_str(&format!("{lm} entr(y/ies) known to one agent only\n"));
 
     out.push_str("## inbox\n");
