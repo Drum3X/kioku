@@ -259,6 +259,38 @@ same; only the hooks are missing.
 Which model an agent uses is up to you; that choice, its cost and its terms are your
 responsibility.
 
+### claude.ai, Claude Desktop and other MCP clients
+
+`kioku mcp` is an MCP server with the vault's tools: `context`, `search`, `deep_context`,
+`read_page`, `todo`, `agenda`, `recap`, and three that only append: `record` (a work-log line),
+`journal_add` (a journal line or todo) and `capture` (the inbox). Each write is checked like any
+other (secrets refused, the write check's warnings returned) and committed with a
+`Kioku-Agent:` line. Nothing is deleted, moved or rewritten through it.
+
+**On this machine** (Claude Desktop's chat, Cursor, VS Code …), the client starts it over stdio:
+
+```json
+{ "mcpServers": { "kioku": { "command": "/home/you/Documents/Kioku/.kioku/bin/kioku", "args": ["mcp", "--agent", "desktop"] } } }
+```
+
+**On the web and the phone** (claude.ai), the client is Anthropic's servers, so the server must be
+reachable on the internet: run it on an always-on machine with a copy of the vault (autosync on)
+and put it behind a tunnel; it only listens on loopback. It asks for an OAuth login (dynamic
+client registration, PKCE, a password page); only the password's argon2 hash and the tokens'
+hashes are stored.
+
+```bash
+kioku mcp passwd                     # on the server: set the login password (12+ characters)
+kioku mcp serve --url https://kioku.example.com --addr 127.0.0.1:9130
+# Cloudflare Tunnel ingress: kioku.example.com → http://127.0.0.1:9130
+```
+
+Then in claude.ai: Settings › Connectors › Add custom connector, URL
+`https://kioku.example.com/mcp`, and log in; the connector is on the phone app too. `kioku mcp
+tokens` lists connected clients, `kioku mcp revoke CLIENT|--all` takes access back. Records from it
+are signed `claude.ai@<server>` (`--agent` changes the name). Five wrong passwords lock the login
+for 15 minutes.
+
 ## Use
 
 Talk normally, in any language. A few examples:

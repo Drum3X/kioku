@@ -258,6 +258,38 @@ Geri kalan her şey aynı çalışır; yalnızca hook'lar eksik kalır.
 Bir ajanın hangi modeli kullanacağı senin seçimin; bu seçimin maliyeti ve kullanım koşulları
 senin sorumluluğunda.
 
+### claude.ai, Claude Desktop ve diğer MCP istemcileri
+
+`kioku mcp`, vault'un araçlarını sunan bir MCP sunucusu: `context`, `search`, `deep_context`,
+`read_page`, `todo`, `agenda`, `recap` ve yalnızca ekleme yapan üç araç: `record` (iş günlüğüne
+satır), `journal_add` (günlüğe satır ya da yapılacak) ve `capture` (inbox). Her yazma diğerleri
+gibi denetlenir (sırlar reddedilir, yazma denetiminin uyarıları döner) ve `Kioku-Agent:` satırıyla
+commit edilir. Bu yoldan hiçbir şey silinmez, taşınmaz ya da yeniden yazılmaz.
+
+**Bu makinede** (Claude Desktop sohbeti, Cursor, VS Code …) istemci onu stdio ile başlatır:
+
+```json
+{ "mcpServers": { "kioku": { "command": "/home/sen/Documents/Kioku/.kioku/bin/kioku", "args": ["mcp", "--agent", "desktop"] } } }
+```
+
+**Web'de ve telefonda** (claude.ai) istemci Anthropic'in sunucuları olduğu için sunucuya
+internetten ulaşılabilmeli: vault'un bir kopyasının (autosync açık) bulunduğu, her zaman açık bir
+makinede çalıştır ve bir tünelin arkasına koy; kendisi yalnızca loopback'i dinler. OAuth girişi
+ister (dinamik istemci kaydı, PKCE, şifre sayfası); yalnızca şifrenin argon2 özeti ve tokenların
+özetleri saklanır.
+
+```bash
+kioku mcp passwd                     # sunucuda: giriş şifresini belirle (en az 12 karakter)
+kioku mcp serve --url https://kioku.example.com --addr 127.0.0.1:9130
+# Cloudflare Tunnel kuralı: kioku.example.com → http://127.0.0.1:9130
+```
+
+Sonra claude.ai'de: Settings › Connectors › Add custom connector, URL
+`https://kioku.example.com/mcp`, ve giriş yap; bağlayıcı telefon uygulamasında da görünür. `kioku
+mcp tokens` bağlı istemcileri listeler, `kioku mcp revoke CLIENT|--all` erişimi geri alır. Buradan
+gelen kayıtlar `claude.ai@<sunucu>` imzasıyla yazılır (`--agent` adı değiştirir). Beş yanlış şifre
+girişi 15 dakika kilitler.
+
 ## Kullanım
 
 Normal konuş, hangi dilde istersen. Birkaç örnek:

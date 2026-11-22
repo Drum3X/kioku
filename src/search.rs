@@ -493,6 +493,20 @@ pub fn top_q(vault: &Path, terms: &[String], question: Option<&str>, n: usize) -
 }
 
 pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
+    match render(vault, args) {
+        Some(out) => {
+            print!("{out}");
+            Ok(0)
+        }
+        None => {
+            eprintln!("kioku: usage: kioku search [--raw] [-n N] [-q \"question\"] <term...>");
+            Ok(2)
+        }
+    }
+}
+
+/// The search output as text; None when no term was given.
+pub fn render(vault: &Path, args: &[String]) -> Option<String> {
     let mut raw = false;
     let mut limit = 20usize;
     let mut terms: Vec<String> = Vec::new();
@@ -507,15 +521,15 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
         }
     }
     if terms.is_empty() {
-        eprintln!("kioku: usage: kioku search [--raw] [-n N] [-q \"question\"] <term...>");
-        return Ok(2);
+        return None;
     }
 
+    let mut out = String::new();
     let Some((q, docs, results)) = rank(vault, &terms, raw, question.as_deref()) else {
-        return Ok(0);
+        return Some(out);
     };
     if let Some((a, b)) = period(&terms, question.as_deref()) {
-        println!("(time: {a} … {b}; pages from that period first)");
+        out.push_str(&format!("(time: {a} … {b}; pages from that period first)\n"));
     }
 
     let line_hits = |l: &str| {
@@ -525,7 +539,6 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
             Term::Word(w) => word_re().find_iter(&f).any(|m| word_match(w, m.as_str()) > 0.0),
         })
     };
-    let mut out = String::new();
     for (i, s, matched, at) in results.into_iter().take(limit) {
         let d = &docs[i];
         let p = if d.private { " [private]" } else { "" };
@@ -563,6 +576,5 @@ pub fn run(vault: &Path, args: &[String]) -> anyhow::Result<i32> {
             shown += 1;
         }
     }
-    print!("{out}");
-    Ok(0)
+    Some(out)
 }

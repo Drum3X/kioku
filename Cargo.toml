@@ -16,6 +16,10 @@ serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
 unicode-normalization = "0.1"
 walkdir = "2"
+argon2 = "0.5"
+password-hash = { version = "0.5", features = ["getrandom"] }
+rpassword = "7"
+tiny_http = "0.12"
 # Hybrid search with the e5 model. Built in with ONNX Runtime linked in (semantic-bundled: the
 # release binaries, install.sh) or loaded at run time (semantic-dynamic: the Nix package, which
 # bakes in nixpkgs' library). Search itself stays off until `kioku semantic on`.

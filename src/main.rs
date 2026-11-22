@@ -14,6 +14,7 @@ mod home;
 mod hook;
 mod install;
 mod lint;
+mod mcp;
 mod memories;
 mod notes;
 mod search;
@@ -60,6 +61,9 @@ const USAGE: &str = r#"Usage: kioku <command> [args]
   corrections                   Repeated corrections (correction: lines) not yet turned into a rule
   supersedes                    Recent decisions/preferences that may replace an earlier one (superseded:)
   dream start|finish|status|show|merge|drop   The weekly consolidation on a branch of its own (kioku-dream skill)
+  mcp [--agent NAME]            MCP server on stdio (the vault's tools for MCP clients on this machine)
+  mcp serve --url URL [--addr A] The same over HTTP with OAuth, behind a tunnel (claude.ai web and phone)
+  mcp passwd|tokens|revoke      Set the login password; list or revoke connected clients
   memories [--semantic] [--all] [--done ID …] What the agents here keep in their own memory and the vault does not know
   semantic status|on|off|pull|index  Hybrid search with the e5 model (built in, off until semantic on; build: --features semantic-bundled)
   recap [--days N]              Daily, journal and log entries from the last N days (default 7)
@@ -176,6 +180,7 @@ fn real_main() -> Result<i32> {
         "corrections" => corrections::run(&vault, rest),
         "supersedes" => supersede::run(&vault, rest),
         "dream" => dream::run(&vault, rest),
+        "mcp" => mcp::run(&vault, rest),
         "check-secrets" => secrets::run(&vault, rest),
         "bg" => git::bg(&vault, rest),
         "eval" => eval::run(&vault, rest),
