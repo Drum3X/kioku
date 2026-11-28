@@ -16,6 +16,32 @@ $Bin = Join-Path $Sys 'bin\kioku.exe'
 $Ver = (Get-Content (Join-Path $Sys 'VERSION') -Raw).Trim()
 $Repo = if ($env:KIOKU_REPO) { $env:KIOKU_REPO } else { 'Drum3X/kioku' }
 
+# Put a new binary at bin\kioku.exe. Windows does not let a running program's file be replaced or
+# deleted, and `kioku update` runs this script from that very file, but it can be renamed: the old
+# one is moved aside (bin\*.old) and removed on a later run.
+function Clear-Old {
+    Get-ChildItem (Join-Path $Sys 'bin') -Filter '*.old' -ErrorAction SilentlyContinue |
+        ForEach-Object { Remove-Item -Force $_.FullName -ErrorAction SilentlyContinue }
+}
+function Set-Bin($src, [switch]$Move) {
+    if (Test-Path $Bin) {
+        try { Remove-Item -Force $Bin }
+        catch { Move-Item -Force $Bin (Join-Path $Sys ("bin\kioku.exe." + [guid]::NewGuid().ToString('N') + '.old')) }
+    }
+    if ($Move) { Move-Item $src $Bin } else { Copy-Item $src $Bin }
+}
+
+# Download a file; curl.exe (part of Windows 10 and later) first: Invoke-WebRequest has been seen to
+# lose the connection halfway through a large file where curl gets it whole.
+function Get-File($url, $out) {
+    if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+        & curl.exe -fsSL --retry 3 -o $out $url
+        if ($LASTEXITCODE -eq 0) { return }
+        Write-Host "kioku: curl could not download $url (exit $LASTEXITCODE); trying Invoke-WebRequest"
+    }
+    Invoke-WebRequest $url -OutFile $out -UseBasicParsing
+}
+
 function Current {
     if (-not (Test-Path $Bin)) { return $false }
     try { return ((& $Bin version 2>$null) -join "`n") -match "^$([regex]::Escape($Ver)) " } catch { return $false }
@@ -29,14 +55,17 @@ function Download {
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ("kioku-" + [guid]::NewGuid())
     New-Item -ItemType Directory $tmp | Out-Null
     try {
-        Invoke-WebRequest "$url/kioku-$t.exe" -OutFile "$tmp\kioku.exe" -UseBasicParsing
-        Invoke-WebRequest "$url/SHA256SUMS" -OutFile "$tmp\SHA256SUMS" -UseBasicParsing
-    } catch { Remove-Item -Recurse -Force $tmp; return $false }
+        Get-File "$url/kioku-$t.exe" "$tmp\kioku.exe"
+        Get-File "$url/SHA256SUMS" "$tmp\SHA256SUMS"
+    } catch {
+        Write-Host "kioku: no release download for v$Ver ($($_.Exception.Message))"
+        Remove-Item -Recurse -Force $tmp
+        return $false
+    }
     $want = (Get-Content "$tmp\SHA256SUMS" | Where-Object { $_ -match "\s\*?kioku-$t\.exe$" } | ForEach-Object { ($_ -split '\s+')[0] }) | Select-Object -First 1
     $got = (Get-FileHash "$tmp\kioku.exe" -Algorithm SHA256).Hash.ToLower()
     if (-not $want -or $want.ToLower() -ne $got) { Remove-Item -Recurse -Force $tmp; Die "checksum mismatch for kioku-$t.exe from $url" }
-    if (Test-Path $Bin) { Remove-Item -Force $Bin }
-    Move-Item "$tmp\kioku.exe" $Bin
+    Set-Bin "$tmp\kioku.exe" -Move
     Remove-Item -Recurse -Force $tmp
     Write-Host "kioku $Ver downloaded ($t)"
     return $true
@@ -54,11 +83,12 @@ function Build {
             if ($LASTEXITCODE -ne 0) { Die 'cargo build failed' }
         }
     } finally { Pop-Location }
-    Copy-Item -Force (Join-Path $Sys 'target\release\kioku.exe') $Bin
+    Set-Bin (Join-Path $Sys 'target\release\kioku.exe')
     return $true
 }
 
 New-Item -ItemType Directory -Force (Join-Path $Sys 'bin') | Out-Null
+Clear-Old
 if ($env:KIOKU_BUILD) {
     if (-not (Build)) { Die 'KIOKU_BUILD is set but cargo was not found (https://rustup.rs)' }
 } elseif (-not (Current)) {

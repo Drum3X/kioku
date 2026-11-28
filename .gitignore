@@ -6,4 +6,5 @@
 # The compiled CLI: a link to target/release/kioku or a downloaded release binary
 /bin/kioku
 /bin/kioku.exe
+/bin/*.old
 __pycache__/
